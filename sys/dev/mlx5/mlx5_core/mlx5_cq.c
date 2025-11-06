@@ -130,6 +130,7 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	u32 dout[MLX5_ST_SZ_DW(destroy_cq_out)] = {0};
 	int err;
 
+  printf(">> mlx5_core_create_cq\n");
 	memset(out, 0, outlen);
 	MLX5_SET(create_cq_in, in, opcode, MLX5_CMD_OP_CREATE_CQ);
 	err = mlx5_cmd_exec(dev, in, inlen, out, outlen);
@@ -137,13 +138,16 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 		return err;
 
 	cq->cqn = MLX5_GET(create_cq_out, out, cqn);
+  printf("mlx5_core_create_cq cqn returned %d\n", cq->cqn);
 	cq->cons_index = 0;
 	cq->arm_sn     = 0;
 
 	mlx5_cq_table_write_lock(table);
 	err = radix_tree_insert(&table->tree, cq->cqn, cq);
-	if (likely(err == 0 && cq->cqn < MLX5_CQ_LINEAR_ARRAY_SIZE))
+	if (likely(err == 0 && cq->cqn < MLX5_CQ_LINEAR_ARRAY_SIZE)) {
+    printf("mlx5_core_create_cq added %d\n", cq->cqn);
 		table->linear_array[cq->cqn].cq = cq;
+  }
 	mlx5_cq_table_write_unlock(table);
 
 	if (err)
@@ -152,6 +156,7 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	cq->pid = curthread->td_proc->p_pid;
 	cq->uar = dev->priv.uar;
 
+  printf("<< mlx5_core_create_cq\n");
 	return 0;
 
 err_cmd:
@@ -169,6 +174,7 @@ int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
 	u32 in[MLX5_ST_SZ_DW(destroy_cq_in)] = {0};
 	struct mlx5_core_cq *tmp;
 
+  printf(">> mlx5_core_destroy_cq\n");
 	mlx5_cq_table_write_lock(table);
 	if (likely(cq->cqn < MLX5_CQ_LINEAR_ARRAY_SIZE))
 		table->linear_array[cq->cqn].cq = NULL;
@@ -185,6 +191,7 @@ int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
 
 	MLX5_SET(destroy_cq_in, in, opcode, MLX5_CMD_OP_DESTROY_CQ);
 	MLX5_SET(destroy_cq_in, in, cqn, cq->cqn);
+  printf("<< mlx5_core_destroy_cq\n");
 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 }
 EXPORT_SYMBOL(mlx5_core_destroy_cq);
@@ -201,6 +208,19 @@ int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 }
 EXPORT_SYMBOL(mlx5_core_query_cq);
 
+#ifdef VDURA_CHANGES
+int mlx5_core_query_cq_by_num(struct mlx5_core_dev *dev, u32 cqn,
+		       u32 *out, int outlen)
+{
+	u32 in[MLX5_ST_SZ_DW(query_cq_in)] = {0};
+
+	MLX5_SET(query_cq_in, in, opcode, MLX5_CMD_OP_QUERY_CQ);
+	MLX5_SET(query_cq_in, in, cqn, cqn);
+
+	return mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
+}
+EXPORT_SYMBOL(mlx5_core_query_cq_by_num);
+#endif
 
 int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 			u32 *in, int inlen)
