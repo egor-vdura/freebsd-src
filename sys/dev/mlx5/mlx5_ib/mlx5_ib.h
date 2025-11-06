@@ -425,6 +425,11 @@ struct mlx5_ib_cq_buf {
 	int			nent;
 };
 
+#ifdef	RSS
+#include <net/rss_config.h>
+#include <netinet/in_rss.h>
+#endif
+
 enum mlx5_ib_qp_flags {
 	MLX5_IB_QP_LSO                          = IB_QP_CREATE_IPOIB_UD_LSO,
 	MLX5_IB_QP_BLOCK_MULTICAST_LOOPBACK     = IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK,
@@ -745,12 +750,39 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
+#define	MLX5E_MAX_TX_NUM_TC	8	/* units */
+
+enum mlx5e_traffic_types {
+	MLX5E_TT_IPV4_TCP,
+	MLX5E_TT_IPV6_TCP,
+	MLX5E_TT_IPV4_UDP,
+	MLX5E_TT_IPV6_UDP,
+	MLX5E_TT_IPV4_IPSEC_AH,
+	MLX5E_TT_IPV6_IPSEC_AH,
+	MLX5E_TT_IPV4_IPSEC_ESP,
+	MLX5E_TT_IPV6_IPSEC_ESP,
+	MLX5E_TT_IPV4,
+	MLX5E_TT_IPV6,
+	MLX5E_TT_ANY,
+	MLX5E_NUM_TT,
+};
+
+
 struct mlx5_ib_dev {
+	struct mlx5e_priv      *en_priv;
 	struct ib_device		ib_dev;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
 	int				num_ports;
+	/* tirn related
+	 */
+	u32	tdn;
+
+	u32	tisn[MLX5E_MAX_TX_NUM_TC];
+	u32	rqtn;
+	u32	tirn[MLX5E_NUM_TT];
+	u32	tirn_inner_vxlan[MLX5E_NUM_TT];
 	/* serialize update of capability mask
 	 */
 	struct mutex			cap_mask_mutex;

@@ -3347,6 +3347,313 @@ static void mlx5_ib_stage_bfreg_cleanup(struct mlx5_ib_dev *dev)
 	mlx5_free_bfreg(dev->mdev, &dev->bfreg);
 }
 
+static int
+mlx5i_open_flow_tables(struct mlx5i_priv *priv)
+{
+	int err;
+
+	/* setup namespace pointer */
+	priv->fts.ns = mlx5_get_flow_namespace(
+	    priv->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
+
+	err = mlx5e_create_vlan_flow_table(priv);
+	if (err)
+		return (err);
+
+	err = mlx5e_create_vxlan_flow_table(priv);
+	if (err)
+		goto err_destroy_vlan_flow_table;
+
+	err = mlx5e_create_main_flow_table(priv, true);
+	if (err)
+		goto err_destroy_vxlan_flow_table;
+
+	err = mlx5e_create_inner_rss_flow_table(priv);
+	if (err)
+		goto err_destroy_main_flow_table_true;
+
+	err = mlx5e_create_main_flow_table(priv, false);
+	if (err)
+		goto err_destroy_inner_rss_flow_table;
+
+	err = mlx5e_add_vxlan_catchall_rule(priv);
+	if (err)
+		goto err_destroy_main_flow_table_false;
+
+	err = mlx5e_accel_fs_tcp_create(priv);
+	if (err)
+		goto err_del_vxlan_catchall_rule;
+
+	return (0);
+
+err_del_vxlan_catchall_rule:
+	mlx5e_del_vxlan_catchall_rule(priv);
+err_destroy_main_flow_table_false:
+	mlx5e_destroy_main_flow_table(priv);
+err_destroy_inner_rss_flow_table:
+	mlx5e_destroy_inner_rss_flow_table(priv);
+err_destroy_main_flow_table_true:
+	mlx5e_destroy_main_vxlan_flow_table(priv);
+err_destroy_vxlan_flow_table:
+	mlx5e_destroy_vxlan_flow_table(priv);
+err_destroy_vlan_flow_table:
+	mlx5e_destroy_vlan_flow_table(priv);
+
+	return (err);
+}
+
+#define	MLX5E_RSS_KEY_SIZE (10 * 4)	/* bytes */
+
+static void
+mlx5i_get_rss_key(void *key_ptr)
+{
+#ifdef RSS
+	rss_getkey(key_ptr);
+#else
+	static const u32 rsskey[] = {
+	    cpu_to_be32(0xD181C62C),
+	    cpu_to_be32(0xF7F4DB5B),
+	    cpu_to_be32(0x1983A2FC),
+	    cpu_to_be32(0x943E1ADB),
+	    cpu_to_be32(0xD9389E6B),
+	    cpu_to_be32(0xD1039C2C),
+	    cpu_to_be32(0xA74499AD),
+	    cpu_to_be32(0x593D56D9),
+	    cpu_to_be32(0xF3253C06),
+	    cpu_to_be32(0x2ADC1FFC),
+	};
+	CTASSERT(sizeof(rsskey) == MLX5E_RSS_KEY_SIZE);
+	memcpy(key_ptr, rsskey, MLX5E_RSS_KEY_SIZE);
+#endif
+}
+
+static void
+mlx5i_build_tir_ctx(struct mlx5_ib_dev *priv, u32 * tirc, int tt, bool inner_vxlan)
+{
+	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
+	void *hfsi = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_inner);
+	void *hfs = inner_vxlan ? hfsi : hfso;
+	__be32 *hkey;
+
+	MLX5_SET(tirc, tirc, transport_domain, priv->tdn);
+
+#define	MLX5_HASH_IP     (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+			  MLX5_HASH_FIELD_SEL_DST_IP)
+
+#define	MLX5_HASH_ALL    (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+			  MLX5_HASH_FIELD_SEL_DST_IP   |\
+			  MLX5_HASH_FIELD_SEL_L4_SPORT |\
+			  MLX5_HASH_FIELD_SEL_L4_DPORT)
+
+#define	MLX5_HASH_IP_IPSEC_SPI	(MLX5_HASH_FIELD_SEL_SRC_IP   |\
+				 MLX5_HASH_FIELD_SEL_DST_IP   |\
+				 MLX5_HASH_FIELD_SEL_IPSEC_SPI)
+
+	// if (priv->params.hw_lro_en)
+	// 	mlx5e_hw_lro_set_tir_ctx(priv, tirc);
+
+	if (inner_vxlan)
+		MLX5_SET(tirc, tirc, tunneled_offload_en, 1);
+
+	/*
+	 * All packets must go through the indirection table, RQT,
+	 * because it is not possible to modify the RQN of the TIR
+	 * for direct dispatchment after it is created, typically
+	 * when the link goes up and down.
+	 */
+	MLX5_SET(tirc, tirc, disp_type,
+	    MLX5_TIRC_DISP_TYPE_INDIRECT);
+	MLX5_SET(tirc, tirc, indirect_table,
+	    priv->rqtn);
+	MLX5_SET(tirc, tirc, rx_hash_fn,
+		 MLX5_TIRC_RX_HASH_FN_HASH_TOEPLITZ);
+	hkey = (__be32 *) MLX5_ADDR_OF(tirc, tirc, rx_hash_toeplitz_key);
+
+	CTASSERT(MLX5_FLD_SZ_BYTES(tirc, rx_hash_toeplitz_key) >=
+		 MLX5E_RSS_KEY_SIZE);
+#ifdef RSS
+	/*
+	 * The FreeBSD RSS implementation does currently not
+	 * support symmetric Toeplitz hashes:
+	 */
+	MLX5_SET(tirc, tirc, rx_hash_symmetric, 0);
+#else
+	MLX5_SET(tirc, tirc, rx_hash_symmetric, 1);
+#endif
+	mlx5i_get_rss_key(hkey);
+
+	switch (tt) {
+	case MLX5E_TT_IPV4_TCP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV4);
+		MLX5_SET(rx_hash_field_select, hfs, l4_prot_type,
+		    MLX5_L4_PROT_TYPE_TCP);
+#ifdef RSS
+		if (!(rss_gethashconfig() & RSS_HASHTYPE_RSS_TCP_IPV4)) {
+			MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+			    MLX5_HASH_IP);
+		} else
+#endif
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_ALL);
+		break;
+
+	case MLX5E_TT_IPV6_TCP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV6);
+		MLX5_SET(rx_hash_field_select, hfs, l4_prot_type,
+		    MLX5_L4_PROT_TYPE_TCP);
+#ifdef RSS
+		if (!(rss_gethashconfig() & RSS_HASHTYPE_RSS_TCP_IPV6)) {
+			MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+			    MLX5_HASH_IP);
+		} else
+#endif
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_ALL);
+		break;
+
+	case MLX5E_TT_IPV4_UDP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV4);
+		MLX5_SET(rx_hash_field_select, hfs, l4_prot_type,
+		    MLX5_L4_PROT_TYPE_UDP);
+#ifdef RSS
+		if (!(rss_gethashconfig() & RSS_HASHTYPE_RSS_UDP_IPV4)) {
+			MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+			    MLX5_HASH_IP);
+		} else
+#endif
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_ALL);
+		break;
+
+	case MLX5E_TT_IPV6_UDP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV6);
+		MLX5_SET(rx_hash_field_select, hfs, l4_prot_type,
+		    MLX5_L4_PROT_TYPE_UDP);
+#ifdef RSS
+		if (!(rss_gethashconfig() & RSS_HASHTYPE_RSS_UDP_IPV6)) {
+			MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+			    MLX5_HASH_IP);
+		} else
+#endif
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_ALL);
+		break;
+
+	case MLX5E_TT_IPV4_IPSEC_AH:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV4);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP_IPSEC_SPI);
+		break;
+
+	case MLX5E_TT_IPV6_IPSEC_AH:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV6);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP_IPSEC_SPI);
+		break;
+
+	case MLX5E_TT_IPV4_IPSEC_ESP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV4);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP_IPSEC_SPI);
+		break;
+
+	case MLX5E_TT_IPV6_IPSEC_ESP:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV6);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP_IPSEC_SPI);
+		break;
+
+	case MLX5E_TT_IPV4:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV4);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP);
+		break;
+
+	case MLX5E_TT_IPV6:
+		MLX5_SET(rx_hash_field_select, hfs, l3_prot_type,
+		    MLX5_L3_PROT_TYPE_IPV6);
+		MLX5_SET(rx_hash_field_select, hfs, selected_fields,
+		    MLX5_HASH_IP);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static int
+mlx5i_open_tir(struct mlx5_ib_dev *priv, int tt, bool inner_vxlan)
+{
+	struct mlx5_core_dev *mdev = priv->mdev;
+	u32 *in;
+	void *tirc;
+	int inlen;
+	int err;
+
+	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
+	in = mlx5_vzalloc(inlen);
+	if (in == NULL)
+		return (-ENOMEM);
+	tirc = MLX5_ADDR_OF(create_tir_in, in, tir_context);
+
+	mlx5i_build_tir_ctx(priv, tirc, tt, inner_vxlan);
+
+	err = mlx5_core_create_tir(mdev, in, inlen, inner_vxlan ?
+	    &priv->tirn_inner_vxlan[tt] : &priv->tirn[tt]);
+
+	kvfree(in);
+
+	return (err);
+}
+
+
+static void
+mlx5i_close_tir(struct mlx5_ib_dev *priv, int tt, bool inner_vxlan)
+{
+	mlx5_core_destroy_tir(priv->mdev, inner_vxlan ?
+	    priv->tirn_inner_vxlan[tt] : priv->tirn[tt], 0);
+}
+
+
+static int
+mlx5i_open_tirs(struct mlx5_ib_dev *dev)
+{
+	int err;
+	int i;
+
+	for (i = 0; i != 2 * MLX5E_NUM_TT; i++) {
+		err = mlx5i_open_tir(dev, i / 2, (i % 2) ? true : false);
+		if (err)
+			goto err_close_tirs;
+	}
+
+	return (0);
+
+err_close_tirs:
+	for (i--; i >= 0; i--)
+		mlx5i_close_tir(dev, i / 2, (i % 2) ? true : false);
+
+	return (err);
+}
+
+static void
+mlx5i_close_tirs(struct mlx5_ib_dev *dev)
+{
+	int i;
+
+	for (i = 0; i != 2 * MLX5E_NUM_TT; i++)
+		mlx5i_close_tir(dev, i / 2, (i % 2) ? true : false);
+}
+
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 {
 	struct mlx5_ib_dev *dev;
@@ -3575,9 +3882,31 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
+	err = mlx5_alloc_transport_domain(mdev, &dev->tdn, 0);
+	if (err) {
+		mlx5_ib_err(dev,
+		    "mlx5_alloc_transport_domain failed, %d\n", err);
+		goto err_umrc;
+	}
+
+	err = mlx5i_open_tirs(dev);
+	if (err) {
+		mlx5_ib_err(dev, "mlx5i_open_tirs() failed, %d\n", err);
+		goto err_transport_domain;
+	}
+
+	err = mlx5e_open_flow_tables(dev);
+	if (err) {
+		if_printf(ifp, "%s: mlx5e_open_flow_tables failed (%d)\n", __func__, err);
+		goto err_open_tirs;
+	}
+
 	dev->ib_active = true;
 
 	return dev;
+
+err_transport_domain:
+	mlx5_dealloc_transport_domain(mdev, dev->tdn, 0);
 
 err_umrc:
 	destroy_umrc_res(dev);
