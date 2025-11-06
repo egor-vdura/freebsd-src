@@ -1017,3 +1017,5 @@ HIDRAW_MAKE_UHID_ALIAS	opt_hid.h
 # This option is insecure except in controlled environments where the static
 # environment's contents are known to be safe.
 PRESERVE_EARLY_KENV	opt_global.h
+
+VDURA_CHANGES opt_global.h
