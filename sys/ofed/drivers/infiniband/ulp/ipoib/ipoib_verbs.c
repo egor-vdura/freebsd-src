@@ -164,6 +164,9 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 	}
 
 	cq_attr.cqe = size;
+#ifdef VDURA_CHANGES
+	cq_attr.comp_vector = 3;
+#endif
 	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, priv, &cq_attr);
 	if (IS_ERR(priv->recv_cq)) {
 		printk(KERN_WARNING "%s: failed to create receive CQ\n", ca->name);
@@ -171,6 +174,9 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 	}
 
 	cq_attr.cqe = ipoib_sendq_size;
+#ifdef VDURA_CHANGES
+	cq_attr.comp_vector = 4;
+#endif
 	priv->send_cq = ib_create_cq(priv->ca, ipoib_send_comp_handler, NULL,
 				     priv, &cq_attr);
 	if (IS_ERR(priv->send_cq)) {
