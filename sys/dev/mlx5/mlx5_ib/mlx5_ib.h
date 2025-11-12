@@ -767,9 +767,30 @@ enum mlx5e_traffic_types {
 	MLX5E_NUM_TT,
 };
 
+struct mlx5i_flow_table {
+	int num_groups;
+	struct mlx5_flow_table *t;
+	struct mlx5_flow_group **g;
+};
+
+#define	MLX5E_CACHELINE_SIZE CACHE_LINE_SIZE
+
+struct mlx5i_channel {
+	// // Might need to also copy this struct, But it is very big and with a lot of dependencies.
+	// // Check what parts exactly are necessary
+	// // struct mlx5e_rq rq;
+	// struct mlx5_ib_rq rq;
+	// struct m_snd_tag tag;
+	// struct mlx5_sq_bfreg bfreg;
+	// struct mlx5e_sq sq[MLX5E_MAX_TX_NUM_TC];
+	// struct mlx5e_iq iq;
+	// struct mlx5e_priv *priv;
+	// struct completion completion;
+	// int	ix;
+	u32	rqtn;
+} __aligned(MLX5E_CACHELINE_SIZE);
 
 struct mlx5_ib_dev {
-	struct mlx5e_priv      *en_priv;
 	struct ib_device		ib_dev;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
@@ -789,6 +810,7 @@ struct mlx5_ib_dev {
 	u8				ib_active:1;
 	u8				wc_support:1;
 	struct umr_common		umrc;
+
 	/* sync used page count stats
 	 */
 	struct mlx5_ib_resources	devr;
@@ -822,6 +844,11 @@ struct mlx5_ib_dev {
 	/* protect the user_td */
 	struct mutex		lb_mutex;
 	u32			user_td;
+
+	struct mlx5_flow_namespace *ns;
+	struct mlx5i_flow_table inner_rss;
+	// TODO -> Allocation needs to take channels into consideration
+	struct mlx5i_channel channel[];
 };
 
 static inline struct mlx5_ib_cq *to_mibcq(struct mlx5_core_cq *mcq)

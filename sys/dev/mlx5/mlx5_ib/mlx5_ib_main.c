@@ -3347,61 +3347,6 @@ static void mlx5_ib_stage_bfreg_cleanup(struct mlx5_ib_dev *dev)
 	mlx5_free_bfreg(dev->mdev, &dev->bfreg);
 }
 
-static int
-mlx5i_open_flow_tables(struct mlx5i_priv *priv)
-{
-	int err;
-
-	/* setup namespace pointer */
-	priv->fts.ns = mlx5_get_flow_namespace(
-	    priv->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
-
-	err = mlx5e_create_vlan_flow_table(priv);
-	if (err)
-		return (err);
-
-	err = mlx5e_create_vxlan_flow_table(priv);
-	if (err)
-		goto err_destroy_vlan_flow_table;
-
-	err = mlx5e_create_main_flow_table(priv, true);
-	if (err)
-		goto err_destroy_vxlan_flow_table;
-
-	err = mlx5e_create_inner_rss_flow_table(priv);
-	if (err)
-		goto err_destroy_main_flow_table_true;
-
-	err = mlx5e_create_main_flow_table(priv, false);
-	if (err)
-		goto err_destroy_inner_rss_flow_table;
-
-	err = mlx5e_add_vxlan_catchall_rule(priv);
-	if (err)
-		goto err_destroy_main_flow_table_false;
-
-	err = mlx5e_accel_fs_tcp_create(priv);
-	if (err)
-		goto err_del_vxlan_catchall_rule;
-
-	return (0);
-
-err_del_vxlan_catchall_rule:
-	mlx5e_del_vxlan_catchall_rule(priv);
-err_destroy_main_flow_table_false:
-	mlx5e_destroy_main_flow_table(priv);
-err_destroy_inner_rss_flow_table:
-	mlx5e_destroy_inner_rss_flow_table(priv);
-err_destroy_main_flow_table_true:
-	mlx5e_destroy_main_vxlan_flow_table(priv);
-err_destroy_vxlan_flow_table:
-	mlx5e_destroy_vxlan_flow_table(priv);
-err_destroy_vlan_flow_table:
-	mlx5e_destroy_vlan_flow_table(priv);
-
-	return (err);
-}
-
 #define	MLX5E_RSS_KEY_SIZE (10 * 4)	/* bytes */
 
 static void
@@ -3623,7 +3568,6 @@ mlx5i_close_tir(struct mlx5_ib_dev *priv, int tt, bool inner_vxlan)
 	    priv->tirn_inner_vxlan[tt] : priv->tirn[tt], 0);
 }
 
-
 static int
 mlx5i_open_tirs(struct mlx5_ib_dev *dev)
 {
@@ -3652,6 +3596,228 @@ mlx5i_close_tirs(struct mlx5_ib_dev *dev)
 
 	for (i = 0; i != 2 * MLX5E_NUM_TT; i++)
 		mlx5i_close_tir(dev, i / 2, (i % 2) ? true : false);
+}
+
+static void
+mlx5i_destroy_groups(struct mlx5i_flow_table *ft)
+{
+	int i;
+
+	for (i = ft->num_groups - 1; i >= 0; i--) {
+		if (!IS_ERR_OR_NULL(ft->g[i]))
+			mlx5_destroy_flow_group(ft->g[i]);
+		ft->g[i] = NULL;
+	}
+	ft->num_groups = 0;
+}
+
+#define MLX5_SET_CFG(p, f, v) MLX5_SET(create_flow_group_in, p, f, v)
+#define MLX5E_NUM_INNER_RSS_GROUPS	3
+#define MLX5E_INNER_RSS_GROUP0_SIZE	BIT(3)
+#define MLX5E_INNER_RSS_GROUP1_SIZE	BIT(1)
+#define MLX5E_INNER_RSS_GROUP2_SIZE	BIT(0)
+#define MLX5E_INNER_RSS_TABLE_SIZE	(MLX5E_INNER_RSS_GROUP0_SIZE +\
+					 MLX5E_INNER_RSS_GROUP1_SIZE +\
+					 MLX5E_INNER_RSS_GROUP2_SIZE +\
+					 0)
+static int
+mlx5i_create_inner_rss_groups_sub(struct mlx5i_flow_table *ft, u32 *in,
+					   int inlen)
+{
+	u8 *mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
+	int err;
+	int ix = 0;
+
+	memset(in, 0, inlen);
+	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_INNER_HEADERS);
+	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ethertype);
+	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ip_protocol);
+	MLX5_SET_CFG(in, start_flow_index, ix);
+	ix += MLX5E_INNER_RSS_GROUP0_SIZE;
+	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
+	if (IS_ERR(ft->g[ft->num_groups]))
+		goto err_destory_groups;
+	ft->num_groups++;
+
+	memset(in, 0, inlen);
+	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_INNER_HEADERS);
+	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ethertype);
+	MLX5_SET_CFG(in, start_flow_index, ix);
+	ix += MLX5E_INNER_RSS_GROUP1_SIZE;
+	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
+	if (IS_ERR(ft->g[ft->num_groups]))
+		goto err_destory_groups;
+	ft->num_groups++;
+
+	memset(in, 0, inlen);
+	MLX5_SET_CFG(in, start_flow_index, ix);
+	ix += MLX5E_INNER_RSS_GROUP2_SIZE;
+	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
+	if (IS_ERR(ft->g[ft->num_groups]))
+		goto err_destory_groups;
+	ft->num_groups++;
+
+	return (0);
+
+err_destory_groups:
+	err = PTR_ERR(ft->g[ft->num_groups]);
+	ft->g[ft->num_groups] = NULL;
+	mlx5i_destroy_groups(ft);
+
+	return (err);
+}
+
+static int
+mlx5i_create_inner_rss_groups(struct mlx5i_flow_table *ft)
+{
+	u32 *in;
+	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
+	int err;
+
+	in = mlx5_vzalloc(inlen);
+	if (!in)
+		return (-ENOMEM);
+
+	err = mlx5i_create_inner_rss_groups_sub(ft, in, inlen);
+
+	kvfree(in);
+	return (err);
+}
+
+#include <dev/mlx5/fs.h>
+
+static int
+mlx5i_open_default_rqt(struct mlx5_ib_dev *dev, u32 *prqtn, int sz)
+{
+	u32 *in;
+	void *rqtc;
+	int inlen;
+	int err;
+	// int i;
+
+	inlen = MLX5_ST_SZ_BYTES(create_rqt_in) + sizeof(u32) * sz;
+	in = mlx5_vzalloc(inlen);
+	if (in == NULL)
+		return (-ENOMEM);
+	rqtc = MLX5_ADDR_OF(create_rqt_in, in, rqt_context);
+
+	MLX5_SET(rqtc, rqtc, rqt_actual_size, 0);
+	MLX5_SET(rqtc, rqtc, rqt_max_size, sz);
+
+	// for (i = 0; i != sz; i++)
+	// 	MLX5_SET(rqtc, rqtc, rq_num[i], priv->drop_rq.rqn);
+
+	err = mlx5_core_create_rqt(dev->mdev, in, inlen, prqtn);
+	kvfree(in);
+
+	return (err);
+}
+
+#define	MLX5E_PARAMS_DEFAULT_RX_HASH_LOG_TBL_SZ         0x7
+
+static int
+mlx5i_open_rqts(struct mlx5_ib_dev *dev)
+{
+	int err;
+	int i;
+
+	// Should be set in table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+	int num_comp_vectors = dev->mdev->priv.eq_table.num_comp_vectors;
+
+	u16	rx_hash_log_tbl_sz;
+	rx_hash_log_tbl_sz =
+	    (order_base_2(num_comp_vectors) >
+	    MLX5E_PARAMS_DEFAULT_RX_HASH_LOG_TBL_SZ) ?
+	    order_base_2(num_comp_vectors) :
+	    MLX5E_PARAMS_DEFAULT_RX_HASH_LOG_TBL_SZ;
+
+	err = mlx5i_open_default_rqt(dev, &dev->rqtn,
+	    1 << rx_hash_log_tbl_sz);
+	if (err)
+		goto err_default;
+
+	for (i = 0; i != num_comp_vectors; i++) {
+		err = mlx5i_open_default_rqt(dev, &dev->channel[i].rqtn, 1);
+		if (err)
+			goto err_channel;
+	}
+	return (0);
+
+err_channel:
+	while (i--)
+		mlx5_core_destroy_rqt(dev->mdev, dev->channel[i].rqtn, 0);
+
+	mlx5_core_destroy_rqt(dev->mdev, dev->rqtn, 0);
+
+err_default:
+	return (err);
+}
+
+// struct mlx5_flow_table_attr {
+//         int prio;
+//         int max_fte;
+//         u32 level;
+//         u32 flags;
+//         u16 uid;
+//         struct mlx5_flow_table *next_ft;
+
+//         struct {
+//                 int max_num_groups;
+//                 int num_reserved_entries;
+//         } autogroup;
+// };
+
+static int
+mlx5i_open_flow_tables(struct mlx5_ib_dev *dev)
+{
+	int err = 0;
+
+	/* setup namespace pointer */
+	dev->ns = mlx5_get_flow_namespace(
+	    dev->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
+
+	// mlx5i_create_inner_rss_flow_table(struct mlx5e_priv *priv)
+
+	struct mlx5i_flow_table *ft = &dev->inner_rss;
+	// struct mlx5_flow_table_attr ft_attr = {};
+
+	ft->num_groups = 0;
+	ft->t = mlx5_create_flow_table(dev->ns, 0, "inner_rss",
+				       MLX5E_INNER_RSS_TABLE_SIZE);
+	// ft_attr.max_fte = MLX5E_INNER_RSS_TABLE_SIZE;
+	// ft_attr.level = (priv->ipsec) ? 11 : 3;
+	// ft_attr.level = 3;
+	// ft->t = mlx5_create_flow_table(dev->ns, &ft_attr);
+
+	if (IS_ERR(ft->t)) {
+		err = PTR_ERR(ft->t);
+		ft->t = NULL;
+		return (err);
+	}
+	ft->g = kcalloc(MLX5E_NUM_INNER_RSS_GROUPS, sizeof(*ft->g),
+			GFP_KERNEL);
+	if (!ft->g) {
+		err = -ENOMEM;
+		goto err_destroy_inner_rss_flow_table;
+	}
+
+	err = mlx5i_create_inner_rss_groups(ft);
+	if (err)
+		goto err_free_g;
+
+	return (0);
+
+err_free_g:
+	kfree(ft->g);
+
+err_destroy_inner_rss_flow_table:
+	mlx5_destroy_flow_table(ft->t);
+	ft->t = NULL;
+
+	return (err);
 }
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
@@ -3889,21 +4055,29 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 		goto err_umrc;
 	}
 
+	err = mlx5i_open_rqts(dev);
+	if (err) {
+		mlx5_ib_err(dev, "mlx5i_open_rqts() failed, %d\n", err);
+		goto err_transport_domain;
+	}
+
 	err = mlx5i_open_tirs(dev);
 	if (err) {
 		mlx5_ib_err(dev, "mlx5i_open_tirs() failed, %d\n", err);
 		goto err_transport_domain;
 	}
 
-	err = mlx5e_open_flow_tables(dev);
+	err = mlx5i_open_flow_tables(dev);
 	if (err) {
-		if_printf(ifp, "%s: mlx5e_open_flow_tables failed (%d)\n", __func__, err);
+		mlx5_ib_err(dev, "mlx5i_open_flow_tables() failed, %d\n", err);
 		goto err_open_tirs;
 	}
 
 	dev->ib_active = true;
 
 	return dev;
+err_open_tirs:
+	mlx5i_close_tirs(dev);
 
 err_transport_domain:
 	mlx5_dealloc_transport_domain(mdev, dev->tdn, 0);
