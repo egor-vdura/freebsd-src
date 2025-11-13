@@ -208,20 +208,6 @@ int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 }
 EXPORT_SYMBOL(mlx5_core_query_cq);
 
-#ifdef VDURA_CHANGES
-int mlx5_core_query_cq_by_num(struct mlx5_core_dev *dev, u32 cqn,
-		       u32 *out, int outlen)
-{
-	u32 in[MLX5_ST_SZ_DW(query_cq_in)] = {0};
-
-	MLX5_SET(query_cq_in, in, opcode, MLX5_CMD_OP_QUERY_CQ);
-	MLX5_SET(query_cq_in, in, cqn, cqn);
-
-	return mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
-}
-EXPORT_SYMBOL(mlx5_core_query_cq_by_num);
-#endif
-
 int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 			u32 *in, int inlen)
 {

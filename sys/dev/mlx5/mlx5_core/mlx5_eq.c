@@ -641,21 +641,6 @@ int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
 }
 EXPORT_SYMBOL_GPL(mlx5_core_eq_query);
 
-#ifdef VDURA_CHANGES
-int mlx5_core_eq_query_by_num(struct mlx5_core_dev *dev, u8 eqn,
-		       u32 *out, int outlen)
-{
-	u32 in[MLX5_ST_SZ_DW(query_eq_in)] = {0};
-
-	memset(out, 0, outlen);
-	MLX5_SET(query_eq_in, in, opcode, MLX5_CMD_OP_QUERY_EQ);
-	MLX5_SET(query_eq_in, in, eq_number, eqn);
-
-	return mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
-}
-EXPORT_SYMBOL_GPL(mlx5_core_eq_query_by_num);
-#endif
-
 static const char *mlx5_port_module_event_error_type_to_string(u8 error_type)
 {
 	switch (error_type) {
