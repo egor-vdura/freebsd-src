@@ -465,37 +465,67 @@ struct mlx5_ifc_eth_discard_cntrs_grp_bits {
 };
 struct mlx5_ifc_flow_table_prop_layout_bits {
 	u8         ft_support[0x1];
-	u8         flow_tag[0x1];
+	u8         reserved_at_1[0x1];
 	u8         flow_counter[0x1];
 	u8         flow_modify_en[0x1];
 	u8         modify_root[0x1];
-	u8         identified_miss_table[0x1];
+	u8         identified_miss_table_mode[0x1];
 	u8         flow_table_modify[0x1];
-	u8         encap[0x1];
+	u8         reformat[0x1];
 	u8         decap[0x1];
-	u8         reset_root_to_default[0x1];
-	u8         reserved_at_a[0x16];
-
-	u8         reserved_at_20[0x2];
+	u8         reserved_at_9[0x1];
+	u8         pop_vlan[0x1];
+	u8         push_vlan[0x1];
+	u8         reserved_at_c[0x1];
+	u8         pop_vlan_2[0x1];
+	u8         push_vlan_2[0x1];
+	u8         reformat_and_vlan_action[0x1];
+	u8         reserved_at_10[0x1];
+	u8         sw_owner[0x1];
+	u8         reformat_l3_tunnel_to_l2[0x1];
+	u8         reformat_l2_to_l3_tunnel[0x1];
+	u8         reformat_and_modify_action[0x1];
+	u8         ignore_flow_level[0x1];
+	u8         reserved_at_16[0x1];
+	u8         table_miss_action_domain[0x1];
+	u8         termination_table[0x1];
+	u8         reformat_and_fwd_to_table[0x1];
+	u8         reserved_at_1a[0x2];
+	u8         ipsec_encrypt[0x1];
+	u8         ipsec_decrypt[0x1];
+	u8         sw_owner_v2[0x1];
+	u8         reserved_at_1f[0x1];
+	u8         termination_table_raw_traffic[0x1];
+	u8         reserved_at_21[0x1];
 	u8         log_max_ft_size[0x6];
 	u8         log_max_modify_header_context[0x8];
         u8         max_modify_header_actions[0x8];
 	u8         max_ft_level[0x8];
 
-	u8         reserved_at_40[0x20];
-
-	u8         reserved_at_60[0x18];
+	u8         reformat_add_esp_trasport[0x1];
+	u8         reformat_l2_to_l3_esp_tunnel[0x1];
+	u8         reformat_add_esp_transport_over_udp[0x1];
+	u8         reformat_del_esp_trasport[0x1];
+	u8         reformat_l3_esp_tunnel_to_l2[0x1];
+	u8         reformat_del_esp_transport_over_udp[0x1];
+	u8         execute_aso[0x1];
+	u8         reserved_at_47[0x19];
+	u8         reserved_at_60[0x2];
+	u8         reformat_insert[0x1];
+	u8         reformat_remove[0x1];
+	u8         macsec_encrypt[0x1];
+	u8         macsec_decrypt[0x1];
+	u8         reserved_at_66[0x2];
+	u8         reformat_add_macsec[0x1];
+	u8         reformat_remove_macsec[0x1];
+	u8         reserved_at_6a[0xe];
 	u8         log_max_ft_num[0x8];
-
 	u8         reserved_at_80[0x10];
 	u8         log_max_flow_counter[0x8];
 	u8         log_max_destination[0x8];
-
 	u8         reserved_at_a0[0x18];
 	u8         log_max_flow[0x8];
-
 	u8         reserved_at_c0[0x40];
-
 	struct mlx5_ifc_flow_table_fields_supported_bits ft_field_support;
 
 	struct mlx5_ifc_flow_table_fields_supported_bits ft_field_bitmask_support;
@@ -11604,6 +11634,12 @@ struct mlx5_ifc_affiliated_event_header_bits {
 };
 
 #define MLX5_FC_BULK_SIZE_FACTOR 128
+
+enum mlx5_flow_table_miss_action {
+        MLX5_FLOW_TABLE_MISS_ACTION_DEF,
+        MLX5_FLOW_TABLE_MISS_ACTION_FWD,
+        MLX5_FLOW_TABLE_MISS_ACTION_SWITCH_DOMAIN,
+};
 
 enum mlx5_fc_bulk_alloc_bitmask {
 	MLX5_FC_BULK_128   = (1 << 0),

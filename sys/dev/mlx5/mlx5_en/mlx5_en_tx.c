@@ -74,7 +74,7 @@ mlx5e_send_nop(struct mlx5e_sq *sq, u32 ds_cnt)
 	sq->pc += sq->mbuf[pi].num_wqebbs;
 }
 
-static uint32_t mlx5e_hash_value;
+uint32_t mlx5e_hash_value;
 
 static void
 mlx5e_hash_init(void *arg)
@@ -85,7 +85,7 @@ mlx5e_hash_init(void *arg)
 /* Make kernel call mlx5e_hash_init after the random stack finished initializing */
 SYSINIT(mlx5e_hash_init, SI_SUB_RANDOM, SI_ORDER_ANY, &mlx5e_hash_init, NULL);
 
-static struct mlx5e_sq *
+struct mlx5e_sq *
 mlx5e_select_queue_by_send_tag(if_t ifp, struct mbuf *mb)
 {
 	struct m_snd_tag *mb_tag;
@@ -1098,7 +1098,7 @@ mlx5e_poll_tx_cq(struct mlx5e_sq *sq, int budget)
 	sq->cc = sqcc;
 }
 
-static int
+int
 mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb)
 {
 	int err = 0;

@@ -292,4 +292,7 @@ int mlx5_fc_query(struct mlx5_core_dev *dev, struct mlx5_fc *counter,
                   u64 *packets, u64 *bytes);
 u32 mlx5_fc_id(struct mlx5_fc *counter);
 /******* End of Flow counters API ******/
+
+int mlx5_fs_add_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn);
+
 #endif

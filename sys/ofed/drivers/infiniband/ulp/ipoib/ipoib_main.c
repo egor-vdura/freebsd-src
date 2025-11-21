@@ -51,6 +51,8 @@
 #include <rdma/ib_addr.h>
 #include <rdma/ib_cache.h>
 
+#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
+
 MODULE_AUTHOR("Roland Dreier");
 MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -166,6 +168,8 @@ err_disable:
 
 	return -EINVAL;
 }
+
+
 
 static void
 ipoib_init(void *arg)
@@ -898,6 +902,86 @@ ipoib_priv_alloc(void)
 	return (priv);
 }
 
+#include <dev/mlx5/mlx5_en/en.h>
+
+static struct mlx5e_sq *
+mlx5i_select_queue(if_t ifp, struct mbuf *mb)
+{
+	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
+	// struct ib_device *ca
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
+	// Check if container_of is correct
+
+	struct mlx5e_priv *priv = ib_dev->priv;
+	struct mlx5e_sq *sq;
+	u32 ch;
+	u32 tc;
+
+	/* obtain VLAN information if present */
+	if (mb->m_flags & M_VLANTAG) {
+		tc = (mb->m_pkthdr.ether_vtag >> 13);
+		if (tc >= priv->num_tc)
+			tc = priv->default_vlan_prio;
+	} else {
+		tc = priv->default_vlan_prio;
+	}
+
+	ch = priv->params.num_channels;
+
+	/* check if flowid is set */
+	if (M_HASHTYPE_GET(mb) != M_HASHTYPE_NONE) {
+#ifdef RSS
+		u32 temp;
+
+		if (rss_hash2bucket(mb->m_pkthdr.flowid,
+		    M_HASHTYPE_GET(mb), &temp) == 0)
+			ch = temp % ch;
+		else
+#endif
+			ch = (mb->m_pkthdr.flowid % 128) % ch;
+	} else {
+		ch = m_ether_tcpip_hash(MBUF_HASHFLAG_L3 |
+		    MBUF_HASHFLAG_L4, mb, mlx5e_hash_value) % ch;
+	}
+
+	/* check if send queue is running */
+	sq = &priv->channel[ch].sq[tc];
+	if (likely(READ_ONCE(sq->running) != 0))
+		return (sq);
+	return (NULL);
+}
+
+static int
+mlx5i_xmit(if_t ifp, struct mbuf *mb)
+{
+	struct mlx5e_sq *sq;
+	int ret;
+
+	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
+		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
+		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
+		if (unlikely(sq == NULL)) {
+			goto select_queue;
+		}
+	} else {
+select_queue:
+		sq = mlx5i_select_queue(ifp, mb);
+		if (unlikely(sq == NULL)) {
+			/* Free mbuf */
+			m_freem(mb);
+
+			/* Invalid send queue */
+			return (ENXIO);
+		}
+	}
+
+	mtx_lock(&sq->lock);
+	ret = mlx5e_xmit_locked(ifp, sq, mb);
+	mtx_unlock(&sq->lock);
+
+	return (ret);
+}
+
 struct ipoib_dev_priv *
 ipoib_intf_alloc(const char *name, struct ib_device *hca)
 {
@@ -923,7 +1007,8 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	if_setstartfn(dev, ipoib_start);
+	// if_setstartfn(dev, ipoib_start);
+	if_settransmitfn(dev, mlx5i_xmit);
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 

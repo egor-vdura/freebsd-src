@@ -41,6 +41,7 @@
 #include <rdma/ib_user_verbs.h>
 #include <rdma/mlx5-abi.h>
 #include <rdma/uverbs_ioctl.h>
+#include <dev/mlx5/mlx5_en/en.h>
 
 #define mlx5_ib_dbg(dev, format, arg...)				\
 pr_debug("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
@@ -750,22 +751,6 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
-#define	MLX5E_MAX_TX_NUM_TC	8	/* units */
-
-enum mlx5e_traffic_types {
-	MLX5E_TT_IPV4_TCP,
-	MLX5E_TT_IPV6_TCP,
-	MLX5E_TT_IPV4_UDP,
-	MLX5E_TT_IPV6_UDP,
-	MLX5E_TT_IPV4_IPSEC_AH,
-	MLX5E_TT_IPV6_IPSEC_AH,
-	MLX5E_TT_IPV4_IPSEC_ESP,
-	MLX5E_TT_IPV6_IPSEC_ESP,
-	MLX5E_TT_IPV4,
-	MLX5E_TT_IPV6,
-	MLX5E_TT_ANY,
-	MLX5E_NUM_TT,
-};
 
 struct mlx5i_flow_table {
 	int num_groups;
@@ -792,6 +777,8 @@ struct mlx5i_channel {
 
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
+	struct mlx5e_priv* priv;
+	u32 qpn;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
@@ -1259,5 +1246,9 @@ static inline int get_num_static_uars(struct mlx5_ib_dev *dev,
 int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 			struct mlx5_bfreg_info *bfregi, u32 bfregn,
 			bool dyn_bfreg);
+
+
+			
+int ipoib_if_open(struct mlx5_ib_dev *dev);
 
 #endif /* MLX5_IB_H */

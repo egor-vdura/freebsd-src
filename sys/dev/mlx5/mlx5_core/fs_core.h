@@ -301,6 +301,10 @@ int mlx5_cmd_fs_delete_fte(struct mlx5_core_dev *dev,
 			   enum fs_ft_type type, unsigned int table_id,
 			   unsigned int index);
 
+int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
+			    enum fs_ft_type type, u32 underlay_qpn,
+			    unsigned int id);
+
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 			    enum fs_ft_type type,
 			    unsigned int id);

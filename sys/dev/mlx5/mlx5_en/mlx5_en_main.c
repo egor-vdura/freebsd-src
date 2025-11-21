@@ -1490,7 +1490,7 @@ mlx5e_open_drop_rq_comp(struct mlx5_core_cq *mcq __unused, struct mlx5_eqe *eqe 
 {
 }
 
-static int
+int
 mlx5e_open_drop_rq(struct mlx5e_priv *priv,
     struct mlx5e_rq *drop_rq)
 {
@@ -1549,7 +1549,7 @@ err_done:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_drop_rq(struct mlx5e_rq *drop_rq)
 {
 	mlx5e_modify_rq(drop_rq, MLX5_RQC_STATE_RDY, MLX5_RQC_STATE_ERR);
@@ -2482,7 +2482,7 @@ mlx5e_build_channel_param(struct mlx5e_priv *priv,
 	mlx5e_build_tx_cq_param(priv, &cparam->tx_cq);
 }
 
-static int
+int
 mlx5e_open_channels(struct mlx5e_priv *priv)
 {
 	struct mlx5e_channel_param *cparam;
@@ -2747,7 +2747,7 @@ mlx5e_open_default_rqt(struct mlx5e_priv *priv, u32 *prqtn, int sz)
 	return (err);
 }
 
-static int
+int
 mlx5e_open_rqts(struct mlx5e_priv *priv)
 {
 	int err;
@@ -2775,7 +2775,7 @@ err_default:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_rqts(struct mlx5e_priv *priv)
 {
 	int i;
@@ -2786,7 +2786,7 @@ mlx5e_close_rqts(struct mlx5e_priv *priv)
 	mlx5_core_destroy_rqt(priv->mdev, priv->rqtn, 0);
 }
 
-static int
+int
 mlx5e_activate_rqt(struct mlx5e_priv *priv)
 {
 	u32 *in;
@@ -3188,7 +3188,7 @@ mlx5e_close_tir(struct mlx5e_priv *priv, int tt, bool inner_vxlan)
 	    priv->tirn_inner_vxlan[tt] : priv->tirn[tt], 0);
 }
 
-static int
+int
 mlx5e_open_tirs(struct mlx5e_priv *priv)
 {
 	int err;
@@ -3209,7 +3209,7 @@ err_close_tirs:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_tirs(struct mlx5e_priv *priv)
 {
 	int i;
@@ -3872,7 +3872,7 @@ mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
 		return (bf_buf_size);
 }
 
-static int
+int
 mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
     struct mlx5e_priv *priv,
     int num_comp_vectors)
@@ -3956,7 +3956,7 @@ mlx5e_mkey_set_relaxed_ordering(struct mlx5_core_dev *mdev, void *mkc)
 	MLX5_SET(mkc, mkc, relaxed_ordering_write, ro_pci_enable && ro_write);
 }
 
-static int
+int
 mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
 		  struct mlx5_core_mkey *mkey)
 {
@@ -4000,7 +4000,7 @@ static const char *mlx5e_pport_stats_desc[] = {
 	MLX5E_PPORT_STATS(MLX5E_STATS_DESC)
 };
 
-static int
+int
 mlx5e_priv_static_init(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
     const uint32_t channels)
 {

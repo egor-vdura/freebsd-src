@@ -860,6 +860,7 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	priv->port = port;
 	priv->qp = NULL;
 
+	/* We don't want traditional initialization of QP. */
 	if (ipoib_transport_dev_init(priv, ca)) {
 		printk(KERN_WARNING "%s: ipoib_transport_dev_init failed\n", ca->name);
 		return -ENODEV;
