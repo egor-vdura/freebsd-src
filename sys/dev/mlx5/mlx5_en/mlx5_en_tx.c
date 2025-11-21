@@ -1105,6 +1105,7 @@ mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb)
 
 	if (unlikely((if_getdrvflags(ifp) & IFF_DRV_RUNNING) == 0 ||
 	    READ_ONCE(sq->running) == 0)) {
+		printk(KERN_WARNING "GAAAAAH, Driver not running!\n");
 		m_freem(mb);
 		return (ENETDOWN);
 	}

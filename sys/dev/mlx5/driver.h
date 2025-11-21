@@ -639,7 +639,6 @@ struct mlx5_priv {
 	struct mlx5_bfreg_data		bfregs;
 	struct mlx5_uars_page	       *uar;
 	struct mlx5_fc_stats		fc_stats;
-	struct mlx5_ft_pool             *ft_pool;
 };
 
 enum mlx5_device_state {

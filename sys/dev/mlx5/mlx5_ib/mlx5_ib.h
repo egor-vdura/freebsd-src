@@ -751,46 +751,15 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
-
-struct mlx5i_flow_table {
-	int num_groups;
-	struct mlx5_flow_table *t;
-	struct mlx5_flow_group **g;
-};
-
-#define	MLX5E_CACHELINE_SIZE CACHE_LINE_SIZE
-
-struct mlx5i_channel {
-	// // Might need to also copy this struct, But it is very big and with a lot of dependencies.
-	// // Check what parts exactly are necessary
-	// // struct mlx5e_rq rq;
-	// struct mlx5_ib_rq rq;
-	// struct m_snd_tag tag;
-	// struct mlx5_sq_bfreg bfreg;
-	// struct mlx5e_sq sq[MLX5E_MAX_TX_NUM_TC];
-	// struct mlx5e_iq iq;
-	// struct mlx5e_priv *priv;
-	// struct completion completion;
-	// int	ix;
-	u32	rqtn;
-} __aligned(MLX5E_CACHELINE_SIZE);
-
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
 	struct mlx5e_priv* priv;
 	u32 qpn;
+	u32 magic;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
 	int				num_ports;
-	/* tirn related
-	 */
-	u32	tdn;
-
-	u32	tisn[MLX5E_MAX_TX_NUM_TC];
-	u32	rqtn;
-	u32	tirn[MLX5E_NUM_TT];
-	u32	tirn_inner_vxlan[MLX5E_NUM_TT];
 	/* serialize update of capability mask
 	 */
 	struct mutex			cap_mask_mutex;
@@ -832,10 +801,9 @@ struct mlx5_ib_dev {
 	struct mutex		lb_mutex;
 	u32			user_td;
 
-	struct mlx5_flow_namespace *ns;
-	struct mlx5i_flow_table inner_rss;
+	// struct mlx5_flow_namespace *ns;
+	// struct mlx5i_flow_table inner_rss;
 	// TODO -> Allocation needs to take channels into consideration
-	struct mlx5i_channel channel[];
 };
 
 static inline struct mlx5_ib_cq *to_mibcq(struct mlx5_core_cq *mcq)

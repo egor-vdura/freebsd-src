@@ -910,7 +910,13 @@ mlx5i_select_queue(if_t ifp, struct mbuf *mb)
 	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
 	// struct ib_device *ca
 	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
-	// Check if container_of is correct
+	// TEMP: Check if container_of is correct
+	if (ib_dev->magic != 0x348192)
+	{
+		printk(KERN_WARNING "GAAAAAH, incorrect container_of\n");
+		return NULL;
+	}
+	printk(KERN_WARNING "GAAAAAH, correct container_of!\n");
 
 	struct mlx5e_priv *priv = ib_dev->priv;
 	struct mlx5e_sq *sq;

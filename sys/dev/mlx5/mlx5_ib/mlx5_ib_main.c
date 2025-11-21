@@ -3550,6 +3550,7 @@ static void mlx5_ib_set_en(struct mlx5_ib_dev *dev)
 	    (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
 	    M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
 	dev->priv = priv;
+	dev->magic = 0x348192;
 
 	/* setup all static fields and internal structures */
 	if (mlx5e_priv_static_init(priv, mdev, mdev->priv.eq_table.num_comp_vectors)) {
