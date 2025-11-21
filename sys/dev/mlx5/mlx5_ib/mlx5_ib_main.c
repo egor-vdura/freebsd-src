@@ -3349,8 +3349,6 @@ static void mlx5_ib_stage_bfreg_cleanup(struct mlx5_ib_dev *dev)
 	mlx5_free_bfreg(dev->mdev, &dev->bfreg);
 }
 
-MALLOC_DEFINE(M_MLX5EN, "MLX5EN", "MLX5 Ethernet");
-
 #define MLX5_QP_ENHANCED_ULP_STATELESS_MODE 2
 #define IB_DEFAULT_Q_KEY   0xb1b
 

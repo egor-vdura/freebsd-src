@@ -800,10 +800,6 @@ struct mlx5_ib_dev {
 	/* protect the user_td */
 	struct mutex		lb_mutex;
 	u32			user_td;
-
-	// struct mlx5_flow_namespace *ns;
-	// struct mlx5i_flow_table inner_rss;
-	// TODO -> Allocation needs to take channels into consideration
 };
 
 static inline struct mlx5_ib_cq *to_mibcq(struct mlx5_core_cq *mcq)
