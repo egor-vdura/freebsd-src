@@ -3539,18 +3539,24 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	return 0;
 }
 
-static void mlx5_ib_set_en(struct mlx5_ib_dev *dev)
+static void mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
 	struct mlx5_core_dev *mdev = dev->mdev;
+	mdev->priv.eq_table.num_comp_vectors = 10;
 	int ncv = mdev->priv.eq_table.num_comp_vectors;
+
 	struct mlx5e_priv* priv = malloc_domainset(sizeof(*priv) +
 	    (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
 	    M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
+	// priv->ifp = Do we really need to set this here?
+	priv->ifp = ipoib_if;
+	// Yes we do, because of m_snd_tag_init
 	dev->priv = priv;
 	dev->magic = 0x348192;
 
 	/* setup all static fields and internal structures */
+	mlx5_core_err(mdev, "GAAAH mlx5e_priv_static_init(%d)\n", mdev->priv.eq_table.num_comp_vectors);
 	if (mlx5e_priv_static_init(priv, mdev, mdev->priv.eq_table.num_comp_vectors)) {
 		mlx5_core_err(mdev, "mlx5e_priv_static_init() failed\n");
 		goto err_free_ifp;
@@ -3956,10 +3962,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
-	mlx5_ib_set_en(dev);
-	mlx5i_create_underlay_qp(dev);
-	/* move to if if access to dev can be performed */
-	ipoib_if_open(dev);
+	give_me_CONTEXT(NULL, dev);
 
 	dev->ib_active = true;
 
@@ -3996,6 +3999,31 @@ err_dealloc:
 	ib_dealloc_device((struct ib_device *)dev);
 
 	return NULL;
+}
+
+void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
+{
+	static if_t ipoib_if = NULL;
+	static struct mlx5_ib_dev *ib_dev = NULL;
+	if (ipoib_if == NULL && _ipoib_if != NULL)
+	{
+		ipoib_if = _ipoib_if;
+	}
+	if (ib_dev == NULL && _ib_dev != NULL)
+	{
+		ib_dev = _ib_dev;
+	}
+
+	if (ib_dev == NULL || ipoib_if == NULL)
+	{
+		/* Not enough CONTEXT YET */
+		return;
+	}
+
+	mlx5_ib_set_en(ib_dev, ipoib_if);
+	mlx5i_create_underlay_qp(ib_dev);
+	/* move to if if access to dev can be performed */
+	ipoib_if_open(ib_dev);
 }
 
 static void mlx5_ib_remove(struct mlx5_core_dev *mdev, void *context)

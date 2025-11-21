@@ -1126,6 +1126,8 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	}
 	if_printf(priv->dev, "Attached to %s port %d\n", hca->name, port);
 
+	give_me_CONTEXT(priv->dev, NULL);
+
 	priv->gone = 0;	/* ready */
 
 	return priv->dev;
@@ -1177,6 +1179,7 @@ ipoib_add_one(struct ib_device *device)
 	}
 
 	ib_set_client_data(device, &ipoib_client, dev_list);
+
 }
 
 static void

@@ -1215,4 +1215,6 @@ int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 			
 int ipoib_if_open(struct mlx5_ib_dev *dev);
 
+void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev);
+
 #endif /* MLX5_IB_H */
