@@ -20,6 +20,7 @@ options	PCI_HP
 options	IOMMU
 options	SMP
 options	NETGDB
+options	GDB
 options	NETDUMP
 options	DEBUGNET
 options	ZSTDIO

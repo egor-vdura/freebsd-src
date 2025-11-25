@@ -1521,22 +1521,28 @@ mlx5e_create_main_flow_table(struct mlx5e_priv *priv, bool inner_vxlan)
 	int err;
 
 	ft->num_groups = 0;
+	mlx5_en_warn(priv->ifp, "WEEEE 1 2\n");
 	ft->t = mlx5_create_flow_table(priv->fts.ns, 0,
 	    inner_vxlan ? "vxlan_main" : "main", MLX5E_MAIN_TABLE_SIZE);
+	mlx5_en_warn(priv->ifp, "WEEEE 2 2\n");
 
 	if (IS_ERR(ft->t)) {
+	mlx5_en_warn(priv->ifp, "WEEEE 111 2\n");
 		err = PTR_ERR(ft->t);
 		ft->t = NULL;
 		return (err);
 	}
+	mlx5_en_warn(priv->ifp, "WEEEE 3 2\n");
 	ft->g = kcalloc(MLX5E_NUM_MAIN_GROUPS, sizeof(*ft->g), GFP_KERNEL);
 	if (!ft->g) {
 		err = -ENOMEM;
 		goto err_destroy_main_flow_table;
 	}
 
+	mlx5_en_warn(priv->ifp, "WEEEE 4 2\n");
 	err = inner_vxlan ? mlx5e_create_main_vxlan_groups(ft) :
 	    mlx5e_create_main_groups(ft);
+	mlx5_en_warn(priv->ifp, "WEEEE 5 2 %d\n", err);
 	if (err)
 		goto err_free_g;
 	return (0);
@@ -1639,21 +1645,28 @@ mlx5e_create_vlan_groups(struct mlx5e_flow_table *ft)
 	return (err);
 }
 
+#include <dev/mlx5/mlx5_core/fs_core.h>
+
 static int
 mlx5e_create_vlan_flow_table(struct mlx5e_priv *priv)
 {
 	struct mlx5e_flow_table *ft = &priv->fts.vlan;
 	int err;
 
+	mlx5_en_warn(priv->ifp, "WEEEE 1 1\n");
 	ft->num_groups = 0;
+	mlx5_en_warn(priv->ifp, "WEEEE 2 1 %p\n", priv->fts.ns);
+	mlx5_en_warn(priv->ifp, "WEEEE 2 1 %p\n", &(priv->fts.ns->base));
 	ft->t = mlx5_create_flow_table(priv->fts.ns, 0, "vlan",
 				       MLX5E_VLAN_TABLE_SIZE);
 
+	mlx5_en_warn(priv->ifp, "WEEEE 3 1\n");
 	if (IS_ERR(ft->t)) {
 		err = PTR_ERR(ft->t);
 		ft->t = NULL;
 		return (err);
 	}
+	mlx5_en_warn(priv->ifp, "WEEEE 4 1\n");
 	ft->g = kcalloc(MLX5E_NUM_VLAN_GROUPS, sizeof(*ft->g), GFP_KERNEL);
 	if (!ft->g) {
 		err = -ENOMEM;
@@ -2189,39 +2202,110 @@ mlx5e_destroy_vxlan_flow_table(struct mlx5e_priv *priv)
 	mlx5e_destroy_flow_table(&priv->fts.vxlan);
 }
 
+
+static
+bool mlx5_eth_supported(struct mlx5e_priv *priv)
+{
+	// if (!IS_ENABLED(CONFIG_MLX5_CORE_EN))
+	// 	return false;
+
+	// if (MLX5_CAP_GEN(priv->mdev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
+	// 	return false;
+
+	// if (!MLX5_CAP_GEN(priv->mdev, eth_net_offloads)) {
+	// 	mlx5_en_warn(priv->ifp,  "Missing eth_net_offloads capability\n");
+	// 	return false;
+	// }
+
+	if (!MLX5_CAP_GEN(priv->mdev, nic_flow_table)) {
+		mlx5_en_warn(priv->ifp,  "Missing nic_flow_table capability\n");
+		return false;
+	}
+
+	// if (!MLX5_CAP_ETH(priv->mdev, csum_cap)) {
+	// 	mlx5_en_warn(priv->ifp,  "Missing csum_cap capability\n");
+	// 	return false;
+	// }
+
+	// if (!MLX5_CAP_ETH(priv->mdev, max_lso_cap)) {
+	// 	mlx5_en_warn(priv->ifp,  "Missing max_lso_cap capability\n");
+	// 	return false;
+	// }
+
+	// if (!MLX5_CAP_ETH(priv->mdev, vlan_cap)) {
+	// 	mlx5_en_warn(priv->ifp,  "Missing vlan_cap capability\n");
+	// 	return false;
+	// }
+
+	// if (!MLX5_CAP_ETH(priv->mdev, rss_ind_tbl_cap)) {
+	// 	mlx5_en_warn(priv->ifp,  "Missing rss_ind_tbl_cap capability\n");
+	// 	return false;
+	// }
+
+	if (MLX5_CAP_FLOWTABLE(priv->mdev,
+			       flow_table_properties_nic_receive.max_ft_level) < 3) {
+		mlx5_en_warn(priv->ifp,  "max_ft_level < 3\n");
+		return false;
+	}
+
+	// if (!MLX5_CAP_ETH(priv->mdev, self_lb_en_modifiable))
+	// 	mlx5_en_warn(priv->ifp,  "Self loop back prevention is not supported\n");
+	// if (!MLX5_CAP_GEN(priv->mdev, cq_moderation))
+	// 	mlx5_en_warn(priv->ifp,  "CQ moderation is not supported\n");
+
+	mlx5_en_warn(priv->ifp,  "All ok\n");
+	return true;
+}
+
 int
 mlx5e_open_flow_tables(struct mlx5e_priv *priv)
 {
 	int err;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables dev: %p\n", priv->mdev);
+	mlx5_eth_supported(priv);
+	mlx5_en_warn(priv->ifp, "%p %p %p\n", priv, priv->ifp, priv->mdev);
 	/* setup namespace pointer */
 	priv->fts.ns = mlx5_get_flow_namespace(
 	    priv->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
 
+	if (priv->fts.ns == NULL)
+	{
+		mlx5_en_err(priv->ifp, "Failed to allocate NS\n");
+		// mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 1 %p\n", priv->fts.ns);
+		return 1;
+	}
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 1 %p\n", priv->fts.ns);
 	err = mlx5e_create_vlan_flow_table(priv);
 	if (err)
 		return (err);
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 2\n");
 	err = mlx5e_create_vxlan_flow_table(priv);
 	if (err)
 		goto err_destroy_vlan_flow_table;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 3\n");
 	err = mlx5e_create_main_flow_table(priv, true);
 	if (err)
 		goto err_destroy_vxlan_flow_table;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 4\n");
 	err = mlx5e_create_inner_rss_flow_table(priv);
 	if (err)
 		goto err_destroy_main_flow_table_true;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 5\n");
 	err = mlx5e_create_main_flow_table(priv, false);
 	if (err)
 		goto err_destroy_inner_rss_flow_table;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 6\n");
 	err = mlx5e_add_vxlan_catchall_rule(priv);
 	if (err)
 		goto err_destroy_main_flow_table_false;
 
+	mlx5_en_warn(priv->ifp, "WEEEE mlx5e_open_flow_tables 7\n");
 	err = mlx5e_accel_fs_tcp_create(priv);
 	if (err)
 		goto err_del_vxlan_catchall_rule;

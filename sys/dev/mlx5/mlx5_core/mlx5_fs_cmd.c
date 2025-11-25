@@ -45,12 +45,55 @@ int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
 	if (!dev)
 		return -EINVAL;
 
-	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
 	MLX5_SET(set_flow_table_root_in, in, opcode,
 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
 	MLX5_SET(set_flow_table_root_in, in, table_type, type);
+
+	// if (disconnect)
+	// 	MLX5_SET(set_flow_table_root_in, in, op_mod, 1);
+	// else
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
 
+	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
+	// MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
+	// MLX5_SET(set_flow_table_root_in, in, other_vport,
+	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
+
+	// MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
+	// MLX5_SET(set_flow_table_root_in, in, other_vport,
+	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
+
+	// err = mlx5_cmd_exec_in(dev, set_flow_table_root_in, in);
+	// if (!err &&
+	//     ft->type == FS_FT_FDB &&
+	//     mlx5_lag_is_shared_fdb(dev) &&
+	//     mlx5_lag_is_master(dev)) {
+	// 	struct mlx5_core_dev *peer_dev;
+	// 	int i, j;
+
+	// 	mlx5_lag_for_each_peer_mdev(dev, peer_dev, i) {
+	// 		err = mlx5_cmd_set_slave_root_fdb(dev, peer_dev, !disconnect, id);
+	// 		if (err) {
+	// 			mlx5_lag_for_each_peer_mdev(dev, peer_dev, j) {
+	// 				if (j < i)
+	// 					mlx5_cmd_set_slave_root_fdb(dev, peer_dev, 1,
+	// 								    ns->root_ft->id);
+	// 				else
+	// 					break;
+	// 			}
+
+	// 			MLX5_SET(set_flow_table_root_in, in, op_mod, 0);
+	// 			MLX5_SET(set_flow_table_root_in, in, table_id,
+	// 				 ns->root_ft->id);
+	// 			mlx5_cmd_exec_in(dev, set_flow_table_root, in);
+	// 		}
+	// 		if (err)
+	// 			break;
+	// 	}
+
+	// }
+
+	// return err;
 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 }
 

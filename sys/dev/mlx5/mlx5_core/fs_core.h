@@ -91,6 +91,7 @@ struct fs_star_rule {
 };
 
 struct mlx5_flow_table {
+	u32 underlay_qpn;
 	struct fs_base			base;
 	/* sorted list by start_index */
 	struct list_head		fgs;

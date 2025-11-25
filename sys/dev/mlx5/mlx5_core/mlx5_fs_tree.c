@@ -529,12 +529,14 @@ static int create_star_rule(struct mlx5_flow_table *ft, struct fs_prio *prio)
 	int fg_inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
 	int match_len = MLX5_ST_SZ_BYTES(fte_match_param);
 
+	mlx5_core_warn(root->dev, "create_star_rule 1\n");
 	fg_in = mlx5_vzalloc(fg_inlen);
 	if (!fg_in) {
 		mlx5_core_warn(root->dev, "failed to allocate inbox\n");
 		return -ENOMEM;
 	}
 
+	mlx5_core_warn(root->dev, "create_star_rule 2\n");
 	match_value = mlx5_vzalloc(match_len);
 	if (!match_value) {
 		mlx5_core_warn(root->dev, "failed to allocate inbox\n");
@@ -542,13 +544,16 @@ static int create_star_rule(struct mlx5_flow_table *ft, struct fs_prio *prio)
 		return -ENOMEM;
 	}
 
+	mlx5_core_warn(root->dev, "create_star_rule 3\n");
 	MLX5_SET(create_flow_group_in, fg_in, start_flow_index, ft->max_fte);
 	MLX5_SET(create_flow_group_in, fg_in, end_flow_index, ft->max_fte);
 	fg = fs_alloc_fg(fg_in);
+	mlx5_core_warn(root->dev, "create_star_rule 4 %d\n", IS_ERR(fg));
 	if (IS_ERR(fg)) {
 		err = PTR_ERR(fg);
 		goto out;
 	}
+	mlx5_core_warn(root->dev, "create_star_rule 5\n");
 	ft->star_rule.fg = fg;
 	err =  mlx5_cmd_fs_create_fg(fs_get_dev(&prio->base),
 				     fg_in, ft->vport, ft->type,
@@ -557,12 +562,14 @@ static int create_star_rule(struct mlx5_flow_table *ft, struct fs_prio *prio)
 	if (err)
 		goto free_fg;
 
+	mlx5_core_warn(root->dev, "create_star_rule 6\n");
 	ft->star_rule.fte = alloc_star_ft_entry(ft, fg,
 						      match_value,
 						      ft->max_fte);
 	if (IS_ERR(ft->star_rule.fte))
 		goto free_star_rule;
 
+	mlx5_core_warn(root->dev, "create_star_rule 7\n");
 	mutex_lock(&root->fs_chain_lock);
 	next_ft = find_next_ft(prio);
 	err = fs_set_star_rule(root->dev, ft, next_ft);
@@ -570,16 +577,19 @@ static int create_star_rule(struct mlx5_flow_table *ft, struct fs_prio *prio)
 		mutex_unlock(&root->fs_chain_lock);
 		goto free_star_rule;
 	}
+	mlx5_core_warn(root->dev, "create_star_rule 8\n");
 	if (next_ft) {
 		struct fs_prio *parent;
 
 		fs_get_parent(parent, next_ft);
 		fs_put(&next_ft->base);
 	}
+	mlx5_core_warn(root->dev, "create_star_rule 9\n");
 	prev_ft = find_prev_ft(ft, prio);
 	if (prev_ft) {
 		struct fs_prio *prev_parent;
 
+		mlx5_core_warn(root->dev, "create_star_rule 10\n");
 		fs_get_parent(prev_parent, prev_ft);
 
 		err = connect_prev_fts(NULL, prev_parent, ft);
@@ -589,6 +599,7 @@ static int create_star_rule(struct mlx5_flow_table *ft, struct fs_prio *prio)
 		}
 		fs_put(&prev_ft->base);
 	}
+	mlx5_core_warn(root->dev, "create_star_rule 11\n");
 	mutex_unlock(&root->fs_chain_lock);
 	kvfree(fg_in);
 	kvfree(match_value);
@@ -786,8 +797,12 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	int log_table_sz;
 	int ft_size;
 	char gen_name[20];
-	struct mlx5_flow_root_namespace *root = find_root(&ns->base);
 	struct mlx5_core_dev *dev = fs_get_dev(&ns->base);
+	mlx5_core_warn(dev, "RAAAAH ft 1 %p \n", ns);
+	// mlx5_core_warn(dev, "RAAAAH ft 2 %p \n", ns->base);
+	struct mlx5_flow_root_namespace *root = find_root(&ns->base);
+
+	mlx5_core_warn(dev, "RAAAAH ft 3\n");
 
 	if (!root) {
 		mlx5_core_err(dev,
@@ -795,16 +810,19 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 		    ns->base.name);
 		return ERR_PTR(-ENODEV);
 	}
+	mlx5_core_warn(dev, "RAAAAH ft 4\n");
 
 	if (fs_prio->num_ft == fs_prio->max_ft)
 		return ERR_PTR(-ENOSPC);
 
+	mlx5_core_warn(dev, "RAAAAH ft 5\n");
 	ft  = kzalloc(sizeof(*ft), GFP_KERNEL);
 	if (!ft)
 		return ERR_PTR(-ENOMEM);
 
 	fs_init_node(&ft->base, 1);
 	INIT_LIST_HEAD(&ft->fgs);
+	mlx5_core_warn(dev, "RAAAAH ft 6\n");
 
 	/* Temporarily WA until we expose the level set in the API */
 	if (root->table_type == FS_FT_ESW_EGRESS_ACL ||
@@ -812,6 +830,7 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 		ft->level = 0;
 	else
 		ft->level = alloc_new_level(fs_prio);
+	mlx5_core_warn(dev, "RAAAAH ft 7\n");
 
 	ft->base.type = FS_TYPE_FLOW_TABLE;
 	ft->vport = vport;
@@ -821,28 +840,35 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	/*User isn't aware to those rules*/
 	ft->max_fte = ft_size - 2;
 	log_table_sz = ilog2(ft_size);
+	mlx5_core_warn(dev, "RAAAAH ft 8\n");
 
 	if (name == NULL || name[0] == '\0') {
 		snprintf(gen_name, sizeof(gen_name), "flow_table_%u", ft->id);
 		name = gen_name;
 	}
+	mlx5_core_warn(dev, "RAAAAH ft 9\n");
 
 	err = mlx5_cmd_fs_create_ft(root->dev, ft->vport, ft->type,
 				    ft->level, log_table_sz, name, &ft->id);
 	if (err)
 		goto free_ft;
 
+	mlx5_core_warn(dev, "RAAAAH ft 10\n");
 	err = create_star_rule(ft, fs_prio);
 	if (err)
 		goto del_ft;
 
-	if ((root->table_type == FS_FT_NIC_RX) && MLX5_CAP_FLOWTABLE(root->dev,
-			       flow_table_properties_nic_receive.modify_root)) {
+	mlx5_core_warn(dev, "RAAAAH ft 11\n");
+	// if ((root->table_type == FS_FT_NIC_RX) && MLX5_CAP_FLOWTABLE(root->dev,
+	// 		       flow_table_properties_nic_receive.modify_root)) {
+	if ((root->table_type == FS_FT_NIC_RX)){
 		err = update_root_ft_create(root, ft);
 		if (err)
 			goto destroy_star_rule;
+	// }
 	}
 
+	mlx5_core_warn(dev, "RAAAAH ft 12\n");
 	_fs_add_node(&ft->base, name, &fs_prio->base);
 
 	list_add_tail(&ft->base.list, &fs_prio->objs);
@@ -1971,10 +1997,12 @@ static struct fs_prio *fs_create_prio(struct mlx5_flow_namespace *ns,
 {
 	struct fs_prio *fs_prio;
 
+	printk_once("fs_prio = kzalloc\n");
 	fs_prio = kzalloc(sizeof(*fs_prio), GFP_KERNEL);
 	if (!fs_prio)
 		return ERR_PTR(-ENOMEM);
 
+	printk_once("fs_prio = kzalloc 1\n");
 	fs_prio->base.type = FS_TYPE_PRIO;
 	fs_add_node(&fs_prio->base, &ns->base, name, 1);
 	fs_prio->max_ft = max_ft;
@@ -2101,6 +2129,8 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_core_dev *dev
 
 	return root_ns;
 err:
+	printk_once("create_root_ns error\n");
+
 	return NULL;
 }
 
@@ -2110,13 +2140,18 @@ static int init_fdb_root_ns(struct mlx5_core_dev *dev)
 
 	dev->fdb_root_ns = create_root_ns(dev, FS_FT_FDB,
 					  MLX5_CORE_FS_FDB_ROOT_NS_NAME);
+	printk_once("dev->fdb_root_ns %p\n", dev->fdb_root_ns);
 	if (!dev->fdb_root_ns)
 		return -ENOMEM;
 
+	printk_once("fs_create_prio\n");
 	/* create 1 prio*/
 	prio = fs_create_prio(&dev->fdb_root_ns->ns, 0, 1, "fdb_prio", 0);
 	if (IS_ERR(prio))
+	{
+		printk_once("fs_create_prio error\n");
 		return PTR_ERR(prio);
+	}
 	else
 		return 0;
 }
@@ -2342,8 +2377,10 @@ static int init_root_ns(struct mlx5_core_dev *dev)
 					      flow_table_properties_nic_receive.
 					      max_ft_level);
 
+	printk_once("init_root_ns\n");
 	dev->root_ns = create_root_ns(dev, FS_FT_NIC_RX,
 				      MLX5_CORE_FS_ROOT_NS_NAME);
+	printk_once("IS_ERR_OR_NULL(dev->root_ns) %d %p %p\n", IS_ERR_OR_NULL(dev->root_ns), dev->root_ns, dev);
 	if (IS_ERR_OR_NULL(dev->root_ns))
 		goto err;
 
@@ -2404,11 +2441,19 @@ void mlx5_get_match_criteria(u32 *match_criteria,
 int mlx5_init_fs(struct mlx5_core_dev *dev)
 {
 	int err;
+	printk_once("mlx5_init_fs dev: %p\n", dev);
 
-	if (MLX5_CAP_GEN(dev, nic_flow_table)) {
+	if ((((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) &&
+	      (MLX5_CAP_GEN(dev, nic_flow_table))) ||
+	     ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
+	      MLX5_CAP_GEN(dev, ipoib_enhanced_offloads))) &&
+	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)){
+	// if (MLX5_CAP_GEN(dev, nic_flow_table)) {
 		err = init_root_ns(dev);
 		if (err)
 			goto err;
+	}else{
+		printk_once("MLX5_CAP_GEN(dev, nic_flow_table) %d\n", MLX5_CAP_GEN(dev, nic_flow_table));
 	}
 
 	err = init_fdb_root_ns(dev);
@@ -2444,6 +2489,7 @@ err:
 struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
 						  enum mlx5_flow_namespace_type type)
 {
+	mlx5_core_warn(dev, "mlx5_get_flow_namespace root_ns %p %p %d\n", dev, dev->root_ns, type);
 	struct mlx5_flow_root_namespace *root_ns = dev->root_ns;
 	int prio;
 	static struct fs_prio *fs_prio;
@@ -2495,6 +2541,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
 		return NULL;
 
 	fs_prio = find_prio(&root_ns->ns, prio);
+	mlx5_core_warn(dev, "mlx5_get_flow_namespace fs_prio %p\n", fs_prio);
 	if (!fs_prio)
 		return NULL;
 
@@ -2502,6 +2549,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
 			      typeof(*ns),
 			      base.list);
 
+	mlx5_core_warn(dev, "mlx5_get_flow_namespace ns\n");
 	return ns;
 }
 EXPORT_SYMBOL(mlx5_get_flow_namespace);

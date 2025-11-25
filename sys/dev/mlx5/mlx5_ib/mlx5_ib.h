@@ -755,7 +755,6 @@ struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
 	struct mlx5e_priv* priv;
 	u32 qpn;
-	u32 magic;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
