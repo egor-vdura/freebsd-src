@@ -3307,6 +3307,13 @@ struct ib_cq *__ib_alloc_cq_user(struct ib_device *dev, void *private,
  * @poll_ctx: Context used for polling the CQ
  * @udata: Valid user data or NULL for kernel objects
  */
+#ifdef VDURA_CHANGES
+#define ib_alloc_cq_user(dev, private, nr_cqe, comp_vector, poll_ctx, udata) \
+( \
+  printf("ib_alloc_cq_user: file %s, Line: %d\n", __FILE__, __LINE__), \
+  __ib_alloc_cq_user(dev, private, nr_cqe, comp_vector, poll_ctx, "ibcore", udata) \
+)
+#else
 static inline struct ib_cq *ib_alloc_cq_user(struct ib_device *dev,
 					     void *private, int nr_cqe,
 					     int comp_vector,
@@ -3316,6 +3323,7 @@ static inline struct ib_cq *ib_alloc_cq_user(struct ib_device *dev,
 	return __ib_alloc_cq_user(dev, private, nr_cqe, comp_vector, poll_ctx,
 				  "ibcore", udata);
 }
+#endif
 
 /**
  * ib_alloc_cq: Allocate kernel CQ
@@ -3327,6 +3335,13 @@ static inline struct ib_cq *ib_alloc_cq_user(struct ib_device *dev,
  *
  * NOTE: for user cq use ib_alloc_cq_user with valid udata!
  */
+#ifdef VDURA_CHANGES
+#define ib_alloc_cq(dev, private, nr_cqe, comp_vector, poll_ctx) \
+( \
+  printf("ib_alloc_cq_user: file %s, Line: %d\n", __FILE__, __LINE__), \
+  ib_alloc_cq_user(dev, private, nr_cqe, comp_vector, poll_ctx, NULL) \
+)
+#else
 static inline struct ib_cq *ib_alloc_cq(struct ib_device *dev, void *private,
 					int nr_cqe, int comp_vector,
 					enum ib_poll_context poll_ctx)
@@ -3334,6 +3349,7 @@ static inline struct ib_cq *ib_alloc_cq(struct ib_device *dev, void *private,
 	return ib_alloc_cq_user(dev, private, nr_cqe, comp_vector, poll_ctx,
 				NULL);
 }
+#endif
 
 /**
  * ib_free_cq_user - Free kernel/user CQ

@@ -931,6 +931,7 @@ int mlx5_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	int eqn;
 	int err;
 
+  printf(">> mlx5_ib_create_cq, vector %d\n", vector);
 	if (entries < 0 ||
 	    (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz))))
 		return -EINVAL;
@@ -999,6 +1000,7 @@ int mlx5_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		}
 
 
+  printf("<< mlx5_ib_create_cq\n");
 	kvfree(cqb);
 	return 0;
 

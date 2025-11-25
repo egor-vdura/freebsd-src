@@ -525,7 +525,11 @@ struct mlx5_core_health {
 	struct workqueue_struct	       *wq_cmd;
 };
 
+#ifdef VDURA_CHANGES
+#define	MLX5_CQ_LINEAR_ARRAY_SIZE	8096
+#else
 #define	MLX5_CQ_LINEAR_ARRAY_SIZE	1024
+#endif
 
 struct mlx5_cq_linear_array_entry {
 	struct mlx5_core_cq * volatile cq;
@@ -1107,6 +1111,10 @@ int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
 		       u32 *out, int outlen);
+#ifdef VDURA_CHANGES
+int mlx5_core_eq_query_by_num(struct mlx5_core_dev *dev, u8 eqn,
+		       u32 *out, int outlen);
+#endif
 int mlx5_eq_debugfs_init(struct mlx5_core_dev *dev);
 void mlx5_eq_debugfs_cleanup(struct mlx5_core_dev *dev);
 int mlx5_cq_debugfs_init(struct mlx5_core_dev *dev);
