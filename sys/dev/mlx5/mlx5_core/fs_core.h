@@ -42,11 +42,20 @@ enum fs_type {
 
 enum fs_ft_type {
 	FS_FT_NIC_RX          = 0x0,
+	FS_FT_NIC_TX          = 0x1,
 	FS_FT_ESW_EGRESS_ACL  = 0x2,
 	FS_FT_ESW_INGRESS_ACL = 0x3,
 	FS_FT_FDB             = 0X4,
-	FS_FT_SNIFFER_RX      = 0x5,
-	FS_FT_SNIFFER_TX      = 0x6
+	FS_FT_SNIFFER_RX	= 0X5,
+	FS_FT_SNIFFER_TX	= 0X6,
+	FS_FT_RDMA_RX		= 0X7,
+	FS_FT_RDMA_TX		= 0X8,
+	FS_FT_PORT_SEL		= 0X9,
+	FS_FT_FDB_RX		= 0xa,
+	FS_FT_FDB_TX		= 0xb,
+	FS_FT_RDMA_TRANSPORT_RX	= 0xd,
+	FS_FT_RDMA_TRANSPORT_TX	= 0xe,
+	FS_FT_MAX_TYPE = FS_FT_RDMA_TRANSPORT_TX,
 };
 
 enum fs_fte_status {
@@ -120,6 +129,8 @@ struct fs_prio {
 	struct list_head		objs; /* each object is a namespace or ft */
 	unsigned int			max_ft;
 	unsigned int			num_ft;
+	unsigned int			start_level;
+	unsigned int			num_levels;
 	unsigned int			max_ns;
 	unsigned int			prio;
 	/*When create shared flow table, this lock should be taken*/
@@ -127,9 +138,16 @@ struct fs_prio {
 	u8				flags;
 };
 
+enum mlx5_flow_table_miss_action {
+	MLX5_FLOW_TABLE_MISS_ACTION_DEF,
+	MLX5_FLOW_TABLE_MISS_ACTION_FWD,
+	MLX5_FLOW_TABLE_MISS_ACTION_SWITCH_DOMAIN,
+};
+
 struct mlx5_flow_namespace {
 	/* parent == NULL => root ns */
 	struct	fs_base			base;
+	enum mlx5_flow_table_miss_action def_miss_action;
 	/* sorted by priority number */
 	struct	list_head		prios; /* list of fs_prios */
 	struct  list_head		list_notifiers;
