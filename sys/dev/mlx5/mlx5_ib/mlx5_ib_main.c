@@ -3479,26 +3479,28 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 		goto err_clear_state_opened_flag;
 	}
 
-	err = mlx5_fs_add_rx_underlay_qpn(dev);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
-		goto err_reset_qp;
-	}
+	// err = mlx5_fs_add_rx_underlay_qpn(dev);
+	// if (err) {
+	// 	mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
+	// 	goto err_reset_qp;
+	// }
 
-	err = mlx5e_open_channels(epriv);
-	if (err)
-	{
-		mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
-		goto err_remove_fs_underlay_qp;
-	}
+	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
+	// err = mlx5e_open_channels(epriv);
+	// if (err)
+	// {
+	// 	mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
+	// 	goto err_remove_fs_underlay_qp;
+	// }
 
-	err = mlx5e_activate_rqt(epriv);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
-		// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
-		goto err_close_channels;
-	}
-// 	err = epriv->profile->update_rx(epriv);
+	// err = mlx5e_activate_rqt(epriv);
+	// if (err) {
+	// 	mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
+	// 	// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
+	// 	goto err_close_channels;
+	// }
+
+	// 	err = epriv->profile->update_rx(epriv);
 // 	if (err)
 // 		goto err_close_channels;
 
@@ -3507,9 +3509,9 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 	PRIV_UNLOCK(epriv);
 	return 0;
 
-err_close_channels:
+// err_close_channels:
 // 	mlx5e_close_channels(&epriv->channels);
-err_remove_fs_underlay_qp:
+// err_remove_fs_underlay_qp:
 	// mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qpn);
 err_reset_qp:
 	mlx5i_uninit_underlay_qp(dev);
@@ -4185,6 +4187,7 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 	ttc->t = mlx5_create_flow_table(ns, params->ft_attr.prio, "ipoibtable", params->ft_attr.level);
 	// ttc_params->ns_type = MLX5_FLOW_NAMESPACE_KERNEL;
 	if (IS_ERR(ttc->t)) {
+		mlx5_core_warn(dev, "mlx5_create_inner_ttc_table mlx5_create_flow_table failure\n");
 		err = PTR_ERR(ttc->t);
 		kvfree(ttc);
 		return ERR_PTR(err);
@@ -4192,11 +4195,17 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 
 	err = mlx5_create_inner_ttc_table_groups(ttc, groups);
 	if (err)
+	{
+		mlx5_core_warn(dev, "mlx5_create_inner_ttc_table mlx5_create_inner_ttc_table_groups failure\n");
 		goto destroy_ft;
+	}
 
 	err = mlx5_generate_inner_ttc_table_rules(dev, params, ttc, use_l4_type);
 	if (err)
+	{
+		mlx5_core_warn(dev, "mlx5_create_inner_ttc_table mlx5_generate_inner_ttc_table_rules failure\n");
 		goto destroy_ft;
+	}
 
 	return ttc;
 
@@ -4754,7 +4763,7 @@ void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
 
 	mlx5_ib_set_en(ib_dev, ipoib_if);
 	mlx5i_create_underlay_qp(ib_dev);
-	/* move to if if access to dev can be performed */
+	// /* move to if if access to dev can be performed */
 	ipoib_if_open(ib_dev);
 }
 
