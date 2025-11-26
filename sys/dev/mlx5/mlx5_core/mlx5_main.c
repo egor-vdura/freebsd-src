@@ -1082,7 +1082,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
 	int err;
 
 	mutex_lock(&dev->intf_state_mutex);
-	printk_once("mlx5_load_one");
 	if (test_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state)) {
 		mlx5_core_warn(dev, "interface is up, NOP\n");
 		goto out;
@@ -1219,7 +1218,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
 		goto err_stop_eqs;
 	}
 
-	printk_once("mlx5_init_fs\n");
 	err = mlx5_init_fs(dev);
 	if (err) {
 		mlx5_core_err(dev, "flow steering init %d\n", err);
@@ -1426,7 +1424,7 @@ static int init_one(struct pci_dev *pdev,
 	struct sysctl_oid *current_cap_sysctl_node;
 	struct sysctl_oid *max_cap_sysctl_node;
 
-	printk_once("mlx5A: %s", mlx5_version);
+	printk_once("mlx5: %s", mlx5_version);
 
 	numa_node = dev_to_node(&pdev->dev);
 

@@ -36,11 +36,11 @@
 #include <dev/mlx5/mlx5_core/mlx5_core.h>
 
 int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
-			    enum fs_ft_type type, u32 underlay_qpn,
-			    unsigned int id)
+			    enum fs_ft_type type, u32 _underlay_qpn,
+			    unsigned int id, u16 vport)
 {
 	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)] = {0};
-	u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)] = {0};
+	// u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)] = {0};
 
 	if (!dev)
 		return -EINVAL;
@@ -54,10 +54,12 @@ int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
 	// else
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
 
-	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
-	// MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
+	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, _underlay_qpn);
+	MLX5_SET(set_flow_table_root_in, in, vport_number, vport);
 	// MLX5_SET(set_flow_table_root_in, in, other_vport,
 	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
+
+	return mlx5_cmd_exec_in(dev, set_flow_table_root, in);
 
 	// MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
 	// MLX5_SET(set_flow_table_root_in, in, other_vport,
@@ -94,7 +96,7 @@ int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
 	// }
 
 	// return err;
-	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+	// return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 }
 
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,

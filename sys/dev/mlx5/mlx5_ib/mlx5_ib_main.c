@@ -2153,7 +2153,10 @@ static struct mlx5_ib_flow_prio *get_flow_table(struct mlx5_ib_dev *dev,
 	}
 
 	if (!ns)
+	{
+		printk(KERN_WARNING "get_flow_table mlx5_get_flow_namespace failure\n");
 		return ERR_PTR(-ENOTSUPP);
+	}
 
 	ft = prio->flow_table;
 	if (!ft) {
@@ -3424,14 +3427,15 @@ err_qp_modify_to_err:
 #include <dev/mlx5/fs.h>
 #include <dev/mlx5/mlx5_core/fs_core.h>
 
-int mlx5_fs_add_rx_underlay_qpn(struct mlx5_core_dev *dev, u32 underlay_qpn)
+static
+int mlx5_fs_add_rx_underlay_qpn(struct mlx5_ib_dev *dev)
 {
 	int err = 0;
 
-	err = mlx5_cmd_update_root_ft_uqp(dev, FS_FT_NIC_RX, underlay_qpn, false);
+	err = mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, dev->inner_ttc->t->id, dev->inner_ttc->t->vport);
 	if (err) {
-		mlx5_core_warn(dev, "Failed adding underlay QPN (%u) to root FT err(%d)\n",
-			       underlay_qpn, err);
+		mlx5_ib_warn(dev, "Failed adding underlay QPN (%u) to root FT err(%d)\n",
+			       dev->qpn, err);
 		goto update_ft_fail;
 	}
 
@@ -3462,22 +3466,26 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 
 	err = mlx5i_init_underlay_qp(dev);
 	if (err) {
-		// mlx5_core_warn(mdev, "prepare underlay qp state failed, %d\n", err);
+		mlx5_ib_warn(dev, "mlx5i_init_underlay_qp failed, %d\n", err);
 		goto err_clear_state_opened_flag;
 	}
 
-	err = mlx5_fs_add_rx_underlay_qpn(dev->mdev, dev->qpn);
+	err = mlx5_fs_add_rx_underlay_qpn(dev);
 	if (err) {
-// 		mlx5_core_warn(mdev, "attach underlay qp to ft failed, %d\n", err);
+		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
 		goto err_reset_qp;
 	}
 
 	err = mlx5e_open_channels(epriv);
 	if (err)
+	{
+		mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
 		goto err_remove_fs_underlay_qp;
+	}
 
 	err = mlx5e_activate_rqt(epriv);
 	if (err) {
+		mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
 		// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
 		goto err_close_channels;
 	}
@@ -3539,8 +3547,8 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	return 0;
 }
 
-// #include "en/fs.h"
-#include <dev/mlx5/fs.h>
+#include <dev/mlx5/mlx5_en/en.h>
+#include <dev/mlx5/mlx5_ifc.h>
 
 #define MLX5_CAP_PORT_SELECTION(mdev, cap) \
 	MLX5_GET(port_selection_cap, \
@@ -3552,43 +3560,7 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 #define MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(mdev, cap) \
 		MLX5_CAP_FLOWTABLE(mdev, ft_field_support_2_nic_receive.cap)
 
-#define MLX5E_TTC_MAX_NUM_GROUPS		7
-#define MLX5E_TTC_GROUP_TCPUDP_SIZE	(MLX5E_TT_IPV6_UDP + 1)
-struct mlx5_fs_ttc_groups {
-	bool use_l4_type;
-	int num_groups;
-	int group_size[MLX5E_TTC_MAX_NUM_GROUPS];
-};
 
-#include <dev/mlx5/mlx5_en/en.h>
-#include <dev/mlx5/mlx5_ifc.h>
-
-enum mlx5_tunnel_types {
-	MLX5E_TT_IPV4_GRE,
-	MLX5E_TT_IPV6_GRE,
-	MLX5E_TT_IPV4_IPIP,
-	MLX5E_TT_IPV6_IPIP,
-	MLX5E_TT_IPV4_IPV6,
-	MLX5E_TT_IPV6_IPV6,
-	MLX5E_NUM_TUNNEL_TT,
-};
-
-struct mlx5_ttc_rule {
-	struct mlx5_flow_rule *rule;
-	struct mlx5_flow_destination default_dest;
-};
-
-struct mlx5_ttc_table {
-	int num_groups;
-	const struct mlx5_fs_ttc_groups *groups;
-	struct mlx5_core_dev *mdev;
-	struct mlx5_flow_table *t;
-	struct mlx5_flow_group **g;
-	struct mlx5_ttc_rule rules[MLX5E_NUM_TT];
-	struct mlx5_flow_handle *tunnel_rules[MLX5E_NUM_TUNNEL_TT];
-	u32 refcnt;
-	struct mutex mutex; /* Protect adding rules for ipsec crypto offload */
-};
 
 enum fs_node_type {
 	FS_NODE_TYPE_NAMESPACE,
@@ -4172,10 +4144,10 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 	// 	use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
 	// 		MLX5_CAP_PORT_SELECTION_FT_FIELD_SUPPORT_2(dev, inner_l4_type);
 	// 	break;
-	// case MLX5_FLOW_NAMESPACE_KERNEL:
-	// 	use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
-	// 		MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(dev, inner_l4_type);
-	// 	break;
+	case MLX5_FLOW_NAMESPACE_KERNEL:
+		use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
+			MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(dev, inner_l4_type);
+		break;
 	default:
 		return ERR_PTR(-EINVAL);
 	}
@@ -4186,6 +4158,7 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 
 	ns = mlx5_get_flow_namespace(dev, params->ns_type);
 	if (!ns) {
+		printk(KERN_WARNING "mlx5_create_inner_ttc_table mlx5_get_flow_namespace failure\n");
 		kvfree(ttc);
 		return ERR_PTR(-EOPNOTSUPP);
 	}
@@ -4358,61 +4331,13 @@ static void mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 
 	struct ttc_params ttc_params = {};
 	mlx5e_set_inner_ttc_params(dev->priv, &ttc_params);
-	struct mlx5_ttc_table *inner_ttc;
-	inner_ttc = mlx5_create_inner_ttc_table(mdev, &ttc_params);
-	(void)inner_ttc;
+	dev->inner_ttc = mlx5_create_inner_ttc_table(mdev, &ttc_params);
+	if (err) {
+		mlx5_core_err(mdev, "mlx5_create_inner_ttc_table failed %d\n", err);
+		goto err_open_rqts;
+	}
+	mlx5_core_warn(mdev, "mlx5_ib_set_en success!!\n");
 	(void)ttc_rules;
-
-	// struct mlx5_flow_namespace *ns;
-	// // struct mlx5_ttc_table *ttc;
-	// // struct mlx5_ttc_table *inner_ttc;
-	// // struct mlx5_flow_spec *spec;
-	// struct mlx5_flow_table* ft;
-
-	// spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-	// if (!spec){
-	// 	mlx5_core_err(mdev, "ttc mem ded\n");
-	// 	return;
-	// }
-
-	// ns = mlx5_get_flow_namespace(mdev, MLX5_FLOW_NAMESPACE_KERNEL);
-	// if (!ns) {
-	// 	mlx5_core_err(mdev, "mlx5_get_flow_namespace ded\n");
-	// 	kvfree(spec);
-	// 	return;
-	// }
-	// bool use_l4_type;
-	// /* NS type is MLX5_FLOW_NAMESPACE_KERNEL */
-	// use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
-	// 	MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(dev, outer_l4_type);
-
-	// struct ttc_params ttc_params = {};
-	// mlx5e_set_ttc_params(fs, rx_res, &ttc_params, true, true);
-
-	// ttc->groups = mlx5_ttc_get_fs_groups(use_l4_type, params->ipsec_rss);
-
-	// ft = mlx5_create_flow_table(ns,
-	// 				       MLX5E_NIC_PRIO,
-	// 				       "ipoib_flow_table",
-	// 					   2 * MLX5E_NUM_TT);
-	// if (IS_ERR(ft)) {
-	// 	err = PTR_ERR(ft);
-	// 	return ERR_PTR(err);
-	// }
-	// err = mlx5_create_inner_ttc_table_groups(ft);
-	// if (err)
-	// 	goto destroy_ft;
-
-	// err = mlx5_generate_inner_ttc_table_rules(dev, params, ttc, use_l4_type);
-	// if (err)
-	// 	goto destroy_ft;
-	//    mlx5_fs_ttc_table_size(ttc->groups));
-	// err = mlx5e_open_flow_tables(priv);
-	// if (err) {
-	// 	mlx5_core_err(mdev, "mlx5e_open_flow_tables() failed %d\n", err);
-	// 	goto err_open_tirs;
-	// }
-
 
 // 	/* set default MTU */
 // 	mlx5e_set_dev_port_mtu(ifp, if_getmtu(ifp));

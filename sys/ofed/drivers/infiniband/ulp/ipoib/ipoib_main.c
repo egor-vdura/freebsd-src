@@ -1119,6 +1119,10 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	}
 	if_printf(priv->dev, "Attached to %s port %d\n", hca->name, port);
 
+
+	// struct ib_device *ca
+	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
+	ib_dev->pkey_index = priv->pkey_index;
 	give_me_CONTEXT(priv->dev, NULL);
 
 	priv->gone = 0;	/* ready */

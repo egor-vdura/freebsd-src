@@ -889,20 +889,39 @@ struct mlx5_ifc_flow_table_eswitch_cap_bits {
 	u8         reserved_1[0x7800];
 };
 
+/* Table 2170 - Flow Table Fields Supported 2 Format */
+struct mlx5_ifc_flow_table_fields_supported_2_bits {
+	u8         inner_l4_type_ext[0x1];
+	u8         outer_l4_type_ext[0x1];
+	u8         inner_l4_type[0x1];
+	u8         outer_l4_type[0x1];
+	u8         reserved_at_4[0xa];
+	u8         bth_opcode[0x1];
+	u8         reserved_at_f[0x1];
+	u8         tunnel_header_0_1[0x1];
+	u8         reserved_at_11[0xf];
+
+	u8         reserved_at_20[0xf];
+	u8         ipsec_next_header[0x1];
+	u8         reserved_at_30[0x10];
+
+	u8         reserved_at_40[0x40];
+};
+
 struct mlx5_ifc_flow_table_nic_cap_bits {
 	u8         nic_rx_multi_path_tirs[0x1];
-        u8         nic_rx_multi_path_tirs_fts[0x1];
-        u8         allow_sniffer_and_nic_rx_shared_tir[0x1];
-        u8         reserved_at_3[0x4];
-        u8         sw_owner_reformat_supported[0x1];
-        u8         reserved_at_8[0x18];
+	u8         nic_rx_multi_path_tirs_fts[0x1];
+	u8         allow_sniffer_and_nic_rx_shared_tir[0x1];
+	u8	   reserved_at_3[0x4];
+	u8	   sw_owner_reformat_supported[0x1];
+	u8	   reserved_at_8[0x18];
 
-        u8         encap_general_header[0x1];
-        u8         reserved_at_21[0xa];
-        u8         log_max_packet_reformat_context[0x5];
-        u8         reserved_at_30[0x6];
-        u8         max_encap_header_size[0xa];
-        u8         reserved_at_40[0x1c0];
+	u8	   encap_general_header[0x1];
+	u8	   reserved_at_21[0xa];
+	u8	   log_max_packet_reformat_context[0x5];
+	u8	   reserved_at_30[0x6];
+	u8	   max_encap_header_size[0xa];
+	u8	   reserved_at_40[0x1c0];
 
 	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_receive;
 
@@ -916,7 +935,27 @@ struct mlx5_ifc_flow_table_nic_cap_bits {
 
 	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_transmit_sniffer;
 
-	u8         reserved_1[0x7200];
+	u8         reserved_at_e00[0x600];
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_receive;
+
+	u8         reserved_at_1480[0x80];
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_receive_rdma;
+
+	u8         reserved_at_1580[0x280];
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_transmit_rdma;
+
+	u8         reserved_at_1880[0x780];
+
+	u8         sw_steering_nic_rx_action_drop_icm_address[0x40];
+
+	u8         sw_steering_nic_tx_action_drop_icm_address[0x40];
+
+	u8         sw_steering_nic_tx_action_allow_icm_address[0x40];
+
+	u8         reserved_at_20c0[0x5f40];
 };
 
 struct mlx5_ifc_pddr_module_info_bits {

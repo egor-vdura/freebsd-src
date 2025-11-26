@@ -371,7 +371,7 @@ int mlx5_core_query_cq_by_num(struct mlx5_core_dev *dev, u32 cqn, u32 *out, int 
 
 static int
 mlx5_dbg_query_tir(struct mlx5_core_dev *dev, u8 tirn, struct mlx5_get_tir_info *tir_info)
-{                                                                                                                                                                                                                                                                                                                             
+{
   u32 in[MLX5_ST_SZ_DW(query_tir_in)] = {0};
   uint32_t *out;
   void *ctx;
@@ -436,6 +436,223 @@ mlx5_dbg_tir_list_copyout(struct mlx5_core_dev *dev, struct mlx5_get_tir_list *t
   printk("<< mlx5_dbg_tir_list_copyout\n");
   return 0;
 }
+
+static int
+mlx5_dbg_query_rqt(struct mlx5_core_dev *dev, u8 rqtn, struct mlx5_get_rqt_info *rqt_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_rqt_in)] = {0};
+  uint32_t *out;
+  void *ctx;
+  int ret, i;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_rqt_in, in, opcode, MLX5_CMD_OP_QUERY_RQT);
+  MLX5_SET(query_rqt_in, in, rqtn, rqtn);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    ctx = MLX5_ADDR_OF(query_rqt_out, out, rqt_context);
+    rqt_info->rqt_max_size = MLX5_GET(rqtc, ctx, rqt_max_size);
+    rqt_info->rqt_actual_size = MLX5_GET(rqtc, ctx, rqt_actual_size);
+    for (i = 0; i < rqt_info->rqt_actual_size; i++) {
+      rqt_info->rq_num[i] = MLX5_GET(rqtc, ctx, rq_num[i]);
+    }
+  }
+
+  kfree(out);
+  return ret;
+}
+
+static int
+mlx5_dbg_rqt_list_copyout(struct mlx5_core_dev *dev, struct mlx5_get_rqt_list *rqt_list)
+{
+  int error, ret, i;
+  struct mlx5_get_rqt_info rqt_info;
+  size_t cnt = 0;
+
+  printk(">> mlx5_dbg_rqt_list_copyout\n");
+  for (i = 0; i < 32; i++) {
+    ret = mlx5_dbg_query_rqt(dev, i, &rqt_info);
+    if (ret == 0) {
+      error = COPY_TO_USER(&rqt_list->rqt_list[cnt++], i);
+      if (error) {
+        printk("copyout error mlx5_dbg_rqt_list_copyout %d %zu\n", i, cnt);
+        return error;
+      } else {
+        printk("copied rqt %d, cnt %zu\n", i, cnt);
+      }
+    }
+  }
+  rqt_list->rqt_list_len = cnt;
+  printk("<< mlx5_dbg_rqt_list_copyout\n");
+  return 0;
+}
+
+static int
+mlx5_dbg_query_qp(struct mlx5_core_dev *dev, uint32_t qpn, struct mlx5_get_qp_info *qp_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_qp_in)] = {0};
+  uint32_t *out;
+  void *ctx;
+  int ret;
+
+  out = kzalloc(2048, GFP_KERNEL);
+
+  MLX5_SET(query_qp_in, in, opcode, MLX5_CMD_OP_QUERY_QP);
+  MLX5_SET(query_qp_in, in, qpn, qpn);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 2048);
+  if (ret == 0) {
+    ctx = MLX5_ADDR_OF(query_qp_out, out, qpc);
+    qp_info->state = MLX5_GET(qpc, ctx, state);
+    qp_info->lag_tx_port_affinity = MLX5_GET(qpc, ctx, lag_tx_port_affinity);
+    qp_info->st = MLX5_GET(qpc, ctx, st);
+#ifdef MLX5DBG_LINUX
+    qp_info->isolate_vl_tc = MLX5_GET(qpc, ctx, isolate_vl_tc);
+    qp_info->req_e2e_credit_mode = MLX5_GET(qpc, ctx, req_e2e_credit_mode);
+    qp_info->offload_type = MLX5_GET(qpc, ctx, offload_type);
+#endif
+    qp_info->end_padding_mode = MLX5_GET(qpc, ctx, end_padding_mode);
+    qp_info->wq_signature = MLX5_GET(qpc, ctx, wq_signature);
+    qp_info->block_lb_mc = MLX5_GET(qpc, ctx, block_lb_mc);
+    qp_info->atomic_like_write_en = MLX5_GET(qpc, ctx, atomic_like_write_en);
+    qp_info->latency_sensitive = MLX5_GET(qpc, ctx, latency_sensitive);
+    qp_info->drain_sigerr = MLX5_GET(qpc, ctx, drain_sigerr);
+    qp_info->pd = MLX5_GET(qpc, ctx, pd);
+    qp_info->mtu = MLX5_GET(qpc, ctx, mtu);
+    qp_info->log_msg_max = MLX5_GET(qpc, ctx, log_msg_max);
+    qp_info->log_rq_size = MLX5_GET(qpc, ctx, log_rq_size);
+    qp_info->log_rq_stride = MLX5_GET(qpc, ctx, log_rq_stride);
+    qp_info->no_sq = MLX5_GET(qpc, ctx, no_sq);
+    qp_info->log_sq_size = MLX5_GET(qpc, ctx, log_sq_size);
+#ifdef MLX5DBG_LINUX
+    qp_info->retry_mode = MLX5_GET(qpc, ctx, retry_mode);
+#endif
+    qp_info->ts_format = MLX5_GET(qpc, ctx, ts_format);
+    qp_info->rlky = MLX5_GET(qpc, ctx, rlky);
+    qp_info->ulp_stateless_offload_mode = MLX5_GET(qpc, ctx, ulp_stateless_offload_mode);
+    qp_info->counter_set_id = MLX5_GET(qpc, ctx, counter_set_id);
+    qp_info->uar_page = MLX5_GET(qpc, ctx, uar_page);
+    qp_info->user_index = MLX5_GET(qpc, ctx, user_index);
+    qp_info->log_page_size = MLX5_GET(qpc, ctx, log_page_size);
+    qp_info->remote_qpn = MLX5_GET(qpc, ctx, remote_qpn);
+    qp_info->log_ack_req_freq = MLX5_GET(qpc, ctx, log_ack_req_freq);
+    qp_info->log_sra_max = MLX5_GET(qpc, ctx, log_sra_max);
+    qp_info->retry_count = MLX5_GET(qpc, ctx, retry_count);
+    qp_info->rnr_retry = MLX5_GET(qpc, ctx, rnr_retry);
+    qp_info->fre = MLX5_GET(qpc, ctx, fre);
+    qp_info->cur_rnr_retry = MLX5_GET(qpc, ctx, cur_rnr_retry);
+    qp_info->cur_retry_count = MLX5_GET(qpc, ctx, cur_retry_count);
+    qp_info->next_send_psn = MLX5_GET(qpc, ctx, next_send_psn);
+#ifdef MLX5DBG_LINUX
+    qp_info->log_num_dci_stream_channels = MLX5_GET(qpc, ctx, log_num_dci_stream_channels);
+#endif
+    qp_info->cqn_snd = MLX5_GET(qpc, ctx, cqn_snd);
+#ifdef MLX5DBG_LINUX
+    qp_info->log_num_dci_errored_streams = MLX5_GET(qpc, ctx, log_num_dci_errored_streams);
+#endif
+    qp_info->deth_sqpn = MLX5_GET(qpc, ctx, deth_sqpn);
+    qp_info->last_acked_psn = MLX5_GET(qpc, ctx, last_acked_psn);
+    qp_info->ssn = MLX5_GET(qpc, ctx, ssn);
+    qp_info->log_rra_max = MLX5_GET(qpc, ctx, log_rra_max);
+    qp_info->atomic_mode = MLX5_GET(qpc, ctx, atomic_mode);
+    qp_info->rre = MLX5_GET(qpc, ctx, rre);
+    qp_info->rwe = MLX5_GET(qpc, ctx, rwe);
+    qp_info->rae = MLX5_GET(qpc, ctx, rae);
+    qp_info->page_offset = MLX5_GET(qpc, ctx, page_offset);
+    qp_info->cd_slave_receive = MLX5_GET(qpc, ctx, cd_slave_receive);
+    qp_info->cd_slave_send = MLX5_GET(qpc, ctx, cd_slave_send);
+    qp_info->cd_master = MLX5_GET(qpc, ctx, cd_master);
+    qp_info->min_rnr_nak = MLX5_GET(qpc, ctx, min_rnr_nak);
+    qp_info->next_rcv_psn = MLX5_GET(qpc, ctx, next_rcv_psn);
+    qp_info->xrcd = MLX5_GET(qpc, ctx, xrcd);
+    qp_info->cqn_rcv = MLX5_GET(qpc, ctx, cqn_rcv);
+    qp_info->dbr_addr = MLX5_GET64(qpc, ctx, dbr_addr);
+    qp_info->q_key = MLX5_GET(qpc, ctx, q_key);
+    qp_info->rq_type = MLX5_GET(qpc, ctx, rq_type);
+#ifdef MLX5DBG_LINUX
+    qp_info->srqn_rmpn_xrqn = MLX5_GET(qpc, ctx, srqn_rmpn_xrqn);
+#else
+    qp_info->srqn_rmpn_xrqn = MLX5_GET(qpc, ctx, srqn_rmpn);
+#endif
+    qp_info->rmsn = MLX5_GET(qpc, ctx, rmsn);
+    qp_info->hw_sq_wqebb_counter = MLX5_GET(qpc, ctx, hw_sq_wqebb_counter);
+    qp_info->sw_sq_wqebb_counter = MLX5_GET(qpc, ctx, sw_sq_wqebb_counter);
+    qp_info->hw_rq_counter = MLX5_GET(qpc, ctx, hw_rq_counter);
+    qp_info->sw_rq_counter = MLX5_GET(qpc, ctx, sw_rq_counter);
+    qp_info->cgs = MLX5_GET(qpc, ctx, cgs);
+    qp_info->cs_req = MLX5_GET(qpc, ctx, cs_req);
+    qp_info->cs_res = MLX5_GET(qpc, ctx, cs_res);
+    qp_info->dc_access_key = MLX5_GET64(qpc, ctx, dc_access_key);
+    qp_info->dbr_umem_valid = MLX5_GET(qpc, ctx, dbr_umem_valid);
+  }
+
+  kfree(out);
+  return ret;
+}
+
+#if 0
+static int
+mlx5_dbg_query_ft(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_get_ft_info *ft_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_flow_table_in)] = {0};
+  uint32_t *out;
+  void *ctx;
+  int ret;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_flow_table_in, in, opcode, MLX5_CMD_OP_QUERY_FLOW_TABLE);
+  MLX5_SET(query_flow_table_in, in, table_type, FS_FT_NIC_RX);
+  MLX5_SET(query_flow_table_in, in, table_id, ft_id);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    ctx = MLX5_ADDR_OF(query_flow_table_out, out, flow_table_context);
+    ft_info->reformat_en = MLX5_GET(flow_table_context, ctx, reformat_en);
+    ft_info->decap_en = MLX5_GET(flow_table_context, ctx, decap_en);
+    ft_info->table_miss_action = MLX5_GET(flow_table_context, ctx, table_miss_action);
+    ft_info->level = MLX5_GET(flow_table_context, ctx, level);
+    ft_info->log_size = MLX5_GET(flow_table_context, ctx, log_size);
+    ft_info->table_miss_id = MLX5_GET(flow_table_context, ctx, table_miss_id);
+    ft_info->log_master_next_table_id = MLX5_GET(flow_table_context, ctx, log_master_next_table_id);
+#ifdef MLX5DBG_LINUX
+    ft_info->sw_owner = MLX5_GET(flow_table_context, ctx, sw_owner);
+    ft_info->termination_table = MLX5_GET(flow_table_context, ctx, termination_table);
+    ft_info->sw_owner_icm_root_1 = MLX5_GET64(flow_table_context, ctx, sw_owner_icm_root_1);
+    ft_info->sw_owner_icm_root_0 = MLX5_GET64(flow_table_context, ctx, sw_owner_icm_root_0);
+#endif
+  }
+
+  kfree(out);
+  return ret;
+}
+#endif
+
+static int
+mlx5_dbg_query_hca_cap(struct mlx5_core_dev *dev, struct mlx5_get_hca_cap *hca_cap)
+{
+  u32 in[MLX5_ST_SZ_DW(query_hca_cap_in)] = {0};
+  uint32_t *out;
+  uint16_t op_mode = (MLX5_CAP_GENERAL << 1) | (HCA_CAP_OPMOD_GET_CUR & 0x01);
+  void *ctx;
+  int ret;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+  MLX5_SET(query_hca_cap_in, in, op_mod, op_mode);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    ctx = MLX5_ADDR_OF(query_hca_cap_out, out, capability);
+    hca_cap->nic_flow_table = MLX5_GET(cmd_hca_cap, ctx, nic_flow_table);
+  }
+
+  kfree(out);
+  return ret;
+}
 #ifdef MLX5DBG_FREEBSD
 static int
 mlx5_dbg_ioctl(struct cdev *dev, u_long cmd, caddr_t data, int fflag,
@@ -451,6 +668,13 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
   struct mlx5_get_cq_info cq_info;
   struct mlx5_get_tir_list tir_list;
   struct mlx5_get_tir_info tir_info;
+  struct mlx5_get_rqt_list rqt_list;
+  struct mlx5_get_rqt_info rqt_info;
+  struct mlx5_get_qp_info qp_info;
+  struct mlx5_get_hca_cap hca_cap;
+#if 0
+  struct mlx5_get_ft_info ft_info;
+#endif
   struct mlx5_tool_addr *devaddr;
   uint32_t *cmd_out;
   int error;
@@ -542,6 +766,72 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
       error = COPY_TO_USER_RES(data, tir_info);
     }
     break;
+  case MLX5_DBG_GET_RQT_LIST:
+    printk("MLX5_DBG_GET_RQT_LIST\n");
+    COPY_FROM_USER(rqt_list, data);
+    error = mlx5_dbsf_to_core(&rqt_list.devaddr, &mdev);
+    if (error != 0)
+      break;
+    error = mlx5_dbg_rqt_list_copyout(mdev, &rqt_list);
+    if (!error) {
+      error = COPY_TO_USER_RES(data, rqt_list);
+    }
+    break;
+  case MLX5_DBG_GET_RQT_INFO:
+    printk("MLX5_DBG_GET_RQT_INFO\n");
+    COPY_FROM_USER(rqt_info, data);
+    error = mlx5_dbsf_to_core(&rqt_info.devaddr, &mdev);
+    if (error != 0)
+      break;
+    error = mlx5_dbg_query_rqt(mdev, rqt_info.rqtn, &rqt_info);
+    if (error) {
+      printk("failed to query rqt %u\n", rqt_info.rqtn);
+    } else {
+      error = COPY_TO_USER_RES(data, rqt_info);
+    }
+    break;
+  case MLX5_DBG_GET_QP_INFO:
+    printk("MLX5_DBG_GET_QP_INFO\n");
+    COPY_FROM_USER(qp_info, data);
+    error = mlx5_dbsf_to_core(&qp_info.devaddr, &mdev);
+    if (error != 0)
+      break;
+    error = mlx5_dbg_query_qp(mdev, qp_info.qpn, &qp_info);
+    if (error) {
+      printk("failed to query qp %u\n", qp_info.qpn);
+    } else {
+      error = COPY_TO_USER_RES(data, qp_info);
+    }
+    break;
+  case MLX5_DBG_GET_HCA_CAP:
+    printk("MLX5_DBG_GET_HCA_CAP\n");
+    COPY_FROM_USER(hca_cap, data);
+    error = mlx5_dbsf_to_core(&hca_cap.devaddr, &mdev);
+    if (error != 0)
+      break;
+    error = mlx5_dbg_query_hca_cap(mdev, &hca_cap);
+    if (error) {
+      printk("failed to query HCA Capabilities\n");
+    } else {
+      error = COPY_TO_USER_RES(data, hca_cap);
+    }
+    break;
+#if 0
+  case MLX5_DBG_GET_FT_INFO:
+    printk("MLX5_DBG_GET_FT_INFO\n");
+    COPY_FROM_USER(ft_info, data);
+    error = mlx5_dbsf_to_core(&ft_info.devaddr, &mdev);
+    if (error != 0)
+      break;
+    error = mlx5_dbg_query_ft(mdev, ft_info.ft_id, &ft_info);
+    if (error) {
+      printk("failed to query Flow Table %u\n", ft_info.ft_id);
+    } else {
+      error = COPY_TO_USER_RES(data, ft_info);
+    }
+    break;
+#endif
+
 
   default:
     error = ENOTTY;
