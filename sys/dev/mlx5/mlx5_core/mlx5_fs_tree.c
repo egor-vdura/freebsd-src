@@ -681,11 +681,14 @@ static struct fs_prio *find_prio(struct mlx5_flow_namespace *ns,
 {
 	struct fs_prio *iter_prio;
 
+	printk("finding prio %p\n", ns);
 	fs_for_each_prio(iter_prio, ns) {
+		printk("Find prio %d\n", iter_prio->prio);
 		if (iter_prio->prio == prio)
 			return iter_prio;
 	}
 
+	printk("prio not found %d\n", prio);
 	return NULL;
 }
 
@@ -894,7 +897,10 @@ static struct mlx5_flow_table *create_ft_common(struct mlx5_flow_namespace *ns,
 	struct fs_prio *fs_prio = NULL;
 	fs_prio = find_prio(ns, prio);
 	if (!fs_prio)
+	{
+		printk("RAAAAH create_ft_common failure 1 (%d)\n", prio);
 		return ERR_PTR(-EINVAL);
+	}
 
 	return _create_ft_common(ns, vport, fs_prio, max_fte, name);
 }

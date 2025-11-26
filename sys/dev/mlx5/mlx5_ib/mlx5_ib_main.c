@@ -4157,7 +4157,7 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 	bool use_l4_type;
 	int err;
 
-	switch (params->ns_type) {
+	switch (MLX5_FLOW_NAMESPACE_KERNEL) {
 	// case MLX5_FLOW_NAMESPACE_PORT_SEL:
 	// 	use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
 	// 		MLX5_CAP_PORT_SELECTION_FT_FIELD_SUPPORT_2(dev, inner_l4_type);
@@ -4174,7 +4174,7 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 	if (!ttc)
 		return ERR_PTR(-ENOMEM);
 
-	ns = mlx5_get_flow_namespace(dev, params->ns_type);
+	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_KERNEL);
 	if (!ns) {
 		printk(KERN_WARNING "mlx5_create_inner_ttc_table mlx5_get_flow_namespace failure\n");
 		kvfree(ttc);
@@ -4190,8 +4190,8 @@ struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
 	ttc->t = mlx5_create_flow_table(ns, params->ft_attr.prio, "ipoibtable", params->ft_attr.level);
 	// ttc_params->ns_type = MLX5_FLOW_NAMESPACE_KERNEL;
 	if (IS_ERR(ttc->t)) {
-		mlx5_core_warn(dev, "mlx5_create_inner_ttc_table mlx5_create_flow_table failure\n");
 		err = PTR_ERR(ttc->t);
+		mlx5_core_warn(dev, "mlx5_create_inner_ttc_table mlx5_create_flow_table failure %d\n", err);
 		kvfree(ttc);
 		return ERR_PTR(err);
 	}
@@ -4264,7 +4264,9 @@ static void mlx5e_set_inner_ttc_params(struct mlx5e_priv *priv,
 	memset(ttc_params, 0, sizeof(*ttc_params));
 	ttc_params->ns_type = MLX5_FLOW_NAMESPACE_KERNEL;
 	ft_attr->level = MLX5E_INNER_TTC_FT_LEVEL;
-	ft_attr->prio = MLX5E_NIC_PRIO;
+	// ft_attr->prio = MLX5E_NIC_PRIO;
+	/* why TC and not NIC? TC does not exist in the MLX5_FLOW_NAMESPACE_KERNEL NS */
+	ft_attr->prio = MLX5E_TC_PRIO;
 
 	for (tt = 0; tt < MLX5E_NUM_TT; tt++) {
 		if (mlx5_ttc_is_decrypted_esp_tt(tt))
