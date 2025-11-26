@@ -3382,16 +3382,19 @@ int mlx5i_init_underlay_qp(struct mlx5_ib_dev *dev)
 		qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, in, qpc);
 
 		MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-		// MLX5_SET(qpc, qpc, primary_address_path.pkey_index,
-		// 	 ipriv->pkey_index);
-		// MLX5_SET(qpc, qpc, primary_address_path.vhca_port_num, 1);
+		MLX5_SET(qpc, qpc, primary_address_path.pkey_index,
+			 dev->pkey_index);
+		MLX5_SET(qpc, qpc, primary_address_path.port, 1);
 		MLX5_SET(qpc, qpc, q_key, IB_DEFAULT_Q_KEY);
 
 		MLX5_SET(rst2init_qp_in, in, opcode, MLX5_CMD_OP_RST2INIT_QP);
 		MLX5_SET(rst2init_qp_in, in, qpn, dev->qpn);
 		ret = mlx5_cmd_exec_in(mdev, rst2init_qp, in);
 		if (ret)
+		{
+			mlx5_ib_warn(dev, "mlx5i_init_underlay_qp err 1 (%u) (%d)\n", dev->qpn, ret);
 			goto err_qp_modify_to_err;
+		}
 	}
 	{
 		u32 in[MLX5_ST_SZ_DW(init2rtr_qp_in)] = {};
@@ -3400,7 +3403,10 @@ int mlx5i_init_underlay_qp(struct mlx5_ib_dev *dev)
 		MLX5_SET(init2rtr_qp_in, in, qpn, dev->qpn);
 		ret = mlx5_cmd_exec_in(mdev, init2rtr_qp, in);
 		if (ret)
+		{
+			mlx5_ib_warn(dev, "mlx5i_init_underlay_qp err 2 (%u) (%d)\n", dev->qpn, ret);
 			goto err_qp_modify_to_err;
+		}
 	}
 	{
 		u32 in[MLX5_ST_SZ_DW(rtr2rts_qp_in)] = {};
@@ -3409,7 +3415,10 @@ int mlx5i_init_underlay_qp(struct mlx5_ib_dev *dev)
 		MLX5_SET(rtr2rts_qp_in, in, qpn, dev->qpn);
 		ret = mlx5_cmd_exec_in(mdev, rtr2rts_qp, in);
 		if (ret)
+		{
+			mlx5_ib_warn(dev, "mlx5i_init_underlay_qp err 3 (%u) (%d)\n", dev->qpn, ret);
 			goto err_qp_modify_to_err;
+		}
 	}
 	return 0;
 
@@ -3540,9 +3549,13 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	MLX5_SET(create_qp_in, in, opcode, MLX5_CMD_OP_CREATE_QP);
 	ret = mlx5_cmd_exec_inout(dev->mdev, create_qp, in, out);
 	if (ret)
+	{
+		mlx5_ib_warn(dev, "mlx5i_create_underlay_qp failed\n");
 		return ret;
+	}
 
 	dev->qpn = MLX5_GET(create_qp_out, out, qpn);
+	mlx5_ib_warn(dev, "Created mlx5i_create_underlay_qp (%u)\n", dev->qpn);
 
 	return 0;
 }
