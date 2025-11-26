@@ -3440,17 +3440,20 @@ static
 int mlx5_fs_add_rx_underlay_qpn(struct mlx5_ib_dev *dev)
 {
 	int err = 0;
+	mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn\n");
+	mlx5_ib_warn(dev, "%p %p\n", dev->mdev, dev->inner_ttc);
+	// mlx5_ib_warn(dev, "%p %p %p\n", dev->mdev, dev->inner_ttc, dev->inner_ttc->t);
 
-	err = mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, dev->inner_ttc->t->id, dev->inner_ttc->t->vport);
-	if (err) {
-		mlx5_ib_warn(dev, "Failed adding underlay QPN (%u) to root FT err(%d)\n",
-			       dev->qpn, err);
-		goto update_ft_fail;
-	}
+// 	err = mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, dev->inner_ttc->t->id, dev->inner_ttc->t->vport);
+// 	if (err) {
+// 		mlx5_ib_warn(dev, "Failed adding underlay QPN (%u) to root FT err(%d)\n",
+// 			       dev->qpn, err);
+// 		goto update_ft_fail;
+// 	}
 
-	return 0;
+// 	return 0;
 
-update_ft_fail:
+// update_ft_fail:
 	return err;
 }
 
@@ -3479,11 +3482,11 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 		goto err_clear_state_opened_flag;
 	}
 
-	// err = mlx5_fs_add_rx_underlay_qpn(dev);
-	// if (err) {
-	// 	mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
-	// 	goto err_reset_qp;
-	// }
+	err = mlx5_fs_add_rx_underlay_qpn(dev);
+	if (err) {
+		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
+		goto err_reset_qp;
+	}
 
 	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
 	// err = mlx5e_open_channels(epriv);
@@ -4279,7 +4282,7 @@ static void mlx5e_set_inner_ttc_params(struct mlx5e_priv *priv,
 }
 
 
-static void mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
+static int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
 	struct mlx5_core_dev *mdev = dev->mdev;
@@ -4354,11 +4357,12 @@ static void mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 	struct ttc_params ttc_params = {};
 	mlx5e_set_inner_ttc_params(dev->priv, &ttc_params);
 	dev->inner_ttc = mlx5_create_inner_ttc_table(mdev, &ttc_params);
-	if (err) {
+	if (IS_ERR(dev->inner_ttc)) {
 		mlx5_core_err(mdev, "mlx5_create_inner_ttc_table failed %d\n", err);
 		goto err_open_rqts;
 	}
 	mlx5_core_warn(mdev, "mlx5_ib_set_en success!!\n");
+	return 0;
 	(void)ttc_rules;
 
 // 	/* set default MTU */
@@ -4438,8 +4442,6 @@ static void mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 	// }
 	// PRIV_UNLOCK(priv);
 
-	return;
-
 // err_open_flow_tables:
 	mlx5e_close_flow_tables(priv);
 
@@ -4472,7 +4474,7 @@ err_free_sysctl:
 err_free_ifp:
 // 	if_free(ifp);
 // 	free(priv, M_MLX5EN);
-	return;
+	return 1;
 }
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
@@ -4761,10 +4763,22 @@ void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
 		return;
 	}
 
-	mlx5_ib_set_en(ib_dev, ipoib_if);
-	mlx5i_create_underlay_qp(ib_dev);
+	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
+		return;
+	}
+	if (mlx5i_create_underlay_qp(ib_dev) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
+		return;
+	}
 	// /* move to if if access to dev can be performed */
-	ipoib_if_open(ib_dev);
+	if (ipoib_if_open(ib_dev) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
+		return;
+	}
 }
 
 EXPORT_SYMBOL(give_me_CONTEXT);
