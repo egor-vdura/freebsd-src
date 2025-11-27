@@ -772,8 +772,13 @@ struct mlx5_fs_ttc_groups {
 	int group_size[MLX5E_TTC_MAX_NUM_GROUPS];
 };
 
+struct mlx5_flow_handle {
+	int num_rules;
+	struct mlx5_flow_rule *rule[] __counted_by(num_rules);
+};
+
 struct mlx5_ttc_rule {
-	struct mlx5_flow_rule *rule;
+	struct mlx5_flow_handle *rule;
 	struct mlx5_flow_destination default_dest;
 };
 
