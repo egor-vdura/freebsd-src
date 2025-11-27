@@ -4692,6 +4692,8 @@ struct mlx5_ttc_table *mlx5_create_ttc_table(struct mlx5_core_dev *dev,
 
 	ns = mlx5_get_flow_namespace(dev, params->ns_type);
 	if (!ns) {
+		err = PTR_ERR(ns);
+		mlx5_core_warn(dev, "mlx5_create_ttc_table mlx5_get_flow_namespace failed %d\n", err);
 		kvfree(ttc);
 		return ERR_PTR(-EOPNOTSUPP);
 	}
@@ -4701,9 +4703,10 @@ struct mlx5_ttc_table *mlx5_create_ttc_table(struct mlx5_core_dev *dev,
 	WARN_ON_ONCE(params->ft_attr.max_fte);
 	params->ft_attr.max_fte = mlx5_fs_ttc_table_size(ttc->groups);
 	// ttc->t = mlx5_create_flow_table(ns, &params->ft_attr);
-	ttc->t = mlx5_create_flow_table(ns, params->ft_attr.prio, "ipoibtable", params->ft_attr.level);
+	ttc->t = mlx5_create_flow_table(ns, 0, "ipoibtable", params->ft_attr.level);
 	if (IS_ERR(ttc->t)) {
 		err = PTR_ERR(ttc->t);
+		mlx5_core_warn(dev, "mlx5_create_ttc_table mlx5_create_flow_table failed %d\n", err);
 		kvfree(ttc);
 		return ERR_PTR(err);
 	}
