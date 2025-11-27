@@ -3908,6 +3908,7 @@ mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
 	priv->params.default_vlan_prio = 0;
 	priv->counter_set_id = -1;
 	priv->params.tx_max_inline = mlx5e_get_max_inline_cap(mdev);
+	mdev->enabled = false;
 
 	err = mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
 	if (err)

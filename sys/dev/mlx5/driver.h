@@ -695,6 +695,9 @@ struct mlx5_diag_cnt {
 struct mlx5_flow_root_namespace;
 struct mlx5_core_dev {
 	struct pci_dev	       *pdev;
+	u32 underlay_qpn;
+	u16 vport;
+	bool enabled;
 	/* sync pci state */
 	struct mutex		pci_status_mutex;
 	enum mlx5_pci_status	pci_status;

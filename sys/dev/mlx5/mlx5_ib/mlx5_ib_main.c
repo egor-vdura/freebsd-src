@@ -3458,113 +3458,6 @@ int mlx5_fs_add_rx_underlay_qpn(struct mlx5_ib_dev *dev)
 }
 
 
-int ipoib_if_open(struct mlx5_ib_dev *dev)
-{
-	// struct mlx5_core_dev *mdev = dev->mdev;
-	// int ncv = mdev->priv.eq_table.num_comp_vectors;
-	// struct mlx5e_priv* priv = malloc_domainset(sizeof(*priv) +
-	//     (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
-	//     M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
-	// dev->priv = priv;
-
-	struct mlx5e_priv *epriv = dev->priv;
-	// struct mlx5_core_dev *mdev = epriv->mdev;
-	int err = 0;
-
-	PRIV_LOCK(epriv);
-
-// 	set_bit(MLX5E_STATE_OPENED, &epriv->state);
-	// err = mlx5e_open_tises(priv);
-
-	err = mlx5i_init_underlay_qp(dev);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5i_init_underlay_qp failed, %d\n", err);
-		goto err_clear_state_opened_flag;
-	}
-
-	err = mlx5_fs_add_rx_underlay_qpn(dev);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
-		goto err_reset_qp;
-	}
-
-	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
-	// err = mlx5e_open_channels(epriv);
-	// if (err)
-	// {
-	// 	mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
-	// 	goto err_remove_fs_underlay_qp;
-	// }
-
-	// err = mlx5e_activate_rqt(epriv);
-	// if (err) {
-	// 	mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
-	// 	// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
-	// 	goto err_close_channels;
-	// }
-
-	// 	err = epriv->profile->update_rx(epriv);
-// 	if (err)
-// 		goto err_close_channels;
-
-// 	mlx5e_activate_priv_channels(epriv);
-
-	PRIV_UNLOCK(epriv);
-	return 0;
-
-// err_close_channels:
-// 	mlx5e_close_channels(&epriv->channels);
-// err_remove_fs_underlay_qp:
-	// mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qpn);
-err_reset_qp:
-	mlx5i_uninit_underlay_qp(dev);
-err_clear_state_opened_flag:
-// 	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
-	PRIV_UNLOCK(epriv);
-	return err;
-}
-
-static
-int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
-{
-	// const unsigned char *dev_addr = priv->netdev->dev_addr;
-	u32 out[MLX5_ST_SZ_DW(create_qp_out)] = {};
-	u32 in[MLX5_ST_SZ_DW(create_qp_in)] = {};
-	void *addr_path;
-	// int qpn = 0;
-	int ret = 0;
-	void *qpc;
-
-	// if (MLX5_CAP_GEN(priv->mdev, mkey_by_name)) {
-	// 	qpn = (dev_addr[1] << 16) + (dev_addr[2] << 8) + dev_addr[3];
-	// 	MLX5_SET(create_qp_in, in, input_qpn, qpn);
-	// }
-
-	qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
-	MLX5_SET(qpc, qpc, ts_format, mlx5_get_qp_default_ts(dev->mdev));
-	MLX5_SET(qpc, qpc, st, MLX5_QP_ST_UD);
-	MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-	MLX5_SET(qpc, qpc, ulp_stateless_offload_mode,
-		 MLX5_QP_ENHANCED_ULP_STATELESS_MODE);
-
-	addr_path = MLX5_ADDR_OF(qpc, qpc, primary_address_path);
-	// MLX5_SET(ads, addr_path, vhca_port_num, 1);
-	MLX5_SET(ads, addr_path, grh, 1);
-
-	MLX5_SET(create_qp_in, in, opcode, MLX5_CMD_OP_CREATE_QP);
-	ret = mlx5_cmd_exec_inout(dev->mdev, create_qp, in, out);
-	if (ret)
-	{
-		mlx5_ib_warn(dev, "mlx5i_create_underlay_qp failed\n");
-		return ret;
-	}
-
-	dev->qpn = MLX5_GET(create_qp_out, out, qpn);
-	mlx5_ib_warn(dev, "Created mlx5i_create_underlay_qp (%u)\n", dev->qpn);
-
-	return 0;
-}
-
 #include <dev/mlx5/mlx5_en/en.h>
 #include <dev/mlx5/mlx5_ifc.h>
 
@@ -3805,6 +3698,128 @@ static const struct mlx5_fs_ttc_groups inner_ttc_groups[] = {
 		},
 	},
 };
+
+static void mlx5e_set_inner_ttc_params(struct mlx5e_priv *priv,
+				       struct ttc_params *ttc_params);
+static
+struct mlx5_ttc_table *mlx5_create_inner_ttc_table(struct mlx5_core_dev *dev,
+						   struct ttc_params *params);
+
+int ipoib_if_open(struct mlx5_ib_dev *dev)
+{
+	// struct mlx5_core_dev *mdev = dev->mdev;
+	// int ncv = mdev->priv.eq_table.num_comp_vectors;
+	// struct mlx5e_priv* priv = malloc_domainset(sizeof(*priv) +
+	//     (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
+	//     M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
+	// dev->priv = priv;
+
+	struct mlx5e_priv *epriv = dev->priv;
+	// struct mlx5_core_dev *mdev = epriv->mdev;
+	int err = 0;
+
+	PRIV_LOCK(epriv);
+
+// 	set_bit(MLX5E_STATE_OPENED, &epriv->state);
+	// err = mlx5e_open_tises(priv);
+
+	err = mlx5i_init_underlay_qp(dev);
+	if (err) {
+		mlx5_ib_warn(dev, "mlx5i_init_underlay_qp failed, %d\n", err);
+		goto err_clear_state_opened_flag;
+	}
+
+	struct ttc_params ttc_params = {};
+	mlx5e_set_inner_ttc_params(dev->priv, &ttc_params);
+	dev->inner_ttc = mlx5_create_inner_ttc_table(dev->mdev, &ttc_params);
+	if (IS_ERR(dev->inner_ttc)) {
+		mlx5_ib_warn(dev, "mlx5_create_inner_ttc_table failed %d\n", err);
+		goto err_reset_qp;
+	}
+
+	err = mlx5_fs_add_rx_underlay_qpn(dev);
+	if (err) {
+		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
+		goto err_reset_qp;
+	}
+
+	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
+	// err = mlx5e_open_channels(epriv);
+	// if (err)
+	// {
+	// 	mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
+	// 	goto err_remove_fs_underlay_qp;
+	// }
+
+	// err = mlx5e_activate_rqt(epriv);
+	// if (err) {
+	// 	mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
+	// 	// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
+	// 	goto err_close_channels;
+	// }
+
+	// 	err = epriv->profile->update_rx(epriv);
+// 	if (err)
+// 		goto err_close_channels;
+
+// 	mlx5e_activate_priv_channels(epriv);
+
+	PRIV_UNLOCK(epriv);
+	return 0;
+
+// err_close_channels:
+// 	mlx5e_close_channels(&epriv->channels);
+// err_remove_fs_underlay_qp:
+	// mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qpn);
+err_reset_qp:
+	mlx5i_uninit_underlay_qp(dev);
+err_clear_state_opened_flag:
+// 	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
+	PRIV_UNLOCK(epriv);
+	return err;
+}
+
+static
+int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
+{
+	// const unsigned char *dev_addr = priv->netdev->dev_addr;
+	u32 out[MLX5_ST_SZ_DW(create_qp_out)] = {};
+	u32 in[MLX5_ST_SZ_DW(create_qp_in)] = {};
+	void *addr_path;
+	// int qpn = 0;
+	int ret = 0;
+	void *qpc;
+
+	// if (MLX5_CAP_GEN(priv->mdev, mkey_by_name)) {
+	// 	qpn = (dev_addr[1] << 16) + (dev_addr[2] << 8) + dev_addr[3];
+	// 	MLX5_SET(create_qp_in, in, input_qpn, qpn);
+	// }
+
+	qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
+	MLX5_SET(qpc, qpc, ts_format, mlx5_get_qp_default_ts(dev->mdev));
+	MLX5_SET(qpc, qpc, st, MLX5_QP_ST_UD);
+	MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
+	MLX5_SET(qpc, qpc, ulp_stateless_offload_mode,
+		 MLX5_QP_ENHANCED_ULP_STATELESS_MODE);
+
+	addr_path = MLX5_ADDR_OF(qpc, qpc, primary_address_path);
+	// MLX5_SET(ads, addr_path, vhca_port_num, 1);
+	MLX5_SET(ads, addr_path, grh, 1);
+
+	MLX5_SET(create_qp_in, in, opcode, MLX5_CMD_OP_CREATE_QP);
+	ret = mlx5_cmd_exec_inout(dev->mdev, create_qp, in, out);
+	if (ret)
+	{
+		mlx5_ib_warn(dev, "mlx5i_create_underlay_qp failed\n");
+		return ret;
+	}
+
+	dev->qpn = MLX5_GET(create_qp_out, out, qpn);
+	dev->mdev->underlay_qpn = dev->qpn;
+	mlx5_ib_warn(dev, "Created mlx5i_create_underlay_qp (%u)\n", dev->qpn);
+
+	return 0;
+}
 
 // static const struct mlx5_fs_ttc_groups *
 // mlx5_ttc_get_fs_groups(bool use_l4_type, bool ipsec_rss)
@@ -4356,13 +4371,6 @@ static int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 		goto err_open_rqts;
 	}
 
-	struct ttc_params ttc_params = {};
-	mlx5e_set_inner_ttc_params(dev->priv, &ttc_params);
-	dev->inner_ttc = mlx5_create_inner_ttc_table(mdev, &ttc_params);
-	if (IS_ERR(dev->inner_ttc)) {
-		mlx5_core_err(mdev, "mlx5_create_inner_ttc_table failed %d\n", err);
-		goto err_open_rqts;
-	}
 	mlx5_core_warn(mdev, "mlx5_ib_set_en success!!\n");
 	return 0;
 	(void)ttc_rules;

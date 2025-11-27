@@ -864,12 +864,12 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	mlx5_core_warn(dev, "RAAAAH ft 11\n");
 	// if ((root->table_type == FS_FT_NIC_RX) && MLX5_CAP_FLOWTABLE(root->dev,
 	// 		       flow_table_properties_nic_receive.modify_root)) {
-	if ((root->table_type == FS_FT_NIC_RX)){
+	// if ((root->table_type == FS_FT_NIC_RX)){
 		err = update_root_ft_create(root, ft);
 		if (err)
 			goto destroy_star_rule;
 	// }
-	}
+	// }
 
 	mlx5_core_warn(dev, "RAAAAH ft 12\n");
 	_fs_add_node(&ft->base, name, &fs_prio->base);

@@ -131,21 +131,65 @@ int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 	MLX5_SET(create_flow_table_in, in, opcode,
 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
 
+	// MLX5_SET(create_flow_table_in, in, uid, ft_attr->uid);
 	MLX5_SET(create_flow_table_in, in, table_type, type);
 	MLX5_SET(create_flow_table_in, in, flow_table_context.level, level);
 	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size,
 		 log_size);
-	if (strstr(name, FS_REFORMAT_KEYWORD) != NULL)
-		MLX5_SET(create_flow_table_in, in,
-			 flow_table_context.reformat_en, 1);
+	// if (strstr(name, FS_REFORMAT_KEYWORD) != NULL)
+	// 	MLX5_SET(create_flow_table_in, in,
+	// 		 flow_table_context.reformat_en, 1);
 	if (vport) {
 		MLX5_SET(create_flow_table_in, in, vport_number, vport);
 		MLX5_SET(create_flow_table_in, in, other_vport, 1);
+	// MLX5_SET(create_flow_table_in, in, other_vport,
+	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
 	}
+	// MLX5_SET(create_flow_table_in, in, flow_table_context.decap_en,
+	// 	 en_decap);
+	// MLX5_SET(create_flow_table_in, in, flow_table_context.reformat_en,
+	// 	 en_encap);
+	// MLX5_SET(create_flow_table_in, in, flow_table_context.termination_table,
+	// 	 term);
+
+	// switch (ft->op_mod) {
+	// case FS_FT_OP_MOD_NORMAL:
+	// 	if (next_ft) {
+	// 		MLX5_SET(create_flow_table_in, in,
+	// 			 flow_table_context.table_miss_action,
+	// 			 MLX5_FLOW_TABLE_MISS_ACTION_FWD);
+	// 		MLX5_SET(create_flow_table_in, in,
+	// 			 flow_table_context.table_miss_id, next_ft->id);
+	// 	} else {
+	// 		MLX5_SET(create_flow_table_in, in,
+	// 			 flow_table_context.table_miss_action,
+	// 			 ft->def_miss_action);
+	// 	}
+	// 	break;
+
+	// case FS_FT_OP_MOD_LAG_DEMUX:
+	// 	MLX5_SET(create_flow_table_in, in, op_mod, 0x1);
+	// 	if (next_ft)
+	// 		MLX5_SET(create_flow_table_in, in,
+	// 			 flow_table_context.lag_master_next_table_id,
+	// 			 next_ft->id);
+	// 	break;
+	// }
+
 
 	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 	if (!err)
 		*table_id = MLX5_GET(create_flow_table_out, out, table_id);
+
+
+	// err = mlx5_cmd_exec_inout(dev, create_flow_table, in, out);
+	// if (!err) {
+	// 	ft->id = MLX5_GET(create_flow_table_out, out,
+	// 			  table_id);
+	// 	ft->max_fte = size;
+	// } else {
+	// 	mlx5_ft_pool_put_sz(ns->dev, size);
+	// }
 
 	return err;
 }
