@@ -12,6 +12,7 @@
 
 #ifdef MLX5DBG_FREEBSD
 #define printk(...)   printf(__VA_ARGS__)
+typedef caddr_t user_data_t;
 #define COPY_FROM_USER(local, user_arg) \
   ({ \
     memcpy(&local, user_arg, sizeof(local)); \
@@ -22,6 +23,7 @@
 #endif
 
 #ifdef MLX5DBG_LINUX
+typedef unsigned long user_data_t;
 #define COPY_FROM_USER(local, user_arg)                            \
   ({                                                               \
     void __user *__uarg = (void __user *)(user_arg);               \
@@ -592,7 +594,165 @@ mlx5_dbg_query_qp(struct mlx5_core_dev *dev, uint32_t qpn, struct mlx5_get_qp_in
   return ret;
 }
 
-#if 0
+static void
+mlx5_dbg_copy_outer_match_params(void *mc, struct match_params *mp)
+{
+  mp->smac_47_16 = MLX5_GET(fte_match_set_lyr_2_4, mc, smac_47_16);
+  mp->smac_15_0 = MLX5_GET(fte_match_set_lyr_2_4, mc, smac_15_0);
+  mp->ethertype = MLX5_GET(fte_match_set_lyr_2_4, mc, ethertype);
+  mp->dmac_47_16 = MLX5_GET(fte_match_set_lyr_2_4, mc, dmac_47_16);
+  mp->dmac_15_0 = MLX5_GET(fte_match_set_lyr_2_4, mc, dmac_15_0);
+  mp->first_prio = MLX5_GET(fte_match_set_lyr_2_4, mc, first_prio);
+  mp->first_cfi = MLX5_GET(fte_match_set_lyr_2_4, mc, first_cfi);
+  mp->first_vid = MLX5_GET(fte_match_set_lyr_2_4, mc, first_vid);
+  mp->ip_protocol = MLX5_GET(fte_match_set_lyr_2_4, mc, ip_protocol);
+  mp->ip_dscp = MLX5_GET(fte_match_set_lyr_2_4, mc, ip_dscp);
+  mp->ip_ecn = MLX5_GET(fte_match_set_lyr_2_4, mc, ip_ecn);
+  mp->cvlan_tag = MLX5_GET(fte_match_set_lyr_2_4, mc, cvlan_tag);
+  mp->svlan_tag = MLX5_GET(fte_match_set_lyr_2_4, mc, svlan_tag);
+  mp->frag = MLX5_GET(fte_match_set_lyr_2_4, mc, frag);
+  mp->ip_version = MLX5_GET(fte_match_set_lyr_2_4, mc, ip_version);
+  mp->tcp_flags = MLX5_GET(fte_match_set_lyr_2_4, mc, tcp_flags);
+  mp->tcp_sport = MLX5_GET(fte_match_set_lyr_2_4, mc, tcp_sport);
+  mp->tcp_dport = MLX5_GET(fte_match_set_lyr_2_4, mc, tcp_dport);
+  mp->udp_sport = MLX5_GET(fte_match_set_lyr_2_4, mc, udp_sport);
+  mp->udp_dport = MLX5_GET(fte_match_set_lyr_2_4, mc, udp_dport);
+  memcpy(&mp->src_ipv4_src_ipv6, MLX5_ADDR_OF(fte_match_set_lyr_2_4, mc, src_ipv4_src_ipv6), sizeof(mp->src_ipv4_src_ipv6));
+  memcpy(&mp->dst_ipv4_dst_ipv6, MLX5_ADDR_OF(fte_match_set_lyr_2_4, mc, dst_ipv4_dst_ipv6), sizeof(mp->dst_ipv4_dst_ipv6));
+}
+
+static void
+mlx5_dbg_copy_misc_match_params(void *mc, struct match_params *mp)
+{
+  mp->source_sqn = MLX5_GET(fte_match_set_misc, mc, source_sqn);
+  mp->source_port = MLX5_GET(fte_match_set_misc, mc, source_port);
+  mp->outer_second_prio = MLX5_GET(fte_match_set_misc, mc, outer_second_prio);
+  mp->outer_second_cfi = MLX5_GET(fte_match_set_misc, mc, outer_second_cfi);
+  mp->outer_second_vid = MLX5_GET(fte_match_set_misc, mc, outer_second_vid);
+  mp->inner_second_prio = MLX5_GET(fte_match_set_misc, mc, inner_second_prio);
+  mp->inner_second_cfi = MLX5_GET(fte_match_set_misc, mc, inner_second_cfi);
+  mp->inner_second_vid = MLX5_GET(fte_match_set_misc, mc, inner_second_vid);
+#ifdef MLX5DBG_LINUX
+  mp->outer_second_vlan_tag = MLX5_GET(fte_match_set_misc, mc, outer_second_svlan_tag);
+  mp->inner_second_vlan_tag = MLX5_GET(fte_match_set_misc, mc, inner_second_svlan_tag);
+  mp->gre_key_h = MLX5_GET(fte_match_set_misc, mc, gre_key.nvgre.hi);
+  mp->gre_key_l = MLX5_GET(fte_match_set_misc, mc, gre_key.nvgre.lo);
+#else
+  mp->outer_second_vlan_tag = MLX5_GET(fte_match_set_misc, mc, outer_second_vlan_tag);
+  mp->inner_second_vlan_tag = MLX5_GET(fte_match_set_misc, mc, inner_second_vlan_tag);
+  mp->gre_key_h = MLX5_GET(fte_match_set_misc, mc, gre_key_h);
+  mp->gre_key_l = MLX5_GET(fte_match_set_misc, mc, gre_key_l);
+#endif
+  mp->gre_protocol = MLX5_GET(fte_match_set_misc, mc, gre_protocol);
+  mp->vxlan_vni = MLX5_GET(fte_match_set_misc, mc, vxlan_vni);
+  mp->geneve_vni = MLX5_GET(fte_match_set_misc, mc, geneve_vni);
+  mp->geneve_oam = MLX5_GET(fte_match_set_misc, mc, geneve_oam);
+  mp->outer_ipv6_flow_label = MLX5_GET(fte_match_set_misc, mc, outer_ipv6_flow_label);
+  mp->inner_ipv6_flow_label = MLX5_GET(fte_match_set_misc, mc, inner_ipv6_flow_label);
+  mp->geneve_opt_len = MLX5_GET(fte_match_set_misc, mc, geneve_opt_len);
+  mp->geneve_protocol_type = MLX5_GET(fte_match_set_misc, mc, geneve_protocol_type);
+  mp->bth_dst_qp = MLX5_GET(fte_match_set_misc, mc, bth_dst_qp);
+}
+
+static int
+mlx5_dbg_query_fte(struct mlx5_core_dev *dev, uint32_t ft_id, uint32_t flow_index, uint32_t match_type, struct mlx5_get_fte_info *fte_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_fte_in)] = {0};
+  uint32_t *out;
+  void *fc, *mc;
+  void *dest, *flow_counter;
+  int i;
+  int ret;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_fte_in, in, opcode, MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY);
+  MLX5_SET(query_fte_in, in, table_type, FS_FT_NIC_RX);
+  MLX5_SET(query_fte_in, in, table_id, ft_id);
+  MLX5_SET(query_fte_in, in, flow_index, flow_index);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    fc = MLX5_ADDR_OF(query_fte_out, out, flow_context);
+    fte_info->group_id = MLX5_GET(flow_context, fc, group_id);
+    fte_info->flow_tag = MLX5_GET(flow_context, fc, flow_tag);
+    fte_info->action = MLX5_GET(flow_context, fc, action);
+    fte_info->destination_list_size = MLX5_GET(flow_context, fc, destination_list_size);
+    if (fte_info->destination_list_size > MAX_DESTINATIONS_NR) {
+      printk("warn: destination_list_size %u is bigger than max %u",
+          fte_info->destination_list_size, MAX_DESTINATIONS_NR);
+      fte_info->destination_list_size = MAX_DESTINATIONS_NR;
+    }
+    fte_info->flow_counter_list_size = MLX5_GET(flow_context, fc, flow_counter_list_size);
+    if (fte_info->flow_counter_list_size > MAX_FLOW_COUNTER_NR) {
+      printk("warn: flow_counter_list_size %u is bigger than max %u",
+          fte_info->flow_counter_list_size, MAX_FLOW_COUNTER_NR);
+      fte_info->flow_counter_list_size = MAX_FLOW_COUNTER_NR;
+    }
+    fte_info->packet_reformat_id = MLX5_GET(flow_context, fc, packet_reformat_id);
+    if (match_type == MLX5_MATCH_CRITERIA_OUTER_HEADERS) {
+      mc = MLX5_ADDR_OF(flow_context, fc, match_value.outer_headers);
+      mlx5_dbg_copy_outer_match_params(mc, &fte_info->match_value);
+    } else if (match_type == MLX5_MATCH_CRITERIA_MISC_PARAMS) {
+      mc = MLX5_ADDR_OF(flow_context, fc, match_value.misc_parameters);
+      mlx5_dbg_copy_misc_match_params(mc, &fte_info->match_value);
+    }
+    dest = MLX5_ADDR_OF(flow_context, fc, destination);
+    for (i = 0; i < fte_info->destination_list_size; i++) {
+      fte_info->destinations[i].destination_type = MLX5_GET(dest_format_struct, dest, destination_type);
+      fte_info->destinations[i].destination_id = MLX5_GET(dest_format_struct, dest, destination_id);
+      fte_info->destinations[i].destination_table_type = MLX5_GET(dest_format_struct, dest, destination_table_type);
+      dest = (void *)((char *)dest + MLX5_ST_SZ_DW(dest_format_struct));
+    }
+    flow_counter = dest;
+    for (i = 0; i < fte_info->flow_counter_list_size; i++) {
+      fte_info->flow_counters[i].flow_counter_id = MLX5_GET(flow_counter_list, flow_counter, flow_counter_id);
+      flow_counter = (void *)((char *)flow_counter + MLX5_ST_SZ_DW(flow_counter_list));
+    }
+  }
+
+  return ret;
+}
+
+static void
+mlx5_dbg_query_ft_groups(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_get_ft_info *ft_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_flow_group_in)] = {0};
+  uint32_t *out;
+  void *mc;
+  int i, cnt = 0;
+  int ret;
+  struct mlx5_fg_info *fgs = &ft_info->flow_groups[0];
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_flow_group_in, in, opcode, MLX5_CMD_OP_QUERY_FLOW_GROUP);
+  MLX5_SET(query_flow_group_in, in, table_type, FS_FT_NIC_RX);
+  MLX5_SET(query_flow_group_in, in, table_id, ft_id);
+
+  for (i = 0; i < MLX5_MAX_FG_CNT; i++) { 
+    MLX5_SET(query_flow_group_in, in, group_id, i);
+    ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+    if (ret == 0) {
+      fgs[cnt].group_id = i;
+      fgs[cnt].start_flow_index = MLX5_GET(query_flow_group_out, out, start_flow_index);
+      fgs[cnt].end_flow_index = MLX5_GET(query_flow_group_out, out, end_flow_index);
+      fgs[cnt].match_criteria_enable = MLX5_GET(query_flow_group_out, out, match_criteria_enable);
+      if (fgs[cnt].match_criteria_enable == MLX5_MATCH_CRITERIA_OUTER_HEADERS) {
+        mc = MLX5_ADDR_OF(query_flow_group_out, out, match_criteria.outer_headers);
+        mlx5_dbg_copy_outer_match_params(mc, &fgs[cnt].mp);
+      } else if (fgs[cnt].match_criteria_enable == MLX5_MATCH_CRITERIA_MISC_PARAMS) {
+        mc = MLX5_ADDR_OF(query_flow_group_out, out, match_criteria.misc_parameters);
+        mlx5_dbg_copy_misc_match_params(mc, &fgs[cnt].mp);
+      }
+      cnt++;
+    }
+  }
+  ft_info->flow_groups_cnt = cnt;
+
+  kfree(out);
+}
+
 static int
 mlx5_dbg_query_ft(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_get_ft_info *ft_info)
 {
@@ -616,19 +776,19 @@ mlx5_dbg_query_ft(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_get_ft_
     ft_info->level = MLX5_GET(flow_table_context, ctx, level);
     ft_info->log_size = MLX5_GET(flow_table_context, ctx, log_size);
     ft_info->table_miss_id = MLX5_GET(flow_table_context, ctx, table_miss_id);
-    ft_info->log_master_next_table_id = MLX5_GET(flow_table_context, ctx, log_master_next_table_id);
+    ft_info->lag_master_next_table_id = MLX5_GET(flow_table_context, ctx, lag_master_next_table_id);
 #ifdef MLX5DBG_LINUX
     ft_info->sw_owner = MLX5_GET(flow_table_context, ctx, sw_owner);
     ft_info->termination_table = MLX5_GET(flow_table_context, ctx, termination_table);
     ft_info->sw_owner_icm_root_1 = MLX5_GET64(flow_table_context, ctx, sw_owner_icm_root_1);
     ft_info->sw_owner_icm_root_0 = MLX5_GET64(flow_table_context, ctx, sw_owner_icm_root_0);
 #endif
+    mlx5_dbg_query_ft_groups(dev, ft_id, ft_info);
   }
 
   kfree(out);
   return ret;
 }
-#endif
 
 static int
 mlx5_dbg_query_hca_cap(struct mlx5_core_dev *dev, struct mlx5_get_hca_cap *hca_cap)
@@ -653,6 +813,75 @@ mlx5_dbg_query_hca_cap(struct mlx5_core_dev *dev, struct mlx5_get_hca_cap *hca_c
   kfree(out);
   return ret;
 }
+
+static int mlx5_dbg_get_eq_list(user_data_t data)
+{
+  struct mlx5_core_dev *mdev;
+  struct mlx5_get_eq_list eq_list;
+  struct mlx5_tool_addr *devaddr;
+  int error;
+
+  error = COPY_FROM_USER(eq_list, data);
+  if (error != 0)
+    return error;
+  devaddr = &eq_list.devaddr;
+  error = mlx5_dbsf_to_core(devaddr, &mdev);
+  if (error != 0)
+    return error;
+  mlx5_dbg_eq_list_fill(mdev, &eq_list);
+  error = COPY_TO_USER_RES(data, eq_list);
+  return error;
+}
+
+static int mlx5_dbg_get_eq_info(user_data_t data)
+{
+  struct mlx5_core_dev *mdev;
+  struct mlx5_get_eq_info eq_info;
+  struct mlx5_tool_addr *devaddr;
+  uint32_t *cmd_out;
+  int error;
+
+  error = COPY_FROM_USER(eq_info, data);
+  if (error != 0)
+    return error;
+  devaddr = &eq_info.devaddr;
+  error = mlx5_dbsf_to_core(devaddr, &mdev);
+  if (error != 0)
+    return error;
+  cmd_out = kzalloc(1024, GFP_KERNEL);
+  error = mlx5_core_eq_query_by_num(mdev, eq_info.eqn, cmd_out, 1024);
+  if (!error) {
+    error = mlx5_dbg_eq_info_copyout(mdev, cmd_out, &eq_info);
+    if (!error) {
+      error = COPY_TO_USER_RES(data, eq_info);
+    }
+  } else {
+    printk("failed to query eq %hd\n", eq_info.eqn);
+  }
+  kfree(cmd_out);
+  return error;
+}
+
+static int
+mlx5_dbg_get_fte_info(user_data_t data)
+{
+  struct mlx5_core_dev *mdev;
+  struct mlx5_get_fte_info fte_info;
+  int error;
+
+  COPY_FROM_USER(fte_info, data);
+  error = mlx5_dbsf_to_core(&fte_info.devaddr, &mdev);
+  if (error != 0)
+    return error;
+  error = mlx5_dbg_query_fte(mdev, fte_info.ft_id, fte_info.flow_index, fte_info.match_type, &fte_info);
+  if (error) {
+    printk("failed to query Flow Table Entry %u\n", fte_info.flow_index);
+  } else {
+    error = COPY_TO_USER_RES(data, fte_info);
+  }
+  return error;
+}
+
 #ifdef MLX5DBG_FREEBSD
 static int
 mlx5_dbg_ioctl(struct cdev *dev, u_long cmd, caddr_t data, int fflag,
@@ -662,9 +891,7 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
 #endif
 {
   struct mlx5_core_dev *mdev;
-  struct mlx5_get_eq_list eq_list;
   struct mlx5_get_cq_list cq_list;
-  struct mlx5_get_eq_info eq_info;
   struct mlx5_get_cq_info cq_info;
   struct mlx5_get_tir_list tir_list;
   struct mlx5_get_tir_info tir_info;
@@ -672,10 +899,7 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
   struct mlx5_get_rqt_info rqt_info;
   struct mlx5_get_qp_info qp_info;
   struct mlx5_get_hca_cap hca_cap;
-#if 0
   struct mlx5_get_ft_info ft_info;
-#endif
-  struct mlx5_tool_addr *devaddr;
   uint32_t *cmd_out;
   int error;
 
@@ -683,35 +907,11 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
   switch (cmd) {
   case MLX5_DBG_GET_EQ_LIST:
     printk("MLX5_DBG_GET_EQ_LIST\n");
-    error = COPY_FROM_USER(eq_list, data);
-    if (error != 0)
-      break;
-    devaddr = &eq_list.devaddr;
-    error = mlx5_dbsf_to_core(devaddr, &mdev);
-    if (error != 0)
-      break;
-    mlx5_dbg_eq_list_fill(mdev, &eq_list);
-    error = COPY_TO_USER_RES(data, eq_list);
+    error = mlx5_dbg_get_eq_list(data);
     break;
   case MLX5_DBG_GET_EQ_INFO:
     printk("MLX5_DBG_GET_EQ_INFO\n");
-    error = COPY_FROM_USER(eq_info, data);
-    if (error != 0)
-      break;
-    error = mlx5_dbsf_to_core(&eq_info.devaddr, &mdev);
-    if (error != 0)
-      break;
-    cmd_out = kzalloc(1024, GFP_KERNEL);
-    error = mlx5_core_eq_query_by_num(mdev, eq_info.eqn, cmd_out, 1024);
-    if (!error) {
-      error = mlx5_dbg_eq_info_copyout(mdev, cmd_out, &eq_info);
-      if (!error) {
-        error = COPY_TO_USER_RES(data, eq_info);
-      }
-    } else {
-      printk("failed to query eq %hd\n", eq_info.eqn);
-    }
-    kfree(cmd_out);
+    error = mlx5_dbg_get_eq_info(data);
     break;
   case MLX5_DBG_GET_CQ_LIST:
     printk("MLX5_DBG_GET_CQ_LIST\n");
@@ -816,7 +1016,6 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
       error = COPY_TO_USER_RES(data, hca_cap);
     }
     break;
-#if 0
   case MLX5_DBG_GET_FT_INFO:
     printk("MLX5_DBG_GET_FT_INFO\n");
     COPY_FROM_USER(ft_info, data);
@@ -830,9 +1029,10 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
       error = COPY_TO_USER_RES(data, ft_info);
     }
     break;
-#endif
-
-
+  case MLX5_DBG_GET_FTE_INFO:
+    printk("MLX5_DBG_GET_FTE_INFO\n");
+    error = mlx5_dbg_get_fte_info(data);
+    break;
   default:
     error = ENOTTY;
     break;
