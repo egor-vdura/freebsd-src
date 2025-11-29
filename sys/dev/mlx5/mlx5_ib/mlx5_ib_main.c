@@ -3702,6 +3702,175 @@ static const struct mlx5_fs_ttc_groups ttc_groups[] = {
 
 static int mlx5i_create_flow_steering(struct mlx5_ib_dev *dev);
 
+static
+int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
+			  u16 vport, enum fs_ft_type type, unsigned int level,
+			  unsigned int log_size, const char *name, unsigned int *table_id, unsigned int *next_id)
+{
+	int en_encap = 0;
+	int en_decap = 0;
+	int term = 0;
+
+	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)] = {0};
+	int err;
+
+	if (!dev)
+		return -EINVAL;
+
+	MLX5_SET(create_flow_table_in, in, opcode,
+		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
+
+	MLX5_SET(create_flow_table_in, in, uid, 0x0);
+	MLX5_SET(create_flow_table_in, in, table_type, type);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.level, level);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size, log_size);
+
+	MLX5_SET(create_flow_table_in, in, vport_number, 0);
+	MLX5_SET(create_flow_table_in, in, other_vport, 0);
+
+	MLX5_SET(create_flow_table_in, in, flow_table_context.decap_en,
+		 en_decap);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.reformat_en,
+		 en_encap);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.termination_table,
+		 term);
+		
+		if (next_id == NULL)
+		{
+			MLX5_SET(create_flow_table_in, in,
+				 flow_table_context.table_miss_action,
+				 MLX5_FLOW_TABLE_MISS_ACTION_DEF);
+		}
+		else
+		{
+			MLX5_SET(create_flow_table_in, in,
+				 flow_table_context.table_miss_action,
+				 MLX5_FLOW_TABLE_MISS_ACTION_FWD);
+			MLX5_SET(create_flow_table_in, in,
+				 flow_table_context.table_miss_id, *next_id);
+		}
+	// 	break;
+
+	// case FS_FT_OP_MOD_LAG_DEMUX:
+	// 	MLX5_SET(create_flow_table_in, in, op_mod, 0x1);
+	// 	if (next_ft)
+	// 		MLX5_SET(create_flow_table_in, in,
+	// 			 flow_table_context.lag_master_next_table_id,
+	// 			 next_ft->id);
+	// 	break;
+	// }
+
+
+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+	if (!err)
+		*table_id = MLX5_GET(create_flow_table_out, out, table_id);
+
+
+	// err = mlx5_cmd_exec_inout(dev, create_flow_table, in, out);
+	// if (!err) {
+	// 	ft->id = MLX5_GET(create_flow_table_out, out,
+	// 			  table_id);
+	// 	ft->max_fte = size;
+	// } else {
+	// 	mlx5_ft_pool_put_sz(ns->dev, size);
+	// }
+
+	return err;
+}
+
+static
+int my_mlx5_cmd_fs_create_fg(struct mlx5_core_dev *dev,
+	unsigned int table_id,
+			  u32 start_flow_index, u32 end_flow_index, bool match_criteria_enable,
+			  bool match_ip_protocol, bool match_ip_version, unsigned int *group_id)
+{
+	u32 in[MLX5_ST_SZ_DW(create_flow_group_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(create_flow_group_out)] = {0};
+	int err;
+	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
+	if (!dev)
+		return -EINVAL;
+
+	MLX5_SET(create_flow_group_in, in, opcode,
+		 MLX5_CMD_OP_CREATE_FLOW_GROUP);
+	MLX5_SET(create_flow_group_in, in, table_type, 0);
+	MLX5_SET(create_flow_group_in, in, table_id, table_id);
+	MLX5_SET(create_flow_group_in, in, vport_number, 0);
+	MLX5_SET(create_flow_group_in, in, other_vport, 0);
+	MLX5_SET(create_flow_group_in, in, start_flow_index, start_flow_index);
+	MLX5_SET(create_flow_group_in, in, end_flow_index, end_flow_index);
+	if (match_criteria_enable)
+	{
+		MLX5_SET(create_flow_group_in, in, match_criteria_enable, 1);
+
+    if (match_ip_protocol) {
+      MLX5_SET_TO_ONES(create_flow_group_in, in, match_criteria.outer_headers.ip_protocol);
+    }
+
+    if (match_ip_version) {
+      MLX5_SET_TO_ONES(create_flow_group_in, in, match_criteria.outer_headers.ip_version);
+    }
+	}
+
+
+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
+	if (!err)
+		*group_id = MLX5_GET(create_flow_group_out, out, group_id);
+
+	return err;
+}
+
+static
+int my_mlx5_cmd_fs_create_fte(struct mlx5_core_dev *dev,
+	unsigned int table_id, u32 group_id,
+  unsigned int flow_index, u8 ip_version, u8 ip_protocol, u8 destination_id)
+{
+	u32 out[MLX5_ST_SZ_DW(set_fte_out)] = {0};
+	u32 *in;
+	int err;
+	int inlen;
+	if (!dev)
+		return -EINVAL;
+
+  inlen = MLX5_ST_SZ_BYTES(set_fte_in) + 1 * MLX5_ST_SZ_BYTES(dest_format_struct);
+  in = kvzalloc(inlen, GFP_KERNEL);
+  if (!in)
+    return -ENOMEM;
+
+	MLX5_SET(set_fte_in, in, opcode,
+		 MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
+	MLX5_SET(set_fte_in, in, op_mod, 0);
+	MLX5_SET(set_fte_in, in, other_vport, 0);
+	MLX5_SET(set_fte_in, in, vport_number, 0);
+	MLX5_SET(set_fte_in, in, table_type, 0);
+	MLX5_SET(set_fte_in, in, table_id, table_id);
+	MLX5_SET(set_fte_in, in, flow_index, flow_index);
+
+  MLX5_SET(set_fte_in, in, flow_context.group_id, group_id);
+  MLX5_SET(set_fte_in, in, flow_context.flow_tag, 0);
+  MLX5_SET(set_fte_in, in, flow_context.action, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST);
+  MLX5_SET(set_fte_in, in, flow_context.destination_list_size, 1);
+  MLX5_SET(set_fte_in, in, flow_context.flow_counter_list_size, 0);
+  MLX5_SET(set_fte_in, in, flow_context.packet_reformat_id, 0);
+  MLX5_SET(set_fte_in, in, flow_context.modify_header_id, 0);
+	if (ip_version != 0) {
+    MLX5_SET(set_fte_in, in, flow_context.match_value.outer_headers.ip_version, ip_version);
+	}
+	if (ip_protocol != 0) {
+    MLX5_SET(set_fte_in, in, flow_context.match_value.outer_headers.ip_protocol, ip_protocol);
+	}
+  MLX5_SET(set_fte_in, in, flow_context.destination[0].dest_format_struct.destination_type, MLX5_FLOW_DESTINATION_TYPE_TIR);
+  MLX5_SET(set_fte_in, in, flow_context.destination[0].dest_format_struct.destination_id, destination_id);
+  MLX5_SET(set_fte_in, in, flow_context.destination[0].dest_format_struct.destination_table_type, 0);
+
+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
+  if (err) {
+    printf("FTE with flow_index %u creation failure\n", flow_index);
+  }
+  kfree(in);
+	return err;
+}
 
 int ipoib_if_open(struct mlx5_ib_dev *dev)
 {
@@ -3727,16 +3896,58 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 		goto err_clear_state_opened_flag;
 	}
 
-	if (mlx5i_create_flow_steering(dev) != 0)
-	{
-		mlx5_ib_warn(dev, "mlx5i_create_flow_steering failed\n");
-		goto err_reset_qp;
-	}
+	dev->mdev->vport = 0;
+	dev->mdev->enabled = true;
 
-	err = mlx5_fs_add_rx_underlay_qpn(dev);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
-		goto err_reset_qp;
+	unsigned int root_table_id;
+	my_mlx5_cmd_fs_create_ft(dev->mdev,
+		0, 0, 67, 0, "roottable0", &root_table_id, NULL);
+
+	unsigned int table_id;
+	mlx5_ib_warn(dev, "root table 0 id: %d\n", root_table_id);
+	my_mlx5_cmd_fs_create_ft(dev->mdev,
+		0, 0, 58, 0x7, "roottable0", &table_id, &root_table_id);
+
+	mlx5_ib_warn(dev, "root table 1 id: 0x%x\n", table_id);
+	unsigned int group_ids[3] = {0};
+	my_mlx5_cmd_fs_create_fg(dev->mdev, table_id, 0,  13, true,  true, true, &(group_ids[0]));
+	my_mlx5_cmd_fs_create_fg(dev->mdev, table_id, 14, 15, true, false, true, &(group_ids[1]));
+	my_mlx5_cmd_fs_create_fg(dev->mdev, table_id, 16, 16, false, false, false, &(group_ids[2]));
+	mlx5_ib_warn(dev, "group IDs: %d %d %d\n", group_ids[0], group_ids[1], group_ids[2]);
+
+  unsigned int dest_id = 0;
+  unsigned int flow_index = 0;
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
+
+  flow_index = 14;
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
+
+  flow_index = 16;
+  my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
+
+  mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, table_id, 0);
+
+	if (0)
+	{
+		if (mlx5i_create_flow_steering(dev) != 0)
+		{
+			mlx5_ib_warn(dev, "mlx5i_create_flow_steering failed\n");
+			goto err_reset_qp;
+		}
+	
+		err = mlx5_fs_add_rx_underlay_qpn(dev);
+		if (err) {
+			mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
+			goto err_reset_qp;
+		}
 	}
 
 	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
@@ -3817,6 +4028,20 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	return 0;
 }
 
+static int
+mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn)
+{
+  u32 in[MLX5_ST_SZ_DW(create_tis_in)] = {};
+  void *tisc;
+
+  tisc = MLX5_ADDR_OF(create_tis_in, in, ctx);
+
+  MLX5_SET(tisc, tisc, underlay_qpn, underlay_qpn);
+  MLX5_SET(tisc, tisc, transport_domain, tdn);
+
+  return mlx5_core_create_tis(mdev, in, MLX5_ST_SZ_BYTES(create_tis_in), tisn);
+}
+
 static const struct mlx5_fs_ttc_groups *
 mlx5_ttc_get_fs_groups(bool use_l4_type, bool ipsec_rss)
 {
@@ -3828,12 +4053,12 @@ mlx5_ttc_get_fs_groups(bool use_l4_type, bool ipsec_rss)
 			     &ttc_groups[TTC_GROUPS_DEFAULT_ESP];
 }
 
-static
-bool mlx5_ttc_has_esp_flow_group(struct mlx5_ttc_table *ttc)
-{
-	return ttc->groups == &ttc_groups[TTC_GROUPS_DEFAULT_ESP] ||
-	       ttc->groups == &ttc_groups[TTC_GROUPS_USE_L4_TYPE_ESP];
-}
+// static
+// bool mlx5_ttc_has_esp_flow_group(struct mlx5_ttc_table *ttc)
+// {
+// 	return ttc->groups == &ttc_groups[TTC_GROUPS_DEFAULT_ESP] ||
+// 	       ttc->groups == &ttc_groups[TTC_GROUPS_USE_L4_TYPE_ESP];
+// }
 
 // static
 // u8 mlx5_get_proto_by_tunnel_type(enum mlx5_tunnel_types tt)
@@ -4195,153 +4420,155 @@ static void mlx5_fs_ttc_set_match_proto(void *headers_c, void *headers_v,
 // 	return err;
 // }
 
-static int mlx5_create_ttc_table_ipsec_groups(struct mlx5_ttc_table *ttc,
-					      bool use_ipv,
-					      u32 *in, int *next_ix)
-{
-	u8 *mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
-	const struct mlx5_fs_ttc_groups *groups = ttc->groups;
-	int ix = *next_ix;
+// static int mlx5_create_ttc_table_ipsec_groups(struct mlx5_ttc_table *ttc,
+// 					      bool use_ipv,
+// 					      u32 *in, int *next_ix)
+// {
+// 	u8 *mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
+// 	const struct mlx5_fs_ttc_groups *groups = ttc->groups;
+// 	int ix = *next_ix;
 
-	MLX5_SET(fte_match_param, mc, outer_headers.ip_protocol, 0);
+// 	MLX5_SET(fte_match_param, mc, outer_headers.ip_protocol, 0);
 
-	/* decrypted ESP outer group */
-	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
-	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.l4_type_ext);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
-		goto err;
-	ttc->num_groups++;
+// 	/* decrypted ESP outer group */
+// 	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
+// 	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.l4_type_ext);
+// 	MLX5_SET_CFG(in, start_flow_index, ix);
+// 	ix += groups->group_size[ttc->num_groups];
+// 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+// 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
+// 	if (IS_ERR(ttc->g[ttc->num_groups]))
+// 		goto err;
+// 	ttc->num_groups++;
 
-	MLX5_SET(fte_match_param, mc, outer_headers.l4_type_ext, 0);
+// 	MLX5_SET(fte_match_param, mc, outer_headers.l4_type_ext, 0);
 
-	/* decrypted ESP inner group */
-	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_INNER_HEADERS);
-	if (use_ipv)
-		MLX5_SET(fte_match_param, mc, outer_headers.ip_version, 0);
-	else
-		MLX5_SET(fte_match_param, mc, outer_headers.ethertype, 0);
-	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ip_version);
-	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.l4_type_ext);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
-		goto err;
-	ttc->num_groups++;
+// 	/* decrypted ESP inner group */
+// 	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_INNER_HEADERS);
+// 	if (use_ipv)
+// 		MLX5_SET(fte_match_param, mc, outer_headers.ip_version, 0);
+// 	else
+// 		MLX5_SET(fte_match_param, mc, outer_headers.ethertype, 0);
+// 	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ip_version);
+// 	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.l4_type_ext);
+// 	MLX5_SET_CFG(in, start_flow_index, ix);
+// 	ix += groups->group_size[ttc->num_groups];
+// 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+// 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
+// 	if (IS_ERR(ttc->g[ttc->num_groups]))
+// 		goto err;
+// 	ttc->num_groups++;
 
-	MLX5_SET(fte_match_param, mc, inner_headers.ip_version, 0);
-	MLX5_SET(fte_match_param, mc, inner_headers.l4_type_ext, 0);
+// 	MLX5_SET(fte_match_param, mc, inner_headers.ip_version, 0);
+// 	MLX5_SET(fte_match_param, mc, inner_headers.l4_type_ext, 0);
 
-	/* undecrypted ESP group */
-	MLX5_SET_CFG(in, match_criteria_enable,
-		     MLX5_MATCH_OUTER_HEADERS | MLX5_MATCH_MISC_PARAMETERS_2);
-	if (use_ipv)
-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_version);
-	else
-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ethertype);
-	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_protocol);
-	MLX5_SET_TO_ONES(fte_match_param, mc,
-			 misc_parameters_2.ipsec_next_header);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
-		goto err;
-	ttc->num_groups++;
+// 	/* undecrypted ESP group */
+// 	MLX5_SET_CFG(in, match_criteria_enable,
+// 		     MLX5_MATCH_OUTER_HEADERS | MLX5_MATCH_MISC_PARAMETERS_2);
+// 	if (use_ipv)
+// 		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_version);
+// 	else
+// 		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ethertype);
+// 	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_protocol);
+// 	MLX5_SET_TO_ONES(fte_match_param, mc,
+// 			 misc_parameters_2.ipsec_next_header);
+// 	MLX5_SET_CFG(in, start_flow_index, ix);
+// 	ix += groups->group_size[ttc->num_groups];
+// 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
+// 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
+// 	if (IS_ERR(ttc->g[ttc->num_groups]))
+// 		goto err;
+// 	ttc->num_groups++;
 
-	*next_ix = ix;
+// 	*next_ix = ix;
 
-	return 0;
+// 	return 0;
 
-err:
-	return PTR_ERR(ttc->g[ttc->num_groups]);
-}
+// err:
+// 	return PTR_ERR(ttc->g[ttc->num_groups]);
+// }
+
+#define MLX5_TTC_NUM_GROUPS	3
+#define MLX5_TTC_GROUP1_SIZE	(BIT(3) + MLX5E_NUM_TUNNEL_TT)
+#define MLX5_TTC_GROUP2_SIZE	 BIT(1)
+#define MLX5_TTC_GROUP3_SIZE	 BIT(0)
+#define MLX5_TTC_TABLE_SIZE	(MLX5_TTC_GROUP1_SIZE +\
+				 MLX5_TTC_GROUP2_SIZE +\
+				 MLX5_TTC_GROUP3_SIZE)
+
+#define MLX5_INNER_TTC_NUM_GROUPS	3
+#define MLX5_INNER_TTC_GROUP1_SIZE	BIT(3)
+#define MLX5_INNER_TTC_GROUP2_SIZE	BIT(1)
+#define MLX5_INNER_TTC_GROUP3_SIZE	BIT(0)
+#define MLX5_INNER_TTC_TABLE_SIZE	(MLX5_INNER_TTC_GROUP1_SIZE +\
+					 MLX5_INNER_TTC_GROUP2_SIZE +\
+					 MLX5_INNER_TTC_GROUP3_SIZE)
 
 static int mlx5_create_ttc_table_groups(struct mlx5_ttc_table *ttc,
 					bool use_ipv)
 {
-	const struct mlx5_fs_ttc_groups *groups = ttc->groups;
 	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
 	int ix = 0;
 	u32 *in;
 	int err;
 	u8 *mc;
 
-	ttc->g = kcalloc(groups->num_groups, sizeof(*ttc->g), GFP_KERNEL);
+	ttc->g = kcalloc(MLX5_TTC_NUM_GROUPS, sizeof(*ttc->g), GFP_KERNEL);
 	if (!ttc->g)
+	{
+		printk("mlx5_create_inner_ttc_table_groups kcalloc failure\n");
 		return -ENOMEM;
-	in = kvzalloc(inlen, GFP_KERNEL);
+	}
+	in = kzalloc(inlen, GFP_KERNEL);
 	if (!in) {
 		kfree(ttc->g);
 		ttc->g = NULL;
+		printk("mlx5_create_inner_ttc_table_groups kvzalloc failure\n");
 		return -ENOMEM;
 	}
 
+	/* L4 Group */
 	mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
+	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_protocol);
 	if (use_ipv)
 		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_version);
 	else
 		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ethertype);
 	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
-
-	/* TCP UDP group */
-	if (groups->use_l4_type) {
-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.l4_type);
-		MLX5_SET_CFG(in, start_flow_index, ix);
-		ix += groups->group_size[ttc->num_groups];
-		MLX5_SET_CFG(in, end_flow_index, ix - 1);
-		ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-		if (IS_ERR(ttc->g[ttc->num_groups]))
-			goto err;
-		ttc->num_groups++;
-
-		MLX5_SET(fte_match_param, mc, outer_headers.l4_type, 0);
-	}
-
-	/* L4 Group */
-	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_protocol);
 	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
+	ix += MLX5_TTC_GROUP1_SIZE;
 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
+	if (IS_ERR(ttc->g[ttc->num_groups])) {
+		printk("mlx5_create_inner_ttc_table_groups L4 failure\n");
 		goto err;
-	ttc->num_groups++;
-
-	if (mlx5_ttc_has_esp_flow_group(ttc)) {
-		err = mlx5_create_ttc_table_ipsec_groups(ttc, use_ipv, in, &ix);
-		if (err)
-			goto err;
-
-		MLX5_SET(fte_match_param, mc,
-			 misc_parameters_2.ipsec_next_header, 0);
 	}
+	ttc->num_groups++;
 
 	/* L3 Group */
 	MLX5_SET(fte_match_param, mc, outer_headers.ip_protocol, 0);
-	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
 	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
+	ix += MLX5_TTC_GROUP2_SIZE;
 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
+	if (IS_ERR(ttc->g[ttc->num_groups])) {
+		printk("mlx5_create_inner_ttc_table_groups L3 failure\n");
 		goto err;
+	}
+
 	ttc->num_groups++;
 
 	/* Any Group */
 	memset(in, 0, inlen);
 	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += groups->group_size[ttc->num_groups];
+	ix += MLX5_TTC_GROUP3_SIZE;
 	MLX5_SET_CFG(in, end_flow_index, ix - 1);
 	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups]))
+	if (IS_ERR(ttc->g[ttc->num_groups])) {
+		printk("mlx5_create_inner_ttc_table_groups Any Group failure\n");
 		goto err;
+	}
+
 	ttc->num_groups++;
 
 	kvfree(in);
@@ -4704,6 +4931,7 @@ struct mlx5_ttc_table *mlx5_create_ttc_table(struct mlx5_core_dev *dev,
 	params->ft_attr.max_fte = mlx5_fs_ttc_table_size(ttc->groups);
 	// ttc->t = mlx5_create_flow_table(ns, &params->ft_attr);
 	ttc->t = mlx5_create_flow_table(ns, 0, "ipoibtable", params->ft_attr.level);
+	// ttc->t = mlx5_create_flow_table(ns, 0, "ipoibtable", 0);
 	if (IS_ERR(ttc->t)) {
 		err = PTR_ERR(ttc->t);
 		mlx5_core_warn(dev, "mlx5_create_ttc_table mlx5_create_flow_table failed %d\n", err);
@@ -5182,6 +5410,8 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	INIT_LIST_HEAD(&dev->qp_list);
 	spin_lock_init(&dev->reset_flow_resource_lock);
 
+	// if (0)
+	// {
 	if (ll == IB_LINK_LAYER_ETHERNET) {
 		err = mlx5_enable_roce(dev);
 		if (err)
@@ -5222,6 +5452,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	err = mlx5_ib_init_congestion(dev);
 	if (err)
 		goto err_umrc;
+	// }
 
 	give_me_CONTEXT(NULL, dev);
 
@@ -5291,6 +5522,13 @@ void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
 		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
 		return;
 	}
+  if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
+  {	
+		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
+		return;
+  } else {
+		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
+  }
 	// /* move to if if access to dev can be performed */
 	if (ipoib_if_open(ib_dev) != 0)
 	{

@@ -801,11 +801,11 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	int ft_size;
 	char gen_name[20];
 	struct mlx5_core_dev *dev = fs_get_dev(&ns->base);
-	mlx5_core_warn(dev, "RAAAAH ft 1 %p \n", ns);
+	// mlx5_core_warn(dev, "RAAAAH ft 1 %p \n", ns);
 	// mlx5_core_warn(dev, "RAAAAH ft 2 %p \n", ns->base);
 	struct mlx5_flow_root_namespace *root = find_root(&ns->base);
 
-	mlx5_core_warn(dev, "RAAAAH ft 3\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 3\n");
 
 	if (!root) {
 		mlx5_core_err(dev,
@@ -813,19 +813,19 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 		    ns->base.name);
 		return ERR_PTR(-ENODEV);
 	}
-	mlx5_core_warn(dev, "RAAAAH ft 4\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 4\n");
 
 	if (fs_prio->num_ft == fs_prio->max_ft)
 		return ERR_PTR(-ENOSPC);
 
-	mlx5_core_warn(dev, "RAAAAH ft 5\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 5\n");
 	ft  = kzalloc(sizeof(*ft), GFP_KERNEL);
 	if (!ft)
 		return ERR_PTR(-ENOMEM);
 
 	fs_init_node(&ft->base, 1);
 	INIT_LIST_HEAD(&ft->fgs);
-	mlx5_core_warn(dev, "RAAAAH ft 6\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 6\n");
 
 	/* Temporarily WA until we expose the level set in the API */
 	if (root->table_type == FS_FT_ESW_EGRESS_ACL ||
@@ -833,7 +833,7 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 		ft->level = 0;
 	else
 		ft->level = alloc_new_level(fs_prio);
-	mlx5_core_warn(dev, "RAAAAH ft 7\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 7\n");
 
 	ft->base.type = FS_TYPE_FLOW_TABLE;
 	ft->vport = vport;
@@ -843,25 +843,25 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	/*User isn't aware to those rules*/
 	ft->max_fte = ft_size - 2;
 	log_table_sz = ilog2(ft_size);
-	mlx5_core_warn(dev, "RAAAAH ft 8\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 8\n");
 
 	if (name == NULL || name[0] == '\0') {
 		snprintf(gen_name, sizeof(gen_name), "flow_table_%u", ft->id);
 		name = gen_name;
 	}
-	mlx5_core_warn(dev, "RAAAAH ft 9\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 9\n");
 
 	err = mlx5_cmd_fs_create_ft(root->dev, ft->vport, ft->type,
 				    ft->level, log_table_sz, name, &ft->id);
 	if (err)
 		goto free_ft;
 
-	mlx5_core_warn(dev, "RAAAAH ft 10\n");
-	err = create_star_rule(ft, fs_prio);
+	mlx5_core_warn(dev, "Created FT %d\n", ft->id);
+	// err = create_star_rule(ft, fs_prio);
 	if (err)
 		goto del_ft;
 
-	mlx5_core_warn(dev, "RAAAAH ft 11\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 11\n");
 	if ((root->table_type == FS_FT_NIC_RX) &&  MLX5_CAP_FLOWTABLE(root->dev,
 			       flow_table_properties_nic_receive.modify_root)) {
 	// if ((root->table_type == FS_FT_NIC_RX)){
@@ -871,7 +871,7 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	}
 	// }
 
-	mlx5_core_warn(dev, "RAAAAH ft 12\n");
+	// mlx5_core_warn(dev, "RAAAAH ft 12\n");
 	_fs_add_node(&ft->base, name, &fs_prio->base);
 
 	list_add_tail(&ft->base.list, &fs_prio->objs);
@@ -879,10 +879,10 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 
 	return ft;
 
-destroy_star_rule:
-	destroy_star_rule(ft, fs_prio);
-del_ft:
+	// 	destroy_star_rule(ft, fs_prio);
 	mlx5_cmd_fs_destroy_ft(root->dev, ft->vport, ft->type, ft->id);
+destroy_star_rule:
+del_ft:
 free_ft:
 	kfree(ft);
 	return ERR_PTR(err);

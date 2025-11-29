@@ -800,6 +800,7 @@ struct mlx5_ib_dev {
 	struct mlx5_ttc_table *inner_ttc;
 	u16 pkey_index;
 	u32 qpn;
+  u32 tisn;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
