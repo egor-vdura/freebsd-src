@@ -1164,6 +1164,18 @@ struct mlx5e_tx_wqe {
 	struct mlx5_wqe_eth_seg eth;
 };
 
+struct mlx5_wqe_eth_pad {
+  u8 rsvd0[16];
+};
+
+struct mlx5i_tx_wqe {
+  struct mlx5_wqe_ctrl_seg     ctrl;
+  struct mlx5_wqe_datagram_seg datagram;
+  struct mlx5_wqe_eth_pad      pad;
+  struct mlx5_wqe_eth_seg      eth;
+  struct mlx5_wqe_data_seg     data[];
+};
+
 struct mlx5e_tx_umr_wqe {
 	struct mlx5_wqe_ctrl_seg ctrl;
 	struct mlx5_wqe_umr_ctrl_seg umr;
@@ -1355,6 +1367,9 @@ mlx5e_select_queue_by_send_tag(if_t ifp, struct mbuf *mb);
 
 int
 mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb);
+
+int
+mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq *sq);
 
 extern uint32_t mlx5e_hash_value;
 

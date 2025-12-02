@@ -724,6 +724,7 @@ ipoib_send_one(struct ipoib_dev_priv *priv, struct mbuf *mb)
 	struct ipoib_header *eh;
 
 	eh = mtod(mb, struct ipoib_header *);
+  printf("ipoib_send_one, multicast %d\n", IPOIB_IS_MULTICAST(eh->hwaddr));
 	if (IPOIB_IS_MULTICAST(eh->hwaddr)) {
 		/* Add in the P_Key for multicast*/
 		eh->hwaddr[8] = (priv->pkey >> 8) & 0xff;
@@ -950,7 +951,115 @@ mlx5i_select_queue(if_t ifp, struct mbuf *mb)
 	return (NULL);
 }
 
-static int
+static void print_mbuf(const struct mbuf *m)
+{
+    int i;
+    unsigned char *data = m->m_data;
+
+    if (!m) {
+        printf("mbuf is NULL\n");
+        return;
+    }
+
+    printf("mbuf: m_len=%d, m_flags=0x%x, m_type=%d\n", m->m_len, m->m_flags, m->m_type);
+	  if (m->m_flags & M_PKTHDR) {
+      printf("Header sizes:\n");
+      printf("l2hlen: %u\n", m->m_pkthdr.l2hlen);
+      printf("l3hlen: %u\n", m->m_pkthdr.l3hlen);
+      printf("l4hlen: %u\n", m->m_pkthdr.l4hlen);
+      printf("l5hlen: %u\n", m->m_pkthdr.l5hlen);
+      printf("inner_l2hlen: %u\n", m->m_pkthdr.inner_l2hlen);
+      printf("inner_l3hlen: %u\n", m->m_pkthdr.inner_l3hlen);
+      printf("inner_l4hlen: %u\n", m->m_pkthdr.inner_l4hlen);
+      printf("inner_l5hlen: %u\n", m->m_pkthdr.inner_l5hlen);
+    }
+
+    for (i = 0; i < m->m_len; i++) {
+        printf("%02x ", data[i]);
+        if ((i+1) % 16 == 0)
+            printf("\n");
+    }
+    if (i % 16 != 0)
+        printf("\n");
+}
+
+static
+void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
+{
+  struct ib_ah *ah = address->ah; 
+  struct ib_ah_attr ah_attr = {0}; 
+  int err;
+
+  err = ah->device->query_ah(ah, &ah_attr);
+  if (!err) {
+    printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
+    av->rlid = cpu_to_be16(ah_attr.dlid);
+    printf("ah2av: static_rate 0x%x\n", ah_attr.static_rate);
+    av->stat_rate_sl = ah_attr.static_rate << 4;
+    /* TODO: Should ah_attr.sl be used? */
+  } else {
+    printf("ERROR: ah2av: err %d\n", err);
+  }
+}
+
+void mlx5i_xmit(struct ipoib_dev_priv *priv, struct mbuf *mb,
+		struct ipoib_ah *address, u32 dqpn)
+{
+	struct mlx5e_sq *sq;
+	struct mlx5_av av = {0};
+  if_t ifp = priv->dev;
+	int ret;
+
+	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
+		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
+		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
+		if (unlikely(sq == NULL)) {
+			goto select_queue;
+		}
+	} else {
+select_queue:
+		sq = mlx5i_select_queue(ifp, mb);
+		if (unlikely(sq == NULL)) {
+      printf("mlx5i_xmit Invalid send queue"); 
+			/* Free mbuf */
+			m_freem(mb);
+		}
+	}
+
+	mtx_lock(&sq->lock);
+
+  struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
+  printf("IPOIB pseudo header:\n");
+  for (int i = 0 ; i < INFINIBAND_ALEN; i++) {
+    printf("%02x ", ipoibh->hwaddr[i]);
+  }
+  printf("\n");
+
+  av.key.qkey.qkey = cpu_to_be32(priv->qkey);
+  /* ext bit (31st bit) should be set for IPoIB */
+  av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
+  av.fl_mlid = 0;
+  av.grh_gid_fl = cpu_to_be32(1u << 30);
+  memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
+  ah2av(address, &av);
+
+	m_adj(mb, sizeof (struct ipoib_pseudoheader));
+  if (unlikely(mb->m_pkthdr.len - IPOIB_ENCAP_LEN > priv->mcast_mtu)) {
+    ipoib_warn(priv, "packet len %d (> %d) too long to send, dropping\n",
+         mb->m_pkthdr.len, priv->mcast_mtu);
+    if_inc_counter(priv->dev, IFCOUNTER_OERRORS, 1);
+    ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
+    return;
+  }
+  printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
+  print_mbuf(mb);
+	ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
+  printf("mlx5e_xmit_locked ret: %d\n", ret);
+	mtx_unlock(&sq->lock);
+}
+
+#if 0
+int
 mlx5i_xmit(if_t ifp, struct mbuf *mb)
 {
 	struct mlx5e_sq *sq;
@@ -975,11 +1084,14 @@ select_queue:
 	}
 
 	mtx_lock(&sq->lock);
+  printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
+  print_mbuf(mb);
 	ret = mlx5e_xmit_locked(ifp, sq, mb);
 	mtx_unlock(&sq->lock);
 
 	return (ret);
 }
+#endif
 
 struct ipoib_dev_priv *
 ipoib_intf_alloc(const char *name, struct ib_device *hca)
@@ -1006,8 +1118,8 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	// if_setstartfn(dev, ipoib_start);
-	if_settransmitfn(dev, mlx5i_xmit);
+	if_setstartfn(dev, ipoib_start);
+	//if_settransmitfn(dev, mlx5i_xmit);
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 

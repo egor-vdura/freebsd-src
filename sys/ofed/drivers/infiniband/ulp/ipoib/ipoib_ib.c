@@ -476,6 +476,9 @@ post_send(struct ipoib_dev_priv *priv, unsigned int wr_id,
 	return ib_post_send(priv->qp, &priv->tx_wr.wr, &bad_wr);
 }
 
+#ifdef VDURA_CHANGES
+#define ipoib_send mlx5i_xmit
+#else
 void
 ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
     struct ipoib_ah *address, u32 qpn)
@@ -558,6 +561,7 @@ ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		++priv->tx_head;
 	}
 }
+#endif
 
 static void __ipoib_reap_ah(struct ipoib_dev_priv *priv)
 {

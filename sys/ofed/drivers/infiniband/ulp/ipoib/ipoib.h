@@ -451,6 +451,9 @@ int ipoib_open(struct ipoib_dev_priv *priv);
 int ipoib_add_pkey_attr(struct ipoib_dev_priv *priv);
 int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
+#ifdef VDURA_CHANGES
+#define ipoib_send mlx5i_xmit
+#endif
 void ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 qpn);
 void ipoib_reap_ah(struct work_struct *work);

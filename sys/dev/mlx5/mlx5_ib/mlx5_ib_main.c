@@ -3951,12 +3951,13 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 	}
 
 	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
-	// err = mlx5e_open_channels(epriv);
-	// if (err)
-	// {
-	// 	mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
-	// 	goto err_remove_fs_underlay_qp;
-	// }
+
+	err = mlx5e_open_channels(epriv);
+	if (err)
+	{
+		mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
+		goto err_remove_fs_underlay_qp;
+	}
 
 	// err = mlx5e_activate_rqt(epriv);
 	// if (err) {
@@ -3976,8 +3977,8 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 
 // err_close_channels:
 // 	mlx5e_close_channels(&epriv->channels);
-// err_remove_fs_underlay_qp:
-	// mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qpn);
+err_remove_fs_underlay_qp:
+	/* TODO */
 err_reset_qp:
 	mlx5i_uninit_underlay_qp(dev);
 err_clear_state_opened_flag:

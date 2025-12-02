@@ -68,9 +68,11 @@ static const u32 mlx5_ib_opcode[] = {
 	[MLX5_IB_WR_UMR]			= MLX5_OPCODE_UMR,
 };
 
+#if 0
 struct mlx5_wqe_eth_pad {
 	u8 rsvd0[16];
 };
+#endif
 
 enum raw_qp_set_mask_map {
 	MLX5_RAW_QP_MOD_SET_RQ_Q_CTR_ID		= 1UL << 0,

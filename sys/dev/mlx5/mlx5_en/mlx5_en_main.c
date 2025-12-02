@@ -1768,6 +1768,9 @@ mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param,
 	    (__be64 *) MLX5_ADDR_OF(wq, wq, pas));
 
 	err = mlx5_core_create_sq(sq->priv->mdev, in, inlen, &sq->sqn);
+  if (!err) {
+    printf("Created SQN: 0x%x", sq->sqn);
+  }
 
 	kvfree(in);
 
@@ -2248,6 +2251,7 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	MLX5E_ZERO(&c->iq, mlx5e_iq_zero_start);
 
 	/* open transmit completion queue */
+  printf("mlx5e_open_channel: mlx5e_open_tx_cqs\n");
 	err = mlx5e_open_tx_cqs(c, cparam);
 	if (err)
 		goto err_free;
@@ -2492,7 +2496,9 @@ mlx5e_open_channels(struct mlx5e_priv *priv)
 	cparam = malloc(sizeof(*cparam), M_MLX5EN, M_WAITOK);
 
 	mlx5e_build_channel_param(priv, cparam);
+  printf("mlx5e_open_channels: num_channels %u\n", priv->params.num_channels);
 	for (i = 0; i < priv->params.num_channels; i++) {
+    printf("mlx5e_open_channels: channel %d\n", i);
 		err = mlx5e_open_channel(priv, cparam, &priv->channel[i]);
 		if (err)
 			goto err_close_channels;
