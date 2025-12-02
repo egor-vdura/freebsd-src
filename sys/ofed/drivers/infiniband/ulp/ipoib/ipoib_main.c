@@ -724,7 +724,7 @@ ipoib_send_one(struct ipoib_dev_priv *priv, struct mbuf *mb)
 	struct ipoib_header *eh;
 
 	eh = mtod(mb, struct ipoib_header *);
-  printf("ipoib_send_one, multicast %d\n", IPOIB_IS_MULTICAST(eh->hwaddr));
+  //printf("ipoib_send_one, multicast %d\n", IPOIB_IS_MULTICAST(eh->hwaddr));
 	if (IPOIB_IS_MULTICAST(eh->hwaddr)) {
 		/* Add in the P_Key for multicast*/
 		eh->hwaddr[8] = (priv->pkey >> 8) & 0xff;
@@ -992,9 +992,9 @@ void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
 
   err = ah->device->query_ah(ah, &ah_attr);
   if (!err) {
-    printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
+    //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
     av->rlid = cpu_to_be16(ah_attr.dlid);
-    printf("ah2av: static_rate 0x%x\n", ah_attr.static_rate);
+    //printf("ah2av: static_rate 0x%x\n", ah_attr.static_rate);
     av->stat_rate_sl = ah_attr.static_rate << 4;
     /* TODO: Should ah_attr.sl be used? */
   } else {
@@ -1029,11 +1029,11 @@ select_queue:
 	mtx_lock(&sq->lock);
 
   struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
-  printf("IPOIB pseudo header:\n");
-  for (int i = 0 ; i < INFINIBAND_ALEN; i++) {
-    printf("%02x ", ipoibh->hwaddr[i]);
-  }
-  printf("\n");
+  //printf("IPOIB pseudo header:\n");
+  //for (int i = 0 ; i < INFINIBAND_ALEN; i++) {
+  //  printf("%02x ", ipoibh->hwaddr[i]);
+  //}
+  //printf("\n");
 
   av.key.qkey.qkey = cpu_to_be32(priv->qkey);
   /* ext bit (31st bit) should be set for IPoIB */
@@ -1051,10 +1051,12 @@ select_queue:
     ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
     return;
   }
-  printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
-  print_mbuf(mb);
+  //printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
+  //print_mbuf(mb);
 	ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
-  printf("mlx5e_xmit_locked ret: %d\n", ret);
+  if (0) {
+    printf("mlx5e_xmit_locked ret: %d\n", ret);
+  }
 	mtx_unlock(&sq->lock);
 }
 

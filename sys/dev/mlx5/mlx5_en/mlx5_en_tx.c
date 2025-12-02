@@ -1001,7 +1001,9 @@ top:
 	else
 		MPASS(sq->mbuf[pi].mst == NULL);
 
-  mlx5e_dump_wqe(wqe);
+  if (0) {
+    mlx5e_dump_wqe(wqe);
+  }
 
 	sq->pc += sq->mbuf[pi].num_wqebbs;
 
