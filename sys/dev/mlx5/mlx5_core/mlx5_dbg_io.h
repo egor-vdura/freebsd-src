@@ -329,6 +329,28 @@ struct mlx5_get_ft_info {
   struct mlx5_fg_info flow_groups[MLX5_MAX_FG_CNT];
 };
 
+struct mlx5_get_sq_info {
+  struct mlx5_tool_addr devaddr;
+  uint32_t sqn; /* in */
+  uint32_t rlkey;
+  uint32_t cd_master;
+  uint32_t fre;
+  uint32_t flush_in_error_en;
+  uint32_t allow_multi_pkt_send_wqe;
+  uint32_t min_wqe_inline_mode;
+  uint32_t state;
+  uint32_t reg_umr;
+  uint32_t allow_swp;
+  uint32_t ts_format;
+  uint32_t user_index; 
+  uint32_t cqn; 
+  uint32_t packet_pacing_rate_limit_index; 
+  uint32_t tis_lst_sz; 
+  uint32_t qos_queue_group_id; 
+  uint32_t queue_handle; 
+  uint32_t tis_num_0; 
+};
+
 #define MLX5_DBG_GET_EQ_LIST  _IOWR('m', 7, struct mlx5_get_eq_list)
 #define MLX5_DBG_GET_EQ_INFO  _IOWR('m', 8, struct mlx5_get_eq_info)
 #define MLX5_DBG_GET_CQ_LIST  _IOWR('m', 9, struct mlx5_get_cq_list)
@@ -341,6 +363,7 @@ struct mlx5_get_ft_info {
 #define MLX5_DBG_GET_HCA_CAP  _IOWR('m', 16, struct mlx5_get_hca_cap)
 #define MLX5_DBG_GET_FT_INFO  _IOWR('m', 17, struct mlx5_get_ft_info)
 #define MLX5_DBG_GET_FTE_INFO  _IOWR('m', 18, struct mlx5_get_fte_info)
+#define MLX5_DBG_GET_SQ_INFO  _IOWR('m', 19, struct mlx5_get_sq_info)
 
 #ifndef _KERNEL
 #define MLX5_DBG_DEV_PATH _PATH_DEV"mlx5dbg"                                                                                                                                                                                     

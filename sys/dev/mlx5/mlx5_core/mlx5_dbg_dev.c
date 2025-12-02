@@ -791,6 +791,52 @@ mlx5_dbg_query_ft(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_get_ft_
 }
 
 static int
+mlx5_dbg_query_sq(struct mlx5_core_dev *dev, uint32_t sqn, struct mlx5_get_sq_info *sq_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_sq_in)] = {0};
+  uint32_t *out;
+  void *sqc;
+  int ret;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_sq_in, in, opcode, MLX5_CMD_OP_QUERY_SQ);
+  MLX5_SET(query_sq_in, in, sqn, sqn);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    sqc = MLX5_ADDR_OF(query_sq_out, out, sq_context);
+#ifdef MLX5DBG_FREEBSD
+    sq_info->rlkey = MLX5_GET(sqc, sqc, rlkey);
+#else
+    sq_info->rlkey = MLX5_GET(sqc, sqc, rlky);
+#endif
+    sq_info->cd_master = MLX5_GET(sqc, sqc, cd_master);
+    sq_info->fre = MLX5_GET(sqc, sqc, fre);
+    sq_info->flush_in_error_en = MLX5_GET(sqc, sqc, flush_in_error_en);
+    sq_info->allow_multi_pkt_send_wqe = MLX5_GET(sqc, sqc, allow_multi_pkt_send_wqe);
+    sq_info->min_wqe_inline_mode = MLX5_GET(sqc, sqc, min_wqe_inline_mode);
+    sq_info->state = MLX5_GET(sqc, sqc, state);
+    sq_info->reg_umr = MLX5_GET(sqc, sqc, reg_umr);
+    sq_info->allow_swp = MLX5_GET(sqc, sqc, allow_swp);
+    sq_info->ts_format = MLX5_GET(sqc, sqc, ts_format);
+    sq_info->user_index = MLX5_GET(sqc, sqc, user_index);
+    sq_info->cqn = MLX5_GET(sqc, sqc, cqn);
+    sq_info->packet_pacing_rate_limit_index = MLX5_GET(sqc, sqc, packet_pacing_rate_limit_index);
+    sq_info->tis_lst_sz = MLX5_GET(sqc, sqc, tis_lst_sz);
+    sq_info->qos_queue_group_id = MLX5_GET(sqc, sqc, qos_queue_group_id);
+#ifdef MLX5DBG_FREEBSD
+    sq_info->queue_handle = MLX5_GET(sqc, sqc, queue_handle);
+#else
+    sq_info->queue_handle = 0;
+#endif
+    sq_info->tis_num_0 = MLX5_GET(sqc, sqc, tis_num_0);
+  }
+
+  return ret;
+}
+
+static int
 mlx5_dbg_query_hca_cap(struct mlx5_core_dev *dev, struct mlx5_get_hca_cap *hca_cap)
 {
   u32 in[MLX5_ST_SZ_DW(query_hca_cap_in)] = {0};
@@ -878,6 +924,26 @@ mlx5_dbg_get_fte_info(user_data_t data)
     printk("failed to query Flow Table Entry %u\n", fte_info.flow_index);
   } else {
     error = COPY_TO_USER_RES(data, fte_info);
+  }
+  return error;
+}
+
+static int
+mlx5_dbg_get_sq_info(user_data_t data)
+{
+  struct mlx5_core_dev *mdev;
+  struct mlx5_get_sq_info sq_info;
+  int error;
+
+  COPY_FROM_USER(sq_info, data);
+  error = mlx5_dbsf_to_core(&sq_info.devaddr, &mdev);
+  if (error != 0)
+    return error;
+  error = mlx5_dbg_query_sq(mdev, sq_info.sqn, &sq_info);
+  if (error) {
+    printk("failed to query SQ 0x%x\n", sq_info.sqn);
+  } else {
+    error = COPY_TO_USER_RES(data, sq_info);
   }
   return error;
 }
@@ -1033,6 +1099,11 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
     printk("MLX5_DBG_GET_FTE_INFO\n");
     error = mlx5_dbg_get_fte_info(data);
     break;
+  case MLX5_DBG_GET_SQ_INFO:
+    printk("MLX5_DBG_GET_SQ_INFO\n");
+    error = mlx5_dbg_get_sq_info(data);
+    break;
+
   default:
     error = ENOTTY;
     break;
