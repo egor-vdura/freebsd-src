@@ -950,7 +950,7 @@ mlx5i_select_queue(if_t ifp, struct mbuf *mb)
 		return (sq);
 	return (NULL);
 }
-
+#if 0
 static void print_mbuf(const struct mbuf *m)
 {
     int i;
@@ -962,17 +962,17 @@ static void print_mbuf(const struct mbuf *m)
     }
 
     printf("mbuf: m_len=%d, m_flags=0x%x, m_type=%d\n", m->m_len, m->m_flags, m->m_type);
-	  if (m->m_flags & M_PKTHDR) {
-      printf("Header sizes:\n");
-      printf("l2hlen: %u\n", m->m_pkthdr.l2hlen);
-      printf("l3hlen: %u\n", m->m_pkthdr.l3hlen);
-      printf("l4hlen: %u\n", m->m_pkthdr.l4hlen);
-      printf("l5hlen: %u\n", m->m_pkthdr.l5hlen);
-      printf("inner_l2hlen: %u\n", m->m_pkthdr.inner_l2hlen);
-      printf("inner_l3hlen: %u\n", m->m_pkthdr.inner_l3hlen);
-      printf("inner_l4hlen: %u\n", m->m_pkthdr.inner_l4hlen);
-      printf("inner_l5hlen: %u\n", m->m_pkthdr.inner_l5hlen);
-    }
+	  //if (m->m_flags & M_PKTHDR) {
+    //  printf("Header sizes:\n");
+    //  printf("l2hlen: %u\n", m->m_pkthdr.l2hlen);
+    //  printf("l3hlen: %u\n", m->m_pkthdr.l3hlen);
+    //  printf("l4hlen: %u\n", m->m_pkthdr.l4hlen);
+    //  printf("l5hlen: %u\n", m->m_pkthdr.l5hlen);
+    //  printf("inner_l2hlen: %u\n", m->m_pkthdr.inner_l2hlen);
+    //  printf("inner_l3hlen: %u\n", m->m_pkthdr.inner_l3hlen);
+    //  printf("inner_l4hlen: %u\n", m->m_pkthdr.inner_l4hlen);
+    //  printf("inner_l5hlen: %u\n", m->m_pkthdr.inner_l5hlen);
+    //}
 
     for (i = 0; i < m->m_len; i++) {
         printf("%02x ", data[i]);
@@ -982,7 +982,7 @@ static void print_mbuf(const struct mbuf *m)
     if (i % 16 != 0)
         printf("\n");
 }
-
+#endif
 static
 void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
 {
@@ -995,6 +995,7 @@ void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
     //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
     av->rlid = cpu_to_be16(ah_attr.dlid);
     //printf("ah2av: static_rate 0x%x\n", ah_attr.static_rate);
+    /* TODO: Compare with linux? */
     av->stat_rate_sl = ah_attr.static_rate << 4;
     /* TODO: Should ah_attr.sl be used? */
   } else {
@@ -1121,7 +1122,8 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
 	if_setstartfn(dev, ipoib_start);
-	//if_settransmitfn(dev, mlx5i_xmit);
+  /* TODO: Use mlx5i_* as tramsmit function */
+	// if_settransmitfn(dev, mlx5i_xmit);
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
@@ -1162,6 +1164,43 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 	return 0;
 }
 
+void OurInit(void *_ipoib_dev, void *_ib_dev);
+void OurInit(void *_ipoib_dev, void *_ib_dev)
+{
+	struct ipoib_dev_priv* ipoib_dev = _ipoib_dev;
+	struct mlx5_ib_dev *ib_dev = _ib_dev;
+
+	if_t ipoib_if = ipoib_dev->dev;
+
+	mlx5_ib_warn(ib_dev, "OurInit\n");
+	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
+		return;
+	}
+	if (mlx5i_create_underlay_qp(ib_dev) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
+		return;
+	}
+  if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
+  {	
+		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
+		return;
+  } else {
+		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
+  }
+	printk("mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
+   ib_dev->priv->IB_tisn = ib_dev->tisn;
+	// /* move to if if access to dev can be performed */
+	if (ipoib_if_open(ib_dev) != 0)
+	{
+		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
+		return;
+	}
+	ipoib_dev->qp->qp_num = ib_dev->qpn;
+}
+EXPORT_SYMBOL(OurInit);
 
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
@@ -1237,7 +1276,7 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	// struct ib_device *ca
 	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 	ib_dev->pkey_index = priv->pkey_index;
-	give_me_CONTEXT(priv->dev, NULL);
+	give_me_CONTEXT(priv, NULL, OurInit);
 
 	priv->gone = 0;	/* ready */
 

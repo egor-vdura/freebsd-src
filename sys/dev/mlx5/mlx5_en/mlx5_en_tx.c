@@ -1057,7 +1057,7 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av	*av, u32 dqpn, struct mlx5e_sq
 		/* don't send NOPs yet */
 		sq->cev_next_state = MLX5E_CEV_STATE_HOLD_NOPS;
 	}
-	printk("Received on SQ from TIS %d dqpn %d\n", sq->tisn, dqpn);
+	printk("Sending on SQ from TIS %d dqpn %d\n", sq->tisn, dqpn);
 	return (err);
 }
 #endif

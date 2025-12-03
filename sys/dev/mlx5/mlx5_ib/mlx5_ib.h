@@ -1260,6 +1260,12 @@ int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 			
 int ipoib_if_open(struct mlx5_ib_dev *dev);
 
-void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev);
+int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev);
+
+void give_me_CONTEXT(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*));
+
+int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn);
+
+int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if);
 
 #endif /* MLX5_IB_H */

@@ -3987,7 +3987,6 @@ err_clear_state_opened_flag:
 	return err;
 }
 
-static
 int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 {
 	// const unsigned char *dev_addr = priv->netdev->dev_addr;
@@ -4029,8 +4028,7 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	return 0;
 }
 
-static int
-mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn)
+int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn)
 {
   u32 in[MLX5_ST_SZ_DW(create_tis_in)] = {};
   void *tisc;
@@ -5036,7 +5034,42 @@ static int mlx5i_create_flow_steering(struct mlx5_ib_dev *dev)
 	return err;
 }
 
-static int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
+/* mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv
+ * If we place give_me_CONTEXT on ipoib, due to module dependencies, linking fails
+ * So we need to setup all context, and then run a controlled callback
+ */
+void give_me_CONTEXT(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*))
+{
+	static void(*callback)(void*,void*) = NULL;
+	static void* ipoib_dev = NULL;
+	static void *ib_dev = NULL;
+	if (ipoib_dev == NULL && _ipoib_dev != NULL)
+	{
+		ipoib_dev = _ipoib_dev;
+		printk("give_me_CONTEXT 1\n");
+	}
+	if (ib_dev == NULL && _ib_dev != NULL)
+	{
+		ib_dev = _ib_dev;
+		printk("give_me_CONTEXT 2\n");
+	}
+	if (_callback != NULL)
+	{
+		callback = _callback;
+	}
+
+	printk("give_me_CONTEXT callback %p\n", callback);
+	if (ib_dev == NULL || ipoib_dev == NULL)
+	{
+		/* Not enough CONTEXT YET */
+		return;
+	}
+	printk("give_me_CONTEXT 3\n");
+	callback(ipoib_dev, ib_dev);
+}
+EXPORT_SYMBOL(give_me_CONTEXT);
+
+int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
 	struct mlx5_core_dev *mdev = dev->mdev;
@@ -5455,7 +5488,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 		goto err_umrc;
 	// }
 
-	give_me_CONTEXT(NULL, dev);
+	give_me_CONTEXT(NULL, dev, NULL);
 
 	dev->ib_active = true;
 
@@ -5494,52 +5527,6 @@ err_dealloc:
 	return NULL;
 }
 
-void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
-{
-	static if_t ipoib_if = NULL;
-	static struct mlx5_ib_dev *ib_dev = NULL;
-	if (ipoib_if == NULL && _ipoib_if != NULL)
-	{
-		ipoib_if = _ipoib_if;
-	}
-	if (ib_dev == NULL && _ib_dev != NULL)
-	{
-		ib_dev = _ib_dev;
-	}
-
-	if (ib_dev == NULL || ipoib_if == NULL)
-	{
-		/* Not enough CONTEXT YET */
-		return;
-	}
-
-	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0)
-	{
-		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
-		return;
-	}
-	if (mlx5i_create_underlay_qp(ib_dev) != 0)
-	{
-		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
-		return;
-	}
-  if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
-  {	
-		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
-		return;
-  } else {
-		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
-  }
-   ib_dev->priv->IB_tisn = ib_dev->tisn;
-	// /* move to if if access to dev can be performed */
-	if (ipoib_if_open(ib_dev) != 0)
-	{
-		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
-		return;
-	}
-}
-
-EXPORT_SYMBOL(give_me_CONTEXT);
 
 static void mlx5_ib_remove(struct mlx5_core_dev *mdev, void *context)
 {
