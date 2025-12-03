@@ -5530,6 +5530,7 @@ void give_me_CONTEXT(if_t _ipoib_if, struct mlx5_ib_dev *_ib_dev)
   } else {
 		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
   }
+   ib_dev->priv->IB_tisn = ib_dev->tisn;
 	// /* move to if if access to dev can be performed */
 	if (ipoib_if_open(ib_dev) != 0)
 	{
