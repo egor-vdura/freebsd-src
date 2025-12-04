@@ -1052,8 +1052,8 @@ select_queue:
     ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
     return;
   }
-  //printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
-  //print_mbuf(mb);
+//   printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
+//   print_mbuf(mb);
 	ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
   if (0) {
     printf("mlx5e_xmit_locked ret: %d\n", ret);

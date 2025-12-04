@@ -777,7 +777,7 @@ mlx5i_sq_xmit(struct mlx5e_sq *sq, struct mlx5_av	*av, struct mbuf **mbp)
 	struct mlx5e_xmit_args args = {};
 	struct mlx5_wqe_data_seg *dseg;
 	struct mlx5i_tx_wqe *wqe;
-	if_t ifp;
+	// if_t ifp;
 	int nsegs;
 	int err;
 	int x;
@@ -827,7 +827,7 @@ top:
 	/* Setup local variables */
 	pi = sq->pc & sq->wq.sz_m1;
 	wqe = mlx5_wq_cyc_get_wqe(&sq->wq, pi);
-	ifp = sq->ifp;
+	// ifp = sq->ifp;
 
 	memset(wqe, 0, sizeof(*wqe));
 
@@ -835,8 +835,8 @@ top:
 	mb = *mbp;
 
 	/* Send a copy of the frame to the BPF listener, if any */
-	if (ifp != NULL)
-		ETHER_BPF_MTAP(ifp, mb);
+	// if (ifp != NULL)
+	// 	ETHER_BPF_MTAP(ifp, mb);
 
 	if (mb->m_pkthdr.csum_flags & (CSUM_IP | CSUM_TSO)) {
 		wqe->eth.cs_flags |= MLX5_ETH_WQE_L3_CSUM;
@@ -921,7 +921,7 @@ top:
 		/* check if inline header size is too big */
 		if (unlikely(args.ihs > sq->max_inline)) {
 			if (unlikely(mb->m_pkthdr.csum_flags & (CSUM_TSO |
-			    CSUM_ENCAP_VXLAN))) {
+                           CSUM_ENCAP_VXLAN))) {
 				err = EINVAL;
 				goto tx_drop;
 			}
@@ -985,7 +985,7 @@ top:
 	wqe->ctrl.imm = cpu_to_be32(args.tisn << 8);
 
 	if (mlx5e_do_send_cqe_inline(sq))
-    /* TODO: Linux sets 0 here? */
+	/* TODO: Linux sets 0 here? */
 		wqe->ctrl.fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
 	else
 		wqe->ctrl.fm_ce_se = 0;
