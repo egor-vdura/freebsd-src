@@ -1178,11 +1178,13 @@ void OurInit(void *_ipoib_dev, void *_ib_dev)
 		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
 		return;
 	}
-	if (mlx5i_create_underlay_qp(ib_dev) != 0)
-	{
+	if (mlx5i_create_underlay_qp(ib_dev) != 0) {
 		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
 		return;
-	}
+	} else {
+    printf("OurInit underlay qpn 0x%x\n", ib_dev->qpn);
+    ipoib_dev->qp->qp_num = ib_dev->qpn;
+  }
   if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
   {	
 		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
@@ -1198,7 +1200,7 @@ void OurInit(void *_ipoib_dev, void *_ib_dev)
 		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
 		return;
 	}
-	ipoib_dev->qp->qp_num = ib_dev->qpn;
+	// ipoib_dev->qp->qp_num = ib_dev->qpn;
 }
 EXPORT_SYMBOL(OurInit);
 

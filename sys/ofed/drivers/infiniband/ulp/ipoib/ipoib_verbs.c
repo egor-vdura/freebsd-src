@@ -57,11 +57,13 @@ int ipoib_mcast_attach(struct ipoib_dev_priv *priv, u16 mlid, union ib_gid *mgid
 
 		/* set correct QKey for QP */
 		qp_attr->qkey = priv->qkey;
-		ret = ib_modify_qp(priv->qp, qp_attr, IB_QP_QKEY);
-		if (ret) {
-			ipoib_warn(priv, "failed to modify QP, ret = %d\n", ret);
-			goto out;
-		}
+    if (0) {
+      ret = ib_modify_qp(priv->qp, qp_attr, IB_QP_QKEY);
+      if (ret) {
+        ipoib_warn(priv, "failed to modify QP, ret = %d\n", ret);
+        goto out;
+      }
+    }
 	}
 
 	/* attach QP to multicast group */
@@ -93,30 +95,36 @@ int ipoib_init_qp(struct ipoib_dev_priv *priv)
 	    IB_QP_PKEY_INDEX |
 	    IB_QP_STATE;
 
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to init, ret = %d\n", ret);
-		goto out_fail;
-	}
+  if (0) {
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to init, ret = %d\n", ret);
+      goto out_fail;
+    }
+  }
 
 	qp_attr.qp_state = IB_QPS_RTR;
 	/* Can't set this in a INIT->RTR transition */
 	attr_mask &= ~IB_QP_PORT;
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to RTR, ret = %d\n", ret);
-		goto out_fail;
-	}
+  if (0) {
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to RTR, ret = %d\n", ret);
+      goto out_fail;
+    }
+  }
 
 	qp_attr.qp_state = IB_QPS_RTS;
 	qp_attr.sq_psn = 0;
 	attr_mask |= IB_QP_SQ_PSN;
 	attr_mask &= ~IB_QP_PKEY_INDEX;
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to RTS, ret = %d\n", ret);
-		goto out_fail;
-	}
+  if (0) {
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to RTS, ret = %d\n", ret);
+      goto out_fail;
+    }
+  }
 
 	return 0;
 

@@ -1845,7 +1845,13 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 		raw_packet_qp_copy_info(qp, &qp->raw_packet_qp);
 		err = create_raw_packet_qp(dev, qp, in, pd);
 	} else {
-		err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
+    if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO) {
+      /* TODO: QP creation for IPoIB is avoided here. Need a proper solution. */
+      printf("Skipping creation of IPoIB QP\n");
+      err = 0;
+    } else {
+      err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
+    }
 	}
 
 	if (err) {
