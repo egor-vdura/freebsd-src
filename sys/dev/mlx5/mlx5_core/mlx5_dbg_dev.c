@@ -730,7 +730,7 @@ mlx5_dbg_query_ft_groups(struct mlx5_core_dev *dev, uint32_t ft_id, struct mlx5_
   MLX5_SET(query_flow_group_in, in, table_type, FS_FT_NIC_RX);
   MLX5_SET(query_flow_group_in, in, table_id, ft_id);
 
-  for (i = 0; i < MLX5_MAX_FG_CNT; i++) { 
+  for (i = 0; i < MLX5_MAX_FG_CNT; i++) {
     MLX5_SET(query_flow_group_in, in, group_id, i);
     ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
     if (ret == 0) {
@@ -831,6 +831,75 @@ mlx5_dbg_query_sq(struct mlx5_core_dev *dev, uint32_t sqn, struct mlx5_get_sq_in
     sq_info->queue_handle = 0;
 #endif
     sq_info->tis_num_0 = MLX5_GET(sqc, sqc, tis_num_0);
+  }
+
+  return ret;
+}
+
+static int
+mlx5_dbg_query_rq(struct mlx5_core_dev *dev, uint32_t rqn, struct mlx5_get_rq_info *rq_info)
+{
+  u32 in[MLX5_ST_SZ_DW(query_rq_in)] = {0};
+  uint32_t *out;
+  void *rqc, *wq;
+  int ret;
+
+  out = kzalloc(1024, GFP_KERNEL);
+
+  MLX5_SET(query_rq_in, in, opcode, MLX5_CMD_OP_QUERY_RQ);
+  MLX5_SET(query_rq_in, in, rqn, rqn);
+
+  ret = mlx5_cmd_exec(dev, in, sizeof(in), out, 1024);
+  if (ret == 0) {
+    rqc = MLX5_ADDR_OF(query_rq_out, out, rq_context);
+#ifdef MLX5DBG_FREEBSD
+    rq_info->rlkey = MLX5_GET(rqc, rqc, rlkey);
+#else
+    rq_info->rlkey = MLX5_GET(rqc, rqc, rlky);
+#endif
+    rq_info->delay_drop_en = MLX5_GET(rqc, rqc, delay_drop_en);
+    rq_info->scatter_fcs = MLX5_GET(rqc, rqc, scatter_fcs);
+#ifdef MLX5DBG_FREEBSD
+    rq_info->vlan_strip_disable = MLX5_GET(rqc, rqc, vlan_strip_disable);
+#else
+    rq_info->vlan_strip_disable = MLX5_GET(rqc, rqc, vsd);
+#endif
+    rq_info->mem_rq_type = MLX5_GET(rqc, rqc, mem_rq_type);
+    rq_info->state = MLX5_GET(rqc, rqc, state);
+    rq_info->flush_in_error_en = MLX5_GET(rqc, rqc, flush_in_error_en);
+    rq_info->ts_format = MLX5_GET(rqc, rqc, ts_format);
+    rq_info->user_index = MLX5_GET(rqc, rqc, user_index);
+    rq_info->cqn = MLX5_GET(rqc, rqc, cqn);
+    rq_info->counter_set_id = MLX5_GET(rqc, rqc, counter_set_id);
+    rq_info->rmpn = MLX5_GET(rqc, rqc, rmpn);
+    wq = MLX5_ADDR_OF(rqc, rqc, wq);
+    rq_info->wq.wq_type = MLX5_GET(wq, wq, wq_type);
+    rq_info->wq.wq_signature = MLX5_GET(wq, wq, wq_signature);
+    rq_info->wq.end_padding_mode = MLX5_GET(wq, wq, end_padding_mode);
+    rq_info->wq.cd_slave = MLX5_GET(wq, wq, cd_slave);
+    rq_info->wq.hds_skip_first_sge = MLX5_GET(wq, wq, hds_skip_first_sge);
+    rq_info->wq.log2_hds_buf_size = MLX5_GET(wq, wq, log2_hds_buf_size);
+    rq_info->wq.page_offset = MLX5_GET(wq, wq, page_offset);
+    rq_info->wq.lwm = MLX5_GET(wq, wq, lwm);
+    rq_info->wq.pd = MLX5_GET(wq, wq, pd);
+    rq_info->wq.uar_page = MLX5_GET(wq, wq, uar_page);
+    rq_info->wq.hw_counter = MLX5_GET(wq, wq, hw_counter);
+    rq_info->wq.sw_counter = MLX5_GET(wq, wq, sw_counter);
+    rq_info->wq.log_wq_stride = MLX5_GET(wq, wq, log_wq_stride);
+    rq_info->wq.log_wq_pg_sz = MLX5_GET(wq, wq, log_wq_pg_sz);
+    rq_info->wq.dbr_umem_valid = MLX5_GET(wq, wq, dbr_umem_valid);
+    rq_info->wq.wq_umem_valid = MLX5_GET(wq, wq, wq_umem_valid);
+#ifdef MLX5DBG_FREEBSD
+    rq_info->wq.single_wqe_log_num_of_strides = MLX5_GET(wq, wq, single_wqe_log_num_of_strides);
+#else
+    rq_info->wq.single_wqe_log_num_of_strides = MLX5_GET(wq, wq, log_wqe_num_of_strides);
+#endif
+    rq_info->wq.two_byte_shift_en = MLX5_GET(wq, wq, two_byte_shift_en);
+#ifdef MLX5DBG_FREEBSD
+    rq_info->wq.single_stride_log_num_of_bytes = MLX5_GET(wq, wq, single_stride_log_num_of_bytes);
+#else
+    rq_info->wq.single_stride_log_num_of_bytes = MLX5_GET(wq, wq, log_wqe_stride_size);
+#endif
   }
 
   return ret;
@@ -944,6 +1013,26 @@ mlx5_dbg_get_sq_info(user_data_t data)
     printk("failed to query SQ 0x%x\n", sq_info.sqn);
   } else {
     error = COPY_TO_USER_RES(data, sq_info);
+  }
+  return error;
+}
+
+static int
+mlx5_dbg_get_rq_info(user_data_t data)
+{
+  struct mlx5_core_dev *mdev;
+  struct mlx5_get_rq_info rq_info;
+  int error;
+
+  COPY_FROM_USER(rq_info, data);
+  error = mlx5_dbsf_to_core(&rq_info.devaddr, &mdev);
+  if (error != 0)
+    return error;
+  error = mlx5_dbg_query_rq(mdev, rq_info.rqn, &rq_info);
+  if (error) {
+    printk("failed to query RQ 0x%x\n", rq_info.rqn);
+  } else {
+    error = COPY_TO_USER_RES(data, rq_info);
   }
   return error;
 }
@@ -1102,6 +1191,10 @@ static long mlx5_dbg_ioctl(struct file *file, unsigned int cmd, unsigned long da
   case MLX5_DBG_GET_SQ_INFO:
     printk("MLX5_DBG_GET_SQ_INFO\n");
     error = mlx5_dbg_get_sq_info(data);
+    break;
+  case MLX5_DBG_GET_RQ_INFO:
+    printk("MLX5_DBG_GET_RQ_INFO\n");
+    error = mlx5_dbg_get_rq_info(data);
     break;
 
   default:

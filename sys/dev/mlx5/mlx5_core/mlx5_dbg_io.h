@@ -325,7 +325,7 @@ struct mlx5_get_ft_info {
   uint32_t lag_master_next_table_id;
   uint64_t sw_owner_icm_root_1;
   uint64_t sw_owner_icm_root_0;
-  uint32_t flow_groups_cnt; 
+  uint32_t flow_groups_cnt;
   struct mlx5_fg_info flow_groups[MLX5_MAX_FG_CNT];
 };
 
@@ -342,13 +342,55 @@ struct mlx5_get_sq_info {
   uint32_t reg_umr;
   uint32_t allow_swp;
   uint32_t ts_format;
-  uint32_t user_index; 
-  uint32_t cqn; 
-  uint32_t packet_pacing_rate_limit_index; 
-  uint32_t tis_lst_sz; 
-  uint32_t qos_queue_group_id; 
-  uint32_t queue_handle; 
-  uint32_t tis_num_0; 
+  uint32_t user_index;
+  uint32_t cqn;
+  uint32_t packet_pacing_rate_limit_index;
+  uint32_t tis_lst_sz;
+  uint32_t qos_queue_group_id;
+  uint32_t queue_handle;
+  uint32_t tis_num_0;
+};
+
+struct mlx5_wq_info {
+  uint32_t wq_type;
+  uint32_t wq_signature;
+  uint32_t end_padding_mode;
+  uint32_t cd_slave;
+  uint32_t hds_skip_first_sge;
+  uint32_t log2_hds_buf_size;
+  uint32_t page_offset;
+  uint32_t lwm;
+  uint32_t pd;
+  uint32_t uar_page;
+  uint32_t dbr_addr;
+  uint32_t hw_counter;
+  uint32_t sw_counter;
+  uint32_t log_wq_stride;
+  uint32_t log_wq_pg_sz;
+  uint32_t log_wq_sz;
+  uint32_t dbr_umem_valid;
+  uint32_t wq_umem_valid;
+  uint32_t single_wqe_log_num_of_strides;
+  uint32_t two_byte_shift_en;
+  uint32_t single_stride_log_num_of_bytes;
+};
+
+struct mlx5_get_rq_info {
+  struct mlx5_tool_addr devaddr;
+  uint32_t rqn; /* in */
+  uint32_t rlkey;
+  uint32_t delay_drop_en;
+  uint32_t scatter_fcs;
+  uint32_t vlan_strip_disable;
+  uint32_t mem_rq_type;
+  uint32_t state;
+  uint32_t flush_in_error_en;
+  uint32_t ts_format;
+  uint32_t user_index;
+  uint32_t cqn;
+  uint32_t counter_set_id;
+  uint32_t rmpn;
+  struct mlx5_wq_info wq;
 };
 
 #define MLX5_DBG_GET_EQ_LIST  _IOWR('m', 7, struct mlx5_get_eq_list)
@@ -364,9 +406,10 @@ struct mlx5_get_sq_info {
 #define MLX5_DBG_GET_FT_INFO  _IOWR('m', 17, struct mlx5_get_ft_info)
 #define MLX5_DBG_GET_FTE_INFO  _IOWR('m', 18, struct mlx5_get_fte_info)
 #define MLX5_DBG_GET_SQ_INFO  _IOWR('m', 19, struct mlx5_get_sq_info)
+#define MLX5_DBG_GET_RQ_INFO  _IOWR('m', 20, struct mlx5_get_rq_info)
 
 #ifndef _KERNEL
-#define MLX5_DBG_DEV_PATH _PATH_DEV"mlx5dbg"                                                                                                                                                                                     
+#define MLX5_DBG_DEV_PATH _PATH_DEV"mlx5dbg"
 #endif
 
 #endif /* _MLX5DBGIO_H_ */
