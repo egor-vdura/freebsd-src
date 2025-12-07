@@ -1186,6 +1186,10 @@ void OurInit(void *_ipoib_dev, void *_ib_dev)
 	} else {
     printf("OurInit underlay qpn 0x%x\n", ib_dev->qpn);
     ipoib_dev->qp->qp_num = ib_dev->qpn;
+    caddr_t lla = if_getlladdr(ipoib_if);
+    lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
+    lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
+    lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
   }
   if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
   {	

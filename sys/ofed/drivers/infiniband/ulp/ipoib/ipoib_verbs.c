@@ -225,10 +225,12 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 		goto out_free_send_cq;
 	}
 
-	lla = if_getlladdr(priv->dev);
-	lla[1] = (priv->qp->qp_num >> 16) & 0xff;
-	lla[2] = (priv->qp->qp_num >>  8) & 0xff;
-	lla[3] = (priv->qp->qp_num      ) & 0xff;
+  if (0) {
+    lla = if_getlladdr(priv->dev);
+    lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+    lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+    lla[3] = (priv->qp->qp_num      ) & 0xff;
+  }
 
 	for (i = 0; i < IPOIB_MAX_TX_SG; ++i)
 		priv->tx_sge[i].lkey = priv->pd->local_dma_lkey;
