@@ -1010,13 +1010,14 @@ void mlx5i_xmit(struct ipoib_dev_priv *priv, struct mbuf *mb,
 	struct mlx5_av av = {0};
   if_t ifp = priv->dev;
 	int ret;
-
+	
 	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
 		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
 		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
 		if (unlikely(sq == NULL)) {
 			goto select_queue;
 		}
+		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
 	} else {
 select_queue:
 		sq = mlx5i_select_queue(ifp, mb);
@@ -1025,6 +1026,7 @@ select_queue:
 			/* Free mbuf */
 			m_freem(mb);
 		}
+		printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
 	mtx_lock(&sq->lock);

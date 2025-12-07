@@ -204,7 +204,7 @@ ipoib_ib_handle_rx_wc(struct ipoib_dev_priv *priv, struct ib_wc *wc)
 	if_t dev = priv->dev;
 	struct ipoib_header *eh;
 	struct mbuf *mb;
-	// printk("FROM QP %d\n", wc->qp->qp_num);
+	printk("FROM QP QPN: %d\n", wc->qp->qp_num);
 
 	ipoib_dbg_data(priv, "recv completion: id %d, status: %d\n",
 		       wr_id, wc->status);

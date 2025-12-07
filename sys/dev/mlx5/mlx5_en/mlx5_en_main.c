@@ -2058,6 +2058,7 @@ mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param, int eq_ix)
 	MLX5_SET64(cqc, cqc, dbr_addr, cq->wq_ctrl.db.dma);
 
 	err = mlx5_core_create_cq(cq->priv->mdev, mcq, in, inlen, out, sizeof(out));
+	printk("ETH CQ %d set to EQ %d\n", mcq->cqn, eqn);
 
 	kvfree(in);
 
@@ -2149,6 +2150,7 @@ mlx5e_open_sqs(struct mlx5e_channel *c,
 
 	for (tc = 0; tc < c->priv->num_tc; tc++) {
 		err = mlx5e_open_sq(c, tc, &cparam->sq, &c->sq[tc]);
+		printk("SQ %d\n", c->sq[tc].sqn);
 		if (err)
 			goto err_close_sqs;
 	}
@@ -2263,7 +2265,8 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	    &mlx5e_rx_cq_comp, c->ix);
 	if (err)
 		goto err_close_tx_cqs;
-
+	printk("channel CQN %d\n", c->rq.cq.mcq.cqn);
+		
 	err = mlx5e_open_sqs(c, cparam);
 	if (err)
 		goto err_close_rx_cq;
@@ -2275,6 +2278,7 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	err = mlx5e_open_rq(c, &cparam->rq, &c->rq);
 	if (err)
 		goto err_close_iq;
+	printk("channel RQN 0x%x\n", c->rq.rqn);
 
 	/* poll receive queue initially */
 	NET_EPOCH_ENTER(et);

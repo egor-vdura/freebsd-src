@@ -1738,6 +1738,7 @@ int ib_attach_mcast(struct ib_qp *qp, union ib_gid *gid, u16 lid)
 {
 	int ret;
 
+  printf("ib_attach_mcast qpn 0x%x\n", qp->qp_num);
 	if (!qp->device->attach_mcast)
 		return -ENOSYS;
 
