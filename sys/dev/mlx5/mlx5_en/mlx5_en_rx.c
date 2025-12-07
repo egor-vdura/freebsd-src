@@ -538,6 +538,14 @@ mlx5e_decompress_cqes(struct mlx5e_cq *cq)
 	}
 }
 
+#define	INFINIBAND_ALEN		20	/* Octets in IPoIB HW addr */
+
+struct ipoib_header {
+	u8  hwaddr[INFINIBAND_ALEN];
+	__be16	proto;
+	u16	reserved;
+};
+
 static int
 mlx5e_poll_rx_cq(struct mlx5e_rq *rq, int budget)
 {
@@ -632,6 +640,14 @@ rx_common:
 #ifdef NUMA
 		mb->m_pkthdr.numa_domain = if_getnumadomain(rq->ifp);
 #endif
+
+    /* Convert from IPoIB format */
+    if (mb) {
+      struct ipoib_header *eh;
+      m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
+      eh = mtod(mb, struct ipoib_header *);
+      bzero(eh->hwaddr, 4);	/* Zero the queue pair, only dgid is in grh */
+    }
 
 #if !defined(HAVE_TCP_LRO_RX)
 		tcp_lro_queue_mbuf(&rq->lro, mb);
