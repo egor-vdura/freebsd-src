@@ -3959,12 +3959,15 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 		goto err_remove_fs_underlay_qp;
 	}
 
-	// err = mlx5e_activate_rqt(epriv);
-	// if (err) {
-	// 	mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
+	err = mlx5e_activate_rqt(epriv);
+	if (err) {
+		mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
 	// 	// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
-	// 	goto err_close_channels;
-	// }
+		goto err_close_channels;
+	}
+	mlx5_ib_warn(dev, "mlx5e_activate_rqt success\n");
+	mlx5e_update_carrier(epriv);
+
 
 	// 	err = epriv->profile->update_rx(epriv);
 // 	if (err)
@@ -3975,7 +3978,7 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 	PRIV_UNLOCK(epriv);
 	return 0;
 
-// err_close_channels:
+err_close_channels:
 // 	mlx5e_close_channels(&epriv->channels);
 err_remove_fs_underlay_qp:
 	/* TODO */
