@@ -3966,7 +3966,7 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 		goto err_close_channels;
 	}
 	mlx5_ib_warn(dev, "mlx5e_activate_rqt success\n");
-	mlx5e_update_carrier(epriv);
+	//mlx5e_update_carrier(epriv);
 
 
 	// 	err = epriv->profile->update_rx(epriv);
