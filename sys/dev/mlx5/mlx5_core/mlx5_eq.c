@@ -249,7 +249,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
 			/* FALLTHROUGH */
 		} else switch (eqe->type) {
 		case MLX5_EVENT_TYPE_COMP:
-			printk("I On IRQN:%d EQN:%d\n", eq->irqn, eq->eqn);
+			//printk("I On IRQN:%d EQN:%d\n", eq->irqn, eq->eqn);
 			mlx5_cq_completion(dev, eqe);
 			break;
 

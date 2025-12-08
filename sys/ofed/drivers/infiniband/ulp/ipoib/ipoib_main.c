@@ -1026,7 +1026,7 @@ select_queue:
 			/* Free mbuf */
 			m_freem(mb);
 		}
-		printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
+		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
 	mtx_lock(&sq->lock);
