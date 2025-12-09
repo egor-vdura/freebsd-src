@@ -1147,6 +1147,7 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 
 #ifndef CONFIG_INFINIBAND_IPOIB_CM
 	if (priv->hca_caps & IB_DEVICE_UD_IP_CSUM) {
+    printf("priv->hca_caps & IB_DEVICE_UD_IP_CSUM\n");
 		set_bit(IPOIB_FLAG_CSUM, &priv->flags);
 		if_sethwassist(priv->dev, CSUM_IP | CSUM_TCP | CSUM_UDP);
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);

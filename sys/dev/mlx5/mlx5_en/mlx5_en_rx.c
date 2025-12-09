@@ -328,6 +328,7 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 	int lro_num_seg;	/* HW LRO session aggregated packets counter */
 	uint64_t tstmp;
 
+  //printf("cqe->hds_ip_ext 0x%x\n", cqe->hds_ip_ext);
 	lro_num_seg = be32_to_cpu(cqe->srqn) >> 24;
 	if (lro_num_seg > 1) {
 		mlx5e_lro_update_hdr(mb, cqe);
@@ -420,8 +421,8 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 		}
 	} else if (likely((if_getcapenable(ifp) & (IFCAP_RXCSUM |
 	    IFCAP_RXCSUM_IPV6)) != 0) &&
-	    ((cqe->hds_ip_ext & (CQE_L2_OK | CQE_L3_OK | CQE_L4_OK)) ==
-	    (CQE_L2_OK | CQE_L3_OK | CQE_L4_OK))) {
+	    ((cqe->hds_ip_ext & (CQE_L3_OK | CQE_L4_OK)) ==
+	    (CQE_L3_OK | CQE_L4_OK))) {
 		mb->m_pkthdr.csum_flags =
 		    CSUM_IP_CHECKED | CSUM_IP_VALID |
 		    CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
@@ -430,6 +431,7 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 		rq->stats.csum_none++;
 	}
 
+  //printf("csum flags: 0x%x\n", mb->m_pkthdr.csum_flags);
 	if (cqe_has_vlan(cqe)) {
 		mb->m_pkthdr.ether_vtag = be16_to_cpu(cqe->vlan_info);
 		mb->m_flags |= M_VLANTAG;

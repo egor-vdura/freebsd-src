@@ -748,6 +748,7 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
 	}
 
 	if (MLX5_CAP_GEN(mdev, ipoib_ipoib_offloads)) {
+    printf("ipoib_ipoib_offloads enabled\n");
 		props->device_cap_flags |= IB_DEVICE_UD_IP_CSUM;
 		props->device_cap_flags |= IB_DEVICE_UD_TSO;
 	}
