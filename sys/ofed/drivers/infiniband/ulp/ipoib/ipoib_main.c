@@ -1161,7 +1161,7 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 #endif
 #endif
 	if_setcapabilitiesbit(priv->dev,
-	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE, 0);
+	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));
 
 	return 0;

@@ -1232,7 +1232,7 @@ mlx5e_create_rq(struct mlx5e_channel *c,
 
 	wq_sz = mlx5_wq_ll_get_size(&rq->wq);
 
-	err = -tcp_lro_init_args(&rq->lro, priv->ifp, TCP_LRO_ENTRIES, wq_sz);
+	err = -tcp_lro_init_args(&rq->lro, priv->ifp, TCP_LRO_ENTRIES, wq_sz/2);
 	if (err)
 		goto err_rq_wq_destroy;
 

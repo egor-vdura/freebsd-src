@@ -649,18 +649,22 @@ rx_common:
       m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
       eh = mtod(mb, struct ipoib_header *);
       bzero(eh->hwaddr, 4);	/* Zero the queue pair, only dgid is in grh */
+    //   ETHER_BPF_MTAP(rq->ifp, mb);
+    //   ETHER_BPF_MTAP(rq->ifp, mb);
     }
-
-#if !defined(HAVE_TCP_LRO_RX)
+//#if !defined(HAVE_TCP_LRO_RX)
+    //printk("LRO in\n");
 		tcp_lro_queue_mbuf(&rq->lro, mb);
+/*
 #else
-		if (mb->m_pkthdr.csum_flags == 0 ||
+    if (mb->m_pkthdr.csum_flags == 0 ||
 		    (if_getcapenable(rq->ifp) & IFCAP_LRO) == 0 ||
 		    rq->lro.lro_cnt == 0 ||
 		    tcp_lro_rx(&rq->lro, mb, 0) != 0) {
 			if_input(rq->ifp, mb);
 		}
 #endif
+*/
 wq_ll_pop:
 		mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
 		    &wqe->next.next_wqe_index);
