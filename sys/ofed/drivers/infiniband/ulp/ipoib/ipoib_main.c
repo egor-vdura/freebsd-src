@@ -1052,6 +1052,7 @@ select_queue:
          mb->m_pkthdr.len, priv->mcast_mtu);
     if_inc_counter(priv->dev, IFCOUNTER_OERRORS, 1);
     ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
+	mtx_unlock(&sq->lock);
     return;
   }
 //   printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
