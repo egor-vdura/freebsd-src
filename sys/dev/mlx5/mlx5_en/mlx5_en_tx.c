@@ -233,65 +233,34 @@ max_inline:
  * this function returns zero, the parsing failed.
  */
 int
-mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth)
+mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth)
 {
-	const struct ether_vlan_header *eh;
+	struct mbuf *mb = (struct mbuf*)_mb;
 	const struct tcphdr *th;
 	const struct ip *ip;
 	int ip_hlen, tcp_hlen;
-	const struct ip6_hdr *ip6;
-	uint16_t eth_type;
-	int eth_hdr_len;
+	int init_eth_hdr_len, eth_hdr_len;
 
-	eh = mtod(mb, const struct ether_vlan_header *);
-	if (unlikely(mb->m_len < ETHER_HDR_LEN))
-		goto failure;
-	if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
-		if (unlikely(mb->m_len < ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN))
-			goto failure;
-		eth_type = ntohs(eh->evl_proto);
-		eth_hdr_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
-	} else {
-		eth_type = ntohs(eh->evl_encap_proto);
-		eth_hdr_len = ETHER_HDR_LEN;
-	}
+  // Skip IB header, go straight to IP
+  init_eth_hdr_len = mb->m_len;
+  eth_hdr_len = 0;
+//   printk("RRR %d\n", mb->m_len);
+	mb = mb->m_next;
+//   printk("RRR %d\n", mb->m_len);
 
-	switch (eth_type) {
-	case ETHERTYPE_IP:
-		ip = (const struct ip *)(mb->m_data + eth_hdr_len);
-		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip)))
-			goto failure;
-		switch (ip->ip_p) {
-		case IPPROTO_TCP:
-			ip_hlen = ip->ip_hl << 2;
-			eth_hdr_len += ip_hlen;
-			goto tcp_packet;
-		case IPPROTO_UDP:
-			ip_hlen = ip->ip_hl << 2;
-			eth_hdr_len += ip_hlen + sizeof(struct udphdr);
-			th = NULL;
-			goto udp_packet;
-		default:
-			goto failure;
-		}
-		break;
-	case ETHERTYPE_IPV6:
-		ip6 = (const struct ip6_hdr *)(mb->m_data + eth_hdr_len);
-		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip6)))
-			goto failure;
-		switch (ip6->ip6_nxt) {
-		case IPPROTO_TCP:
-			eth_hdr_len += sizeof(*ip6);
-			goto tcp_packet;
-		case IPPROTO_UDP:
-			eth_hdr_len += sizeof(*ip6) + sizeof(struct udphdr);
-			th = NULL;
-			goto udp_packet;
-		default:
-			goto failure;
-		}
-		break;
+	ip = (const struct ip *)(mb->m_data);
+	switch (ip->ip_p) {
+	case IPPROTO_TCP:
+		ip_hlen = ip->ip_hl << 2;
+		eth_hdr_len += ip_hlen;
+		goto tcp_packet;
+	case IPPROTO_UDP:
+		ip_hlen = ip->ip_hl << 2;
+		eth_hdr_len += ip_hlen + sizeof(struct udphdr);
+		th = NULL;
+		goto udp_packet;
 	default:
+	//   printk("RRR2 %d\n", mb->m_len);
 		goto failure;
 	}
 tcp_packet:
@@ -299,7 +268,10 @@ tcp_packet:
 		const struct mbuf *m_th = mb->m_next;
 		if (unlikely(mb->m_len != eth_hdr_len ||
 		    m_th == NULL || m_th->m_len < sizeof(*th)))
-			goto failure;
+			{
+				// printk("RRR1 %d %lu %d\n", m_th->m_len, sizeof(*th), eth_hdr_len);
+				goto failure;
+			}
 		th = (const struct tcphdr *)(m_th->m_data);
 	} else {
 		th = (const struct tcphdr *)(mb->m_data + eth_hdr_len);
@@ -313,10 +285,13 @@ udp_packet:
 	 * data:
 	 */
 	if (unlikely(mb->m_pkthdr.len < eth_hdr_len))
+	{
+		// printk("RRR3 %d %d\n", mb->m_pkthdr.len, eth_hdr_len);
 		goto failure;
+	}
 	if (ppth != NULL)
 		*ppth = th;
-	return (eth_hdr_len);
+	return (eth_hdr_len + init_eth_hdr_len);
 failure:
 	if (ppth != NULL)
 		*ppth = NULL;
@@ -848,6 +823,7 @@ top:
 		sq->stats.csum_offload_none++;
 	}
 	if (mb->m_pkthdr.csum_flags & CSUM_TSO) {
+  		//printk("YEEE %d\n", args.ihs);
 		u32 payload_len;
 		u32 mss = mb->m_pkthdr.tso_segsz;
 		u32 num_pkts;
@@ -855,9 +831,17 @@ top:
 		wqe->eth.mss = cpu_to_be16(mss);
 		opcode = MLX5_OPCODE_LSO;
 		if (args.ihs == 0)
+		{
+			// ETHER_BPF_MTAP(sq->ifp, mb);
+			// ETHER_BPF_MTAP(sq->ifp, mb);
+			// mb = m_free(mb);
 			args.ihs = mlx5e_get_full_header_size(mb, NULL);
+			// printk("IHS: %d\n", args.ihs);
+		}
+		  //printk("YEEE2 %d\n", args.ihs);
 		if (unlikely(args.ihs == 0)) {
 			err = EINVAL;
+  			//printk("YEEE3 %d\n", args.ihs);
 			goto tx_drop;
 		}
 		payload_len = mb->m_pkthdr.len - args.ihs;
@@ -915,6 +899,7 @@ top:
 
   memcpy(&wqe->datagram, av, sizeof(*av));
 
+  //printk("YEEE4 %d\n", args.ihs);
 	if (likely(args.ihs == 0)) {
 		/* nothing to inline */
 	} else {
@@ -923,6 +908,7 @@ top:
 			if (unlikely(mb->m_pkthdr.csum_flags & (CSUM_TSO |
                            CSUM_ENCAP_VXLAN))) {
 				err = EINVAL;
+  				printk("ERR0 %d %d\n", args.ihs, sq->max_inline);
 				goto tx_drop;
 			}
 			args.ihs = sq->max_inline;
@@ -939,24 +925,31 @@ top:
 	}
 	dseg = ((struct mlx5_wqe_data_seg *)&wqe->ctrl) + ds_cnt;
 
+	//printk("YEEE5\n");
 	err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
 	    mb, segs, &nsegs, BUS_DMA_NOWAIT);
 	if (err == EFBIG) {
+		printk("ERR0 EFBIG %d %d\n", args.ihs, sq->max_inline);
 		/* Update statistics */
 		sq->stats.defragged++;
 		/* Too many mbuf fragments */
 		mb = m_defrag(*mbp, M_NOWAIT);
 		if (mb == NULL) {
 			mb = *mbp;
+			printk("ERR1 %d %d\n", args.ihs, sq->max_inline);
 			goto tx_drop;
 		}
 		/* Try again */
 		err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
 		    mb, segs, &nsegs, BUS_DMA_NOWAIT);
 	}
+	//printk("YEEE6 %d %d\n", nsegs, sq->max_inline);
 	/* Catch errors */
 	if (err != 0)
+	{
+		printk("ERR2 %d %d\n", args.ihs, sq->max_inline);
 		goto tx_drop;
+	}
 
 	/* Make sure all mbuf data, if any, is visible to the bus */
 	if (nsegs != 0) {
@@ -969,6 +962,7 @@ top:
 		mb = NULL;
 	}
 
+	//printk("YEEE7 %d %d\n", nsegs, sq->max_inline);
 	for (x = 0; x != nsegs; x++) {
 		if (segs[x].ds_len == 0)
 			continue;

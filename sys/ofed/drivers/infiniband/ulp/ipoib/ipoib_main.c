@@ -1121,14 +1121,7 @@ select_queue:
   ah2av(address, &av);
 
 	m_adj(mb, sizeof (struct ipoib_pseudoheader));
-  if (unlikely(mb->m_pkthdr.len - IPOIB_ENCAP_LEN > priv->mcast_mtu)) {
-    ipoib_warn(priv, "packet len %d (> %d) too long to send, dropping\n",
-         mb->m_pkthdr.len, priv->mcast_mtu);
-    if_inc_counter(priv->dev, IFCOUNTER_OERRORS, 1);
-    ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
-	mtx_unlock(&sq->lock);
-    return;
-  }
+  
 //   printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
 //   print_mbuf(mb);
 	ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
@@ -1230,11 +1223,11 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 
 #if 0
 	if (priv->dev->features & NETIF_F_SG && priv->hca_caps & IB_DEVICE_UD_TSO) {
-		priv->dev->if_capabilities |= IFCAP_TSO4;
-		priv->dev->if_hwassist |= CSUM_TSO;
 	}
 #endif
 #endif
+		priv->dev->if_capabilities |= IFCAP_TSO4;
+		priv->dev->if_hwassist |= CSUM_TSO;
 	if_setcapabilitiesbit(priv->dev,
 	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));

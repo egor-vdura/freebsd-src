@@ -113,6 +113,9 @@ int mlx5_core_create_sq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *sqn)
 
 	MLX5_SET(create_sq_in, in, opcode, MLX5_CMD_OP_CREATE_SQ);
 
+	void *sqc;
+	sqc = MLX5_ADDR_OF(create_sq_in, in, ctx);
+	MLX5_SET(sqc, sqc, allow_multi_pkt_send_wqe, 1);
 	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
 	if (!err)
 		*sqn = MLX5_GET(create_sq_out, out, sqn);
