@@ -836,7 +836,10 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 		goto free_ft;
 
 	mlx5_core_warn(dev, "Created FT %d\n", ft->id);
-	// err = create_star_rule(ft, fs_prio);
+	if (0)
+	{
+		err = create_star_rule(ft, fs_prio);
+	}
 	if (err)
 		goto del_ft;
 

@@ -132,10 +132,9 @@ top:
 	return (NULL);
 }
 
-static struct mlx5e_sq *
-mlx5e_select_queue(if_t ifp, struct mbuf *mb)
+struct mlx5e_sq *
+mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb)
 {
-	struct mlx5e_priv *priv = if_getsoftc(ifp);
 	struct mlx5e_sq *sq;
 	u32 ch;
 	u32 tc;
@@ -1520,7 +1519,7 @@ mlx5e_xmit(if_t ifp, struct mbuf *mb)
 		}
 	} else {
 select_queue:
-		sq = mlx5e_select_queue(ifp, mb);
+		sq = mlx5e_select_queue(if_getsoftc(ifp), mb);
 		if (unlikely(sq == NULL)) {
 			/* Free mbuf */
 			m_freem(mb);

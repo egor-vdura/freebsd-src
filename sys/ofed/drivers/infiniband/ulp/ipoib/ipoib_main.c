@@ -724,7 +724,6 @@ ipoib_send_one(struct ipoib_dev_priv *priv, struct mbuf *mb)
 	struct ipoib_header *eh;
 
 	eh = mtod(mb, struct ipoib_header *);
-  //printf("ipoib_send_one, multicast %d\n", IPOIB_IS_MULTICAST(eh->hwaddr));
 	if (IPOIB_IS_MULTICAST(eh->hwaddr)) {
 		/* Add in the P_Key for multicast*/
 		eh->hwaddr[8] = (priv->pkey >> 8) & 0xff;
@@ -761,46 +760,15 @@ void my_xmit_locked(if_t ifp, struct mbuf *mb)
 	infiniband_bpf_mtap(ifp, mb);
 	ipoib_send_one(priv, mb);
 	return;
-	// struct mlx5_av av = {0};
-	// struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
-	// //printf("IPOIB pseudo header:\n");
-	// //for (int i = 0 ; i < INFINIBAND_ALEN; i++) {
-	// //  printf("%02x ", ipoibh->hwaddr[i]);
-	// //}
-	// //printf("\n");
-
-	// av.key.qkey.qkey = cpu_to_be32(priv->qkey);
-	// /* ext bit (31st bit) should be set for IPoIB */
-	// av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
-	// av.fl_mlid = 0;
-	// av.grh_gid_fl = cpu_to_be32(1u << 30);
-	// memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
-	// ah2av(address, &av);
-
-	// m_adj(mb, sizeof (struct ipoib_pseudoheader));
-	// if (unlikely(mb->m_pkthdr.len - IPOIB_ENCAP_LEN > priv->mcast_mtu)) {
-	// 	ipoib_warn(priv, "packet len %d (> %d) too long to send, dropping\n",
-	// 			mb->m_pkthdr.len, priv->mcast_mtu);
-	// 	if_inc_counter(priv->dev, IFCOUNTER_OERRORS, 1);
-	// 	ipoib_cm_mb_too_long(priv, mb, priv->mcast_mtu);
-	// 	return;
-	// }
-	// //   printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
-	// //   print_mbuf(mb);
-	// ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
-	// // infiniband_bpf_mtap(dev, mb);
-	// // ipoib_send_one(priv, mb);
 }
-static struct mlx5e_sq *
-mlx5i_select_queue(if_t ifp, struct mbuf *mb);
 
 static
 int my_xmit(if_t ifp, struct mbuf *mb)
 {
-// void mlx5i_xmit(struct ipoib_dev_priv *priv, struct mbuf *mb,
-// 		struct ipoib_ah *address, u32 dqpn)
 	struct mlx5e_sq *sq;
-	
+	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
+	struct mlx5e_priv *priv = ib_dev->priv;
 	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
 		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
 		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
@@ -810,7 +778,7 @@ int my_xmit(if_t ifp, struct mbuf *mb)
 		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
 	} else {
 select_queue:
-		sq = mlx5i_select_queue(ifp, mb);
+		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
       		printf("mlx5i_xmit Invalid send queue"); 
 			/* Free mbuf */
@@ -819,7 +787,6 @@ select_queue:
 			/* Invalid send queue */
 			return (ENXIO);
 		}
-		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
 	mtx_lock(&sq->lock);
@@ -979,51 +946,6 @@ ipoib_priv_alloc(void)
 
 #include <dev/mlx5/mlx5_en/en.h>
 
-static struct mlx5e_sq *
-mlx5i_select_queue(if_t ifp, struct mbuf *mb)
-{
-	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
-	// struct ib_device *ca
-	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
-
-	struct mlx5e_priv *priv = ib_dev->priv;
-	struct mlx5e_sq *sq;
-	u32 ch;
-	u32 tc;
-
-	/* obtain VLAN information if present */
-	if (mb->m_flags & M_VLANTAG) {
-		tc = (mb->m_pkthdr.ether_vtag >> 13);
-		if (tc >= priv->num_tc)
-			tc = priv->default_vlan_prio;
-	} else {
-		tc = priv->default_vlan_prio;
-	}
-
-	ch = priv->params.num_channels;
-
-	/* check if flowid is set */
-	if (M_HASHTYPE_GET(mb) != M_HASHTYPE_NONE) {
-#ifdef RSS
-		u32 temp;
-
-		if (rss_hash2bucket(mb->m_pkthdr.flowid,
-		    M_HASHTYPE_GET(mb), &temp) == 0)
-			ch = temp % ch;
-		else
-#endif
-			ch = (mb->m_pkthdr.flowid % 128) % ch;
-	} else {
-		ch = m_ether_tcpip_hash(MBUF_HASHFLAG_L3 |
-		    MBUF_HASHFLAG_L4, mb, mlx5e_hash_value) % ch;
-	}
-
-	/* check if send queue is running */
-	sq = &priv->channel[ch].sq[tc];
-	if (likely(READ_ONCE(sq->running) != 0))
-		return (sq);
-	return (NULL);
-}
 #if 0
 static void print_mbuf(const struct mbuf *m)
 {
@@ -1077,12 +999,14 @@ void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
   }
 }
 
-void mlx5i_xmit(struct ipoib_dev_priv *priv, struct mbuf *mb,
+void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 dqpn)
 {
 	struct mlx5e_sq *sq;
 	struct mlx5_av av = {0};
-  if_t ifp = priv->dev;
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
+	struct mlx5e_priv *priv = ib_dev->priv;
+	if_t ifp = ipoib_priv->dev;
 	int ret;
 	
 	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
@@ -1094,7 +1018,7 @@ void mlx5i_xmit(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
 	} else {
 select_queue:
-		sq = mlx5i_select_queue(ifp, mb);
+		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
       printf("mlx5i_xmit Invalid send queue"); 
 			/* Free mbuf */
@@ -1112,7 +1036,7 @@ select_queue:
   //}
   //printf("\n");
 
-  av.key.qkey.qkey = cpu_to_be32(priv->qkey);
+  av.key.qkey.qkey = cpu_to_be32(ipoib_priv->qkey);
   /* ext bit (31st bit) should be set for IPoIB */
   av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
   av.fl_mlid = 0;
@@ -1220,13 +1144,11 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
 
-#if 0
-	if (priv->dev->features & NETIF_F_SG && priv->hca_caps & IB_DEVICE_UD_TSO) {
-	}
-#endif
-#endif
-		priv->dev->if_capabilities |= IFCAP_TSO4;
-		priv->dev->if_hwassist |= CSUM_TSO;
+	#endif
+	// if (priv->dev->features & NETIF_F_SG && priv->hca_caps & IB_DEVICE_UD_TSO) {
+	priv->dev->if_capabilities |= IFCAP_TSO4;
+	priv->dev->if_hwassist |= CSUM_TSO;
+	// }
 	if_setcapabilitiesbit(priv->dev,
 	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));

@@ -1375,4 +1375,6 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq
 
 extern uint32_t mlx5e_hash_value;
 
+struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
+
 #endif					/* _MLX5_EN_H_ */
