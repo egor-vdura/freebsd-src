@@ -786,8 +786,8 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	int log_table_sz;
 	int ft_size;
 	char gen_name[20];
-	struct mlx5_core_dev *dev = fs_get_dev(&ns->base);
 	struct mlx5_flow_root_namespace *root = find_root(&ns->base);
+	struct mlx5_core_dev *dev = fs_get_dev(&ns->base);
 
 	if (!root) {
 		mlx5_core_err(dev,
