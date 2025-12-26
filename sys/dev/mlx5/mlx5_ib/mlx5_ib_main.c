@@ -3437,164 +3437,6 @@ err_qp_modify_to_err:
 #include <dev/mlx5/mlx5_en/en.h>
 #include <dev/mlx5/mlx5_ifc.h>
 
-#define MLX5_CAP_PORT_SELECTION(mdev, cap) \
-	MLX5_GET(port_selection_cap, \
-		 mdev->caps.hca[MLX5_CAP_PORT_SELECTION]->cur, cap)
-
-#define MLX5_CAP_PORT_SELECTION_FT_FIELD_SUPPORT_2(mdev, cap) \
-	MLX5_CAP_PORT_SELECTION(mdev, ft_field_support_2_port_selection.cap)
-
-#define MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(mdev, cap) \
-		MLX5_CAP_FLOWTABLE(mdev, ft_field_support_2_nic_receive.cap)
-
-
-
-enum fs_node_type {
-	FS_NODE_TYPE_NAMESPACE,
-	FS_NODE_TYPE_PRIO,
-	FS_NODE_TYPE_PRIO_CHAINS,
-	FS_NODE_TYPE_FLOW_TABLE,
-	FS_NODE_TYPE_FLOW_GROUP,
-	FS_NODE_TYPE_FLOW_ENTRY,
-	FS_NODE_TYPE_FLOW_DEST
-};
-struct fs_node {
-	struct list_head	list;
-	struct list_head	children;
-	enum fs_node_type	type;
-	struct fs_node		*parent;
-	struct fs_node		*root;
-	/* lock the node for writing and traversing */
-	struct rw_semaphore	lock;
-	refcount_t		refcount;
-	bool			active;
-	void			(*del_hw_func)(struct fs_node *);
-	void			(*del_sw_func)(struct fs_node *);
-	atomic_t		version;
-};
-
-
-struct mlx5_flow_rule_linux {
-	struct fs_node				node;
-	struct mlx5_flow_table			*ft;
-	struct mlx5_flow_destination		dest_attr;
-	/* next_ft should be accessed under chain_lock and only of
-	 * destination type is FWD_NEXT_fT.
-	 */
-	struct list_head			next_ft;
-	u32					sw_action;
-};
-
-struct mlx5_flow_table_attr {
-	int prio;
-	int max_fte;
-	u32 level;
-	u32 flags;
-	u16 uid;
-	u16 vport;
-	struct mlx5_flow_table *next_ft;
-
-	struct {
-		int max_num_groups;
-		int num_reserved_entries;
-	} autogroup;
-};
-enum fs_flow_table_op_mod {
-	FS_FT_OP_MOD_NORMAL,
-	FS_FT_OP_MOD_LAG_DEMUX,
-};
-
-struct ttc_params {
-	enum mlx5_flow_namespace_type ns_type;
-	struct mlx5_flow_table_attr ft_attr;
-	struct mlx5_flow_destination dests[MLX5E_NUM_TT];
-	DECLARE_BITMAP(ignore_dests, MLX5E_NUM_TT);
-	bool   inner_ttc;
-	DECLARE_BITMAP(ignore_tunnel_dests, MLX5E_NUM_TUNNEL_TT);
-	struct mlx5_flow_destination tunnel_dests[MLX5E_NUM_TUNNEL_TT];
-	bool ipsec_rss;
-};
-
-
-struct mlx5_etype_proto {
-	u16 etype;
-	u8 proto;
-};
-
-static struct mlx5_etype_proto ttc_rules[] = {
-	[MLX5E_TT_IPV4_TCP] = {
-		.etype = ETH_P_IP,
-		.proto = IPPROTO_TCP,
-	},
-	[MLX5E_TT_IPV6_TCP] = {
-		.etype = ETH_P_IPV6,
-		.proto = IPPROTO_TCP,
-	},
-	[MLX5E_TT_IPV4_UDP] = {
-		.etype = ETH_P_IP,
-		.proto = IPPROTO_UDP,
-	},
-	[MLX5E_TT_IPV6_UDP] = {
-		.etype = ETH_P_IPV6,
-		.proto = IPPROTO_UDP,
-	},
-	[MLX5E_TT_IPV4_IPSEC_AH] = {
-		.etype = ETH_P_IP,
-		.proto = IPPROTO_AH,
-	},
-	[MLX5E_TT_IPV6_IPSEC_AH] = {
-		.etype = ETH_P_IPV6,
-		.proto = IPPROTO_AH,
-	},
-	[MLX5E_TT_IPV4_IPSEC_ESP] = {
-		.etype = ETH_P_IP,
-		.proto = IPPROTO_ESP,
-	},
-	[MLX5E_TT_IPV6_IPSEC_ESP] = {
-		.etype = ETH_P_IPV6,
-		.proto = IPPROTO_ESP,
-	},
-	[MLX5E_TT_IPV4] = {
-		.etype = ETH_P_IP,
-		.proto = 0,
-	},
-	[MLX5E_TT_IPV6] = {
-		.etype = ETH_P_IPV6,
-		.proto = 0,
-	},
-	[MLX5E_TT_ANY] = {
-		.etype = 0,
-		.proto = 0,
-	},
-};
-
-// static const struct mlx5_fs_ttc_groups inner_ttc_groups[] = {
-// 	[TTC_GROUPS_DEFAULT] = {
-// 		.num_groups = 3,
-// 		.group_size = {
-// 			BIT(3),
-// 			BIT(1),
-// 			BIT(0),
-// 		},
-// 	},
-// 	[TTC_GROUPS_USE_L4_TYPE] = {
-// 		.use_l4_type = true,
-// 		.num_groups = 4,
-// 		.group_size = {
-// 			MLX5E_TTC_GROUP_TCPUDP_SIZE,
-// 			BIT(3) - MLX5E_TTC_GROUP_TCPUDP_SIZE,
-// 			BIT(1),
-// 			BIT(0),
-// 		},
-// 	},
-// };
-
-// static void mlx5e_set_inner_ttc_params(struct mlx5e_priv *priv,
-// 				       struct ttc_params *ttc_params);
-// static
-// struct mlx5_ttc_table *mlx5e_create_ttc_table(struct mlx5_core_dev *dev,
-// 						   struct ttc_params *params);
-
 static
 int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			  u16 vport, enum fs_ft_type type, unsigned int level,
@@ -3643,31 +3485,10 @@ int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			MLX5_SET(create_flow_table_in, in,
 				 flow_table_context.table_miss_id, *next_id);
 		}
-	// 	break;
-
-	// case FS_FT_OP_MOD_LAG_DEMUX:
-	// 	MLX5_SET(create_flow_table_in, in, op_mod, 0x1);
-	// 	if (next_ft)
-	// 		MLX5_SET(create_flow_table_in, in,
-	// 			 flow_table_context.lag_master_next_table_id,
-	// 			 next_ft->id);
-	// 	break;
-	// }
-
 
 	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 	if (!err)
 		*table_id = MLX5_GET(create_flow_table_out, out, table_id);
-
-
-	// err = mlx5_cmd_exec_inout(dev, create_flow_table, in, out);
-	// if (!err) {
-	// 	ft->id = MLX5_GET(create_flow_table_out, out,
-	// 			  table_id);
-	// 	ft->max_fte = size;
-	// } else {
-	// 	mlx5_ft_pool_put_sz(ns->dev, size);
-	// }
 
 	return err;
 }
@@ -3921,68 +3742,11 @@ int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 
   return mlx5_core_create_tis(mdev, in, MLX5_ST_SZ_BYTES(create_tis_in), tisn);
 }
 
-
-
-// static
-// bool mlx5_ttc_has_esp_flow_group(struct mlx5_ttc_table *ttc)
-// {
-// 	return ttc->groups == &ttc_groups[TTC_GROUPS_DEFAULT_ESP] ||
-// 	       ttc->groups == &ttc_groups[TTC_GROUPS_USE_L4_TYPE_ESP];
-// }
-
-// static
-// u8 mlx5_get_proto_by_tunnel_type(enum mlx5_tunnel_types tt)
-// {
-// 	return ttc_tunnel_rules[tt].proto;
-// }
-
-// static bool mlx5_tunnel_proto_supported_rx(struct mlx5_core_dev *mdev,
-// 					   u8 proto_type)
-// {
-// 	switch (proto_type) {
-// 	case IPPROTO_GRE:
-// 		return MLX5_CAP_ETH(mdev, tunnel_statless_gre);
-// 	case IPPROTO_IPIP:
-// 	case IPPROTO_IPV6:
-// 		return (MLX5_CAP_ETH(mdev, tunnel_stateless_ip_over_ip) ||
-// 			MLX5_CAP_ETH(mdev, tunnel_stateless_ip_over_ip_rx));
-// 	default:
-// 		return false;
-// 	}
-// }
-
-
-
-/* NIC prio FTS */
-enum {
-	MLX5E_VLAN_FT_LEVEL,
-	MLX5E_L2_FT_LEVEL,
-	MLX5E_TTC_FT_LEVEL,
-	MLX5E_INNER_TTC_FT_LEVEL,
-	MLX5E_FS_TT_UDP_FT_LEVEL = MLX5E_INNER_TTC_FT_LEVEL + 1,
-	MLX5E_FS_TT_ANY_FT_LEVEL = MLX5E_INNER_TTC_FT_LEVEL + 1,
-// #ifdef CONFIG_MLX5_EN_TLS
-// 	MLX5E_ACCEL_FS_TCP_FT_LEVEL = MLX5E_INNER_TTC_FT_LEVEL + 1,
-// #endif
-// #ifdef CONFIG_MLX5_EN_ARFS
-// 	MLX5E_ARFS_FT_LEVEL = MLX5E_INNER_TTC_FT_LEVEL + 1,
-// #endif
-// #if defined(CONFIG_MLX5_EN_IPSEC) || defined(CONFIG_MLX5_EN_PSP)
-// 	MLX5E_ACCEL_FS_ESP_FT_LEVEL = MLX5E_INNER_TTC_FT_LEVEL + 1,
-// 	MLX5E_ACCEL_FS_ESP_FT_ERR_LEVEL,
-// 	MLX5E_ACCEL_FS_POL_FT_LEVEL,
-// 	MLX5E_ACCEL_FS_POL_MISS_FT_LEVEL,
-// 	MLX5E_ACCEL_FS_ESP_FT_ROCE_LEVEL,
-// #endif
-};
-
-
 enum {
 	MLX5E_TC_PRIO = 0,
 	MLX5E_PROMISC_PRIO,
 	MLX5E_NIC_PRIO,
 };
-
 
 /* mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv
  * If we place give_me_CONTEXT on ipoib, due to module dependencies, linking fails
@@ -4093,84 +3857,6 @@ int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 
 	mlx5_core_warn(mdev, "mlx5_ib_set_en success!!\n");
 	return 0;
-	(void)ttc_rules;
-
-// 	/* set default MTU */
-// 	mlx5e_set_dev_port_mtu(ifp, if_getmtu(ifp));
-
-// 	/* Set default media status */
-// 	priv->media_status_last = IFM_AVALID;
-// 	priv->media_active_last = IFM_ETHER | IFM_AUTO | IFM_FDX;
-
-// 	/* setup default pauseframes configuration */
-// 	mlx5e_setup_pauseframes(priv);
-
-// 	/* Setup supported medias */
-// 	if (!mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN, 1)) {
-// 		ext = MLX5_CAP_PCAM_FEATURE(mdev,
-// 		    ptys_extended_ethernet);
-// 		eth_proto_cap = MLX5_GET_ETH_PROTO(ptys_reg, out, ext,
-// 		    eth_proto_capability);
-// 	} else {
-// 		ext = false;
-// 		eth_proto_cap = 0;
-// 		mlx5_en_err(ifp, "Query port media capability failed, %d\n", err);
-// 	}
-
-// 	ifmedia_init(&priv->media, IFM_IMASK,
-// 	    mlx5e_media_change, mlx5e_media_status);
-
-
-// 	/* Register for VLAN events */
-// 	priv->vlan_attach = EVENTHANDLER_REGISTER(vlan_config,
-// 	    mlx5e_vlan_rx_add_vid, priv, EVENTHANDLER_PRI_FIRST);
-// 	priv->vlan_detach = EVENTHANDLER_REGISTER(vlan_unconfig,
-// 	    mlx5e_vlan_rx_kill_vid, priv, EVENTHANDLER_PRI_FIRST);
-
-// 	/* Register for VxLAN events */
-// 	priv->vxlan_start = EVENTHANDLER_REGISTER(vxlan_start,
-// 	    mlx5e_vxlan_start, priv, EVENTHANDLER_PRI_ANY);
-// 	priv->vxlan_stop = EVENTHANDLER_REGISTER(vxlan_stop,
-// 	    mlx5e_vxlan_stop, priv, EVENTHANDLER_PRI_ANY);
-
-// 	/* Link is down by default */
-// 	if_link_state_change(ifp, LINK_STATE_DOWN);
-
-// 	mlx5e_enable_async_events(priv);
-
-// 	mlx5e_add_hw_stats(priv);
-
-// 	mlx5e_create_stats(&priv->stats.vport.ctx, SYSCTL_CHILDREN(priv->sysctl_ifnet),
-// 	    "vstats", mlx5e_vport_stats_desc, MLX5E_VPORT_STATS_NUM,
-// 	    priv->stats.vport.arg);
-
-// 	mlx5e_create_stats(&priv->stats.pport.ctx, SYSCTL_CHILDREN(priv->sysctl_ifnet),
-// 	    "pstats", mlx5e_pport_stats_desc, MLX5E_PPORT_STATS_NUM,
-// 	    priv->stats.pport.arg);
-
-// 	mlx5e_create_ethtool(priv);
-
-// 	mtx_lock(&priv->async_events_mtx);
-// 	mlx5e_update_stats(priv);
-// 	mtx_unlock(&priv->async_events_mtx);
-
-// 	SYSCTL_ADD_INT(&priv->sysctl_ctx, SYSCTL_CHILDREN(priv->sysctl_ifnet),
-// 	    OID_AUTO, "rx_clbr_done", CTLFLAG_RD,
-// 	    &priv->clbr_done, 0,
-// 	    "RX timestamps calibration state");
-// 	callout_init(&priv->tstmp_clbr, 1);
-// 	/* Pull out the frequency of the clock in hz */
-// 	priv->cclk = (uint64_t)MLX5_CAP_GEN(mdev, device_frequency_khz) * 1000ULL;
-// 	mlx5e_reset_calibration_callout(priv);
-
-	// PRIV_LOCK(priv);
-	// err = mlx5e_open_flow_rules(priv);
-	// err = mlx5e_open_flow_rules(priv);
-	// if (err) {
-	// 	mlx5_en_err(ifp,
-	// 	    "mlx5e_open_flow_rules() failed, %d (ignored)\n", err);
-	// }
-	// PRIV_UNLOCK(priv);
 
 // err_open_flow_tables:
 	mlx5e_close_flow_tables(priv);
@@ -4394,8 +4080,6 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	INIT_LIST_HEAD(&dev->qp_list);
 	spin_lock_init(&dev->reset_flow_resource_lock);
 
-	// if (0)
-	// {
 	if (ll == IB_LINK_LAYER_ETHERNET) {
 		err = mlx5_enable_roce(dev);
 		if (err)
@@ -4436,7 +4120,6 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	err = mlx5_ib_init_congestion(dev);
 	if (err)
 		goto err_umrc;
-	// }
 
 	give_me_CONTEXT(NULL, dev, NULL);
 
