@@ -3434,28 +3434,6 @@ err_qp_modify_to_err:
 #include <dev/mlx5/fs.h>
 #include <dev/mlx5/mlx5_core/fs_core.h>
 
-static
-int mlx5_fs_add_rx_underlay_qpn(struct mlx5_ib_dev *dev)
-{
-	int err = 0;
-	mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn\n");
-	mlx5_ib_warn(dev, "%p %p\n", dev->mdev, dev->inner_ttc);
-	// mlx5_ib_warn(dev, "%p %p %p\n", dev->mdev, dev->inner_ttc, dev->inner_ttc->t);
-
-// 	err = mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, dev->inner_ttc->t->id, dev->inner_ttc->t->vport);
-// 	if (err) {
-// 		mlx5_ib_warn(dev, "Failed adding underlay QPN (%u) to root FT err(%d)\n",
-// 			       dev->qpn, err);
-// 		goto update_ft_fail;
-// 	}
-
-// 	return 0;
-
-// update_ft_fail:
-	return err;
-}
-
-
 #include <dev/mlx5/mlx5_en/en.h>
 #include <dev/mlx5/mlx5_ifc.h>
 
@@ -3617,59 +3595,6 @@ static struct mlx5_etype_proto ttc_tunnel_rules[] = {
 	},
 };
 
-enum TTC_GROUP_TYPE {
-	TTC_GROUPS_DEFAULT = 0,
-	TTC_GROUPS_USE_L4_TYPE = 1,
-	TTC_GROUPS_DEFAULT_ESP = 2,
-	TTC_GROUPS_USE_L4_TYPE_ESP = 3,
-};
-
-static const struct mlx5_fs_ttc_groups ttc_groups[] = {
-	[TTC_GROUPS_DEFAULT] = {
-		.num_groups = 3,
-		.group_size = {
-			BIT(3) + MLX5E_NUM_TUNNEL_TT,
-			BIT(1),
-			BIT(0),
-		},
-	},
-	[TTC_GROUPS_USE_L4_TYPE] = {
-		.use_l4_type = true,
-		.num_groups = 4,
-		.group_size = {
-			MLX5E_TTC_GROUP_TCPUDP_SIZE,
-			BIT(3) + MLX5E_NUM_TUNNEL_TT - MLX5E_TTC_GROUP_TCPUDP_SIZE,
-			BIT(1),
-			BIT(0),
-		},
-	},
-	[TTC_GROUPS_DEFAULT_ESP] = {
-		.num_groups = 6,
-		.group_size = {
-			MLX5E_TTC_GROUP_TCPUDP_SIZE + BIT(1) +
-			MLX5E_NUM_TUNNEL_TT,
-			BIT(2), /* decrypted outer L4 */
-			BIT(2), /* decrypted inner L4 */
-			BIT(1), /* ESP */
-			BIT(1),
-			BIT(0),
-		},
-	},
-	[TTC_GROUPS_USE_L4_TYPE_ESP] = {
-		.use_l4_type = true,
-		.num_groups = 7,
-		.group_size = {
-			MLX5E_TTC_GROUP_TCPUDP_SIZE,
-			BIT(1) + MLX5E_NUM_TUNNEL_TT,
-			BIT(2), /* decrypted outer L4 */
-			BIT(2), /* decrypted inner L4 */
-			BIT(1), /* ESP */
-			BIT(1),
-			BIT(0),
-		},
-	},
-};
-
 // static const struct mlx5_fs_ttc_groups inner_ttc_groups[] = {
 // 	[TTC_GROUPS_DEFAULT] = {
 // 		.num_groups = 3,
@@ -3696,8 +3621,6 @@ static const struct mlx5_fs_ttc_groups ttc_groups[] = {
 // static
 // struct mlx5_ttc_table *mlx5e_create_ttc_table(struct mlx5_core_dev *dev,
 // 						   struct ttc_params *params);
-
-static int mlx5i_create_flow_steering(struct mlx5_ib_dev *dev);
 
 static
 int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
@@ -3933,21 +3856,6 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
   /* Set our underlay QP as the root of the FT */
   mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, table_id, 0);
 
-	if (0)
-	{
-		if (mlx5i_create_flow_steering(dev) != 0)
-		{
-			mlx5_ib_warn(dev, "mlx5i_create_flow_steering failed\n");
-			goto err_reset_qp;
-		}
-	
-		err = mlx5_fs_add_rx_underlay_qpn(dev);
-		if (err) {
-			mlx5_ib_warn(dev, "mlx5_fs_add_rx_underlay_qpn failed, %d\n", err);
-			goto err_reset_qp;
-		}
-	}
-
 	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
 
 	err = mlx5e_open_channels(epriv);
@@ -3979,8 +3887,6 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 err_close_channels:
 // 	mlx5e_close_channels(&epriv->channels);
 err_remove_fs_underlay_qp:
-	/* TODO */
-err_reset_qp:
 	mlx5i_uninit_underlay_qp(dev);
 err_clear_state_opened_flag:
 // 	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
@@ -4042,16 +3948,7 @@ int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 
   return mlx5_core_create_tis(mdev, in, MLX5_ST_SZ_BYTES(create_tis_in), tisn);
 }
 
-static const struct mlx5_fs_ttc_groups *
-mlx5_ttc_get_fs_groups(bool use_l4_type, bool ipsec_rss)
-{
-	if (!ipsec_rss)
-		return use_l4_type ? &ttc_groups[TTC_GROUPS_USE_L4_TYPE] :
-				     &ttc_groups[TTC_GROUPS_DEFAULT];
 
-	return use_l4_type ? &ttc_groups[TTC_GROUPS_USE_L4_TYPE_ESP] :
-			     &ttc_groups[TTC_GROUPS_DEFAULT_ESP];
-}
 
 // static
 // bool mlx5_ttc_has_esp_flow_group(struct mlx5_ttc_table *ttc)
@@ -4081,16 +3978,6 @@ mlx5_ttc_get_fs_groups(bool use_l4_type, bool ipsec_rss)
 // 	}
 // }
 
-
-static int mlx5_fs_ttc_table_size(const struct mlx5_fs_ttc_groups *groups)
-{
-	int i, sz = 0;
-
-	for (i = 0; i < groups->num_groups; i++)
-		sz += groups->group_size[i];
-
-	return sz;
-}
 
 
 /* NIC prio FTS */
@@ -4504,84 +4391,6 @@ static void mlx5_fs_ttc_set_match_proto(void *headers_c, void *headers_v,
 					 MLX5_INNER_TTC_GROUP2_SIZE +\
 					 MLX5_INNER_TTC_GROUP3_SIZE)
 
-static int mlx5_create_ttc_table_groups(struct mlx5_ttc_table *ttc,
-					bool use_ipv)
-{
-	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
-	int ix = 0;
-	u32 *in;
-	int err;
-	u8 *mc;
-
-	ttc->g = kcalloc(MLX5_TTC_NUM_GROUPS, sizeof(*ttc->g), GFP_KERNEL);
-	if (!ttc->g)
-	{
-		printk("mlx5_create_inner_ttc_table_groups kcalloc failure\n");
-		return -ENOMEM;
-	}
-	in = kzalloc(inlen, GFP_KERNEL);
-	if (!in) {
-		kfree(ttc->g);
-		ttc->g = NULL;
-		printk("mlx5_create_inner_ttc_table_groups kvzalloc failure\n");
-		return -ENOMEM;
-	}
-
-	/* L4 Group */
-	mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
-	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_protocol);
-	if (use_ipv)
-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ip_version);
-	else
-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.ethertype);
-	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += MLX5_TTC_GROUP1_SIZE;
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups])) {
-		printk("mlx5_create_inner_ttc_table_groups L4 failure\n");
-		goto err;
-	}
-	ttc->num_groups++;
-
-	/* L3 Group */
-	MLX5_SET(fte_match_param, mc, outer_headers.ip_protocol, 0);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += MLX5_TTC_GROUP2_SIZE;
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups])) {
-		printk("mlx5_create_inner_ttc_table_groups L3 failure\n");
-		goto err;
-	}
-
-	ttc->num_groups++;
-
-	/* Any Group */
-	memset(in, 0, inlen);
-	MLX5_SET_CFG(in, start_flow_index, ix);
-	ix += MLX5_TTC_GROUP3_SIZE;
-	MLX5_SET_CFG(in, end_flow_index, ix - 1);
-	ttc->g[ttc->num_groups] = mlx5_create_flow_group(ttc->t, in);
-	if (IS_ERR(ttc->g[ttc->num_groups])) {
-		printk("mlx5_create_inner_ttc_table_groups Any Group failure\n");
-		goto err;
-	}
-
-	ttc->num_groups++;
-
-	kvfree(in);
-	return 0;
-
-err:
-	err = PTR_ERR(ttc->g[ttc->num_groups]);
-	ttc->g[ttc->num_groups] = NULL;
-	kvfree(in);
-
-	return err;
-}
-
 // void mlx5_destroy_ttc_table(struct mlx5_ttc_table *ttc);
 // static
 // struct mlx5_ttc_table *mlx5e_create_ttc_table(struct mlx5_core_dev *dev,
@@ -4689,55 +4498,6 @@ err:
 // 	kvfree(ttc);
 // }
 
-static bool mlx5e_ipsec_rss_supported(struct mlx5_core_dev *mdev)
-{
-	return MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(mdev, ipsec_next_header) &&
-	       MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(mdev, outer_l4_type_ext) &&
-	       MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(mdev, inner_l4_type_ext);
-}
-
-static
-void mlx5e_set_ttc_params(struct mlx5e_priv *priv,
-			  struct ttc_params *ttc_params, bool tunnel,
-			  bool ipsec_rss)
-
-{
-	struct mlx5_flow_table_attr *ft_attr = &ttc_params->ft_attr;
-	int tt;
-
-	memset(ttc_params, 0, sizeof(*ttc_params));
-	ttc_params->ns_type = MLX5_FLOW_NAMESPACE_KERNEL;
-	ft_attr->level = MLX5E_TTC_FT_LEVEL;
-	// ft_attr->prio = MLX5E_NIC_PRIO;
-	/* why TC and not NIC? TC does not exist in the MLX5_FLOW_NAMESPACE_KERNEL NS */
-	ft_attr->prio = MLX5E_TC_PRIO;
-	ttc_params->ipsec_rss = ipsec_rss &&
-				mlx5e_ipsec_rss_supported(priv->mdev);
-
-	for (tt = 0; tt < MLX5E_NUM_TT; tt++) {
-		if (mlx5_ttc_is_decrypted_esp_tt(tt))
-			continue;
-
-		ttc_params->dests[tt].type = MLX5_FLOW_DESTINATION_TYPE_TIR;
-		ttc_params->dests[tt].tir_num =
-			tt == MLX5E_TT_ANY ?
-					priv->tirn[tt]:
-					priv->tirn_inner_vxlan[tt];
-				// mlx5e_rx_res_get_tirn_direct(rx_res, 0) :
-				// mlx5e_rx_res_get_tirn_rss(rx_res, tt);
-	}
-
-	ttc_params->inner_ttc = tunnel;
-	if (!tunnel || !mlx5_tunnel_inner_ft_supported(priv->mdev))
-		return;
-
-	// for (tt = 0; tt < MLX5E_NUM_TUNNEL_TT; tt++) {
-	// 	ttc_params->tunnel_dests[tt].type =
-	// 		MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
-	// 	ttc_params->tunnel_dests[tt].ft =
-	// 		mlx5_get_ttc_flow_table(fs->inner_ttc);
-	// }
-}
 
 static u8 mlx5_etype_to_ipv(u16 ethertype)
 {
@@ -4888,76 +4648,6 @@ del_rules:
 	return err;
 }
 
-static
-struct mlx5_ttc_table *mlx5_create_ttc_table(struct mlx5_core_dev *dev,
-					     struct ttc_params *params)
-{
-	bool match_ipv_outer =
-		MLX5_CAP_FLOWTABLE_NIC_RX(dev,
-					  ft_field_support.outer_ip_version);
-	struct mlx5_flow_namespace *ns;
-	struct mlx5_ttc_table *ttc;
-	bool use_l4_type;
-	int err;
-
-	switch (params->ns_type) {
-	// case MLX5_FLOW_NAMESPACE_PORT_SEL:
-	// 	use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
-	// 		MLX5_CAP_PORT_SELECTION_FT_FIELD_SUPPORT_2(dev, outer_l4_type);
-	// 	break;
-	case MLX5_FLOW_NAMESPACE_KERNEL:
-		use_l4_type = MLX5_CAP_GEN_2(dev, pcc_ifa2) &&
-			MLX5_CAP_NIC_RX_FT_FIELD_SUPPORT_2(dev, outer_l4_type);
-		break;
-	default:
-		return ERR_PTR(-EINVAL);
-	}
-
-	ttc = kvzalloc(sizeof(*ttc), GFP_KERNEL);
-	if (!ttc)
-		return ERR_PTR(-ENOMEM);
-
-	ns = mlx5_get_flow_namespace(dev, params->ns_type);
-	if (!ns) {
-		err = PTR_ERR(ns);
-		mlx5_core_warn(dev, "mlx5_create_ttc_table mlx5_get_flow_namespace failed %d\n", err);
-		kvfree(ttc);
-		return ERR_PTR(-EOPNOTSUPP);
-	}
-
-	ttc->groups = mlx5_ttc_get_fs_groups(use_l4_type, params->ipsec_rss);
-
-	WARN_ON_ONCE(params->ft_attr.max_fte);
-	params->ft_attr.max_fte = mlx5_fs_ttc_table_size(ttc->groups);
-	// ttc->t = mlx5_create_flow_table(ns, &params->ft_attr);
-	ttc->t = mlx5_create_flow_table(ns, 0, "ipoibtable", params->ft_attr.level);
-	// ttc->t = mlx5_create_flow_table(ns, 0, "ipoibtable", 0);
-	if (IS_ERR(ttc->t)) {
-		err = PTR_ERR(ttc->t);
-		mlx5_core_warn(dev, "mlx5_create_ttc_table mlx5_create_flow_table failed %d\n", err);
-		kvfree(ttc);
-		return ERR_PTR(err);
-	}
-
-	err = mlx5_create_ttc_table_groups(ttc, match_ipv_outer);
-	if (err)
-		goto destroy_ft;
-
-	// err = mlx5_generate_ttc_table_rules(dev, params, ttc, use_l4_type);
-	// if (err)
-	// 	goto destroy_ft;
-
-	ttc->mdev = dev;
-	mutex_init(&ttc->mutex);
-
-	return ttc;
-
-destroy_ft:
-	// mlx5_destroy_ttc_table(ttc);
-	return ERR_PTR(err);
-}
-
-
 // static void mlx5e_set_inner_ttc_params(struct mlx5e_priv *priv,
 // 				       struct ttc_params *ttc_params)
 // {
@@ -5003,37 +4693,6 @@ destroy_ft:
 // 	else
 // 		fs->egress_ns = ns;
 // }
-
-static int mlx5i_create_flow_steering(struct mlx5_ib_dev *dev)
-{
-	int err;
-	struct ttc_params ttc_params = {};
-
-	struct mlx5_flow_namespace *ns =
-		mlx5_get_flow_namespace(dev->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
-
-	if (!ns)
-		return -EINVAL;
-
-	// mlx5e_fs_set_ns(priv->fs, ns, false);
-
-	mlx5e_set_ttc_params(dev->priv, &ttc_params, true, true);
-	
-	dev->inner_ttc = mlx5_create_ttc_table(dev->mdev, &ttc_params);
-
-	// mlx5e_set_inner_ttc_params(dev->priv, &ttc_params);
-	// dev->inner_ttc = mlx5e_create_ttc_table(dev->mdev, &ttc_params);
-	if (IS_ERR(dev->inner_ttc)) {
-		err = PTR_ERR(dev->inner_ttc);
-		mlx5_ib_warn(dev, "mlx5e_create_ttc_table failed %d\n", err);
-		goto flow_steer_err;
-	}
-	return 0;
-
-	flow_steer_err:
-
-	return err;
-}
 
 /* mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv
  * If we place give_me_CONTEXT on ipoib, due to module dependencies, linking fails
