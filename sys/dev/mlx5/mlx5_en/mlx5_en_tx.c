@@ -264,9 +264,7 @@ tcp_packet:
 		const struct mbuf *m_th = mb->m_next;
 		if (unlikely(mb->m_len != eth_hdr_len ||
 		    m_th == NULL || m_th->m_len < sizeof(*th)))
-			{
 				goto failure;
-			}
 		th = (const struct tcphdr *)(m_th->m_data);
 	} else {
 		th = (const struct tcphdr *)(mb->m_data + eth_hdr_len);
@@ -280,9 +278,7 @@ udp_packet:
 	 * data:
 	 */
 	if (unlikely(mb->m_pkthdr.len < eth_hdr_len))
-	{
 		goto failure;
-	}
 	if (ppth != NULL)
 		*ppth = th;
 	return (eth_hdr_len + init_eth_hdr_len);
@@ -817,7 +813,6 @@ top:
 		sq->stats.csum_offload_none++;
 	}
 	if (mb->m_pkthdr.csum_flags & CSUM_TSO) {
-  		//printk("YEEE %d\n", args.ihs);
 		u32 payload_len;
 		u32 mss = mb->m_pkthdr.tso_segsz;
 		u32 num_pkts;
@@ -826,16 +821,10 @@ top:
 		opcode = MLX5_OPCODE_LSO;
 		if (args.ihs == 0)
 		{
-			// ETHER_BPF_MTAP(sq->ifp, mb);
-			// ETHER_BPF_MTAP(sq->ifp, mb);
-			// mb = m_free(mb);
 			args.ihs = mlx5e_get_full_header_size(mb, NULL);
-			// printk("IHS: %d\n", args.ihs);
 		}
-		  //printk("YEEE2 %d\n", args.ihs);
 		if (unlikely(args.ihs == 0)) {
 			err = EINVAL;
-  			//printk("YEEE3 %d\n", args.ihs);
 			goto tx_drop;
 		}
 		payload_len = mb->m_pkthdr.len - args.ihs;
@@ -893,7 +882,6 @@ top:
 
   memcpy(&wqe->datagram, av, sizeof(*av));
 
-  //printk("YEEE4 %d\n", args.ihs);
 	if (likely(args.ihs == 0)) {
 		/* nothing to inline */
 	} else {
@@ -902,7 +890,6 @@ top:
 			if (unlikely(mb->m_pkthdr.csum_flags & (CSUM_TSO |
                            CSUM_ENCAP_VXLAN))) {
 				err = EINVAL;
-  				printk("ERR0 %d %d\n", args.ihs, sq->max_inline);
 				goto tx_drop;
 			}
 			args.ihs = sq->max_inline;
@@ -919,29 +906,24 @@ top:
 	}
 	dseg = ((struct mlx5_wqe_data_seg *)&wqe->ctrl) + ds_cnt;
 
-	//printk("YEEE5\n");
 	err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
 	    mb, segs, &nsegs, BUS_DMA_NOWAIT);
 	if (err == EFBIG) {
-		printk("ERR0 EFBIG %d %d\n", args.ihs, sq->max_inline);
 		/* Update statistics */
 		sq->stats.defragged++;
 		/* Too many mbuf fragments */
 		mb = m_defrag(*mbp, M_NOWAIT);
 		if (mb == NULL) {
 			mb = *mbp;
-			printk("ERR1 %d %d\n", args.ihs, sq->max_inline);
 			goto tx_drop;
 		}
 		/* Try again */
 		err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
 		    mb, segs, &nsegs, BUS_DMA_NOWAIT);
 	}
-	//printk("YEEE6 %d %d\n", nsegs, sq->max_inline);
 	/* Catch errors */
 	if (err != 0)
 	{
-		printk("ERR2 %d %d\n", args.ihs, sq->max_inline);
 		goto tx_drop;
 	}
 
@@ -956,7 +938,6 @@ top:
 		mb = NULL;
 	}
 
-	//printk("YEEE7 %d %d\n", nsegs, sq->max_inline);
 	for (x = 0; x != nsegs; x++) {
 		if (segs[x].ds_len == 0)
 			continue;
@@ -1018,7 +999,7 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av	*av, u32 dqpn, struct mlx5e_sq
 
 	if (unlikely((if_getdrvflags(sq->ifp) & IFF_DRV_RUNNING) == 0 ||
 	    READ_ONCE(sq->running) == 0)) {
-		printk(KERN_WARNING "GAAAAAH, Driver not running!\n");
+		printk(KERN_WARNING "Driver not running!\n");
 		m_freem(mb);
 		return (ENETDOWN);
 	}

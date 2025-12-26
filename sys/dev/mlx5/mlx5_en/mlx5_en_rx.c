@@ -678,7 +678,6 @@ mlx5e_rx_cq_comp(struct mlx5_core_cq *mcq, struct mlx5_eqe *eqe __unused)
 {
 	struct mlx5e_channel *c = container_of(mcq, struct mlx5e_channel, rq.cq.mcq);
 	struct mlx5e_rq *rq = container_of(mcq, struct mlx5e_rq, cq.mcq);
-	//printk("mlx5e_rx_cq_comp RQ rqn 0x%x\n", rq->rqn);
 	int i = 0;
 
 #ifdef HAVE_PER_CQ_EVENT_PACKET

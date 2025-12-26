@@ -249,7 +249,6 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
 			/* FALLTHROUGH */
 		} else switch (eqe->type) {
 		case MLX5_EVENT_TYPE_COMP:
-			//printk("I On IRQN:%d EQN:%d\n", eq->irqn, eq->eqn);
 			mlx5_cq_completion(dev, eqe);
 			break;
 
@@ -433,7 +432,6 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
 	u32 *in;
 	int err;
 
-	mlx5_core_err(dev, ">> mlx5_create_map_eq vecidx %d nent %d, mask %ld\n", vecidx, nent, mask);
 	eq->nent = roundup_pow_of_two(nent + MLX5_NUM_SPARE_EQE);
 	eq->cons_index = 0;
 	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, 2 * PAGE_SIZE,
@@ -495,7 +493,6 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
 	eq_update_ci(eq, 1);
 
 	kvfree(in);
-	mlx5_core_err(dev, "<< mlx5_create_map_eq\n");
 	return 0;
 
 err_irq:

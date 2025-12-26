@@ -670,14 +670,11 @@ static struct fs_prio *find_prio(struct mlx5_flow_namespace *ns,
 {
 	struct fs_prio *iter_prio;
 
-	printk("finding prio %p\n", ns);
 	fs_for_each_prio(iter_prio, ns) {
-		printk("Find prio %d\n", iter_prio->prio);
 		if (iter_prio->prio == prio)
 			return iter_prio;
 	}
 
-	printk("prio not found %d\n", prio);
 	return NULL;
 }
 
@@ -843,14 +840,12 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	if (err)
 		goto del_ft;
 
-	if ((root->table_type == FS_FT_NIC_RX) &&  MLX5_CAP_FLOWTABLE(root->dev,
+	if ((root->table_type == FS_FT_NIC_RX) && MLX5_CAP_FLOWTABLE(root->dev,
 			       flow_table_properties_nic_receive.modify_root)) {
-	// if ((root->table_type == FS_FT_NIC_RX)){
 		err = update_root_ft_create(root, ft);
 		if (err)
 			goto destroy_star_rule;
 	}
-	// }
 
 	_fs_add_node(&ft->base, name, &fs_prio->base);
 
@@ -877,9 +872,7 @@ static struct mlx5_flow_table *create_ft_common(struct mlx5_flow_namespace *ns,
 	struct fs_prio *fs_prio = NULL;
 	fs_prio = find_prio(ns, prio);
 	if (!fs_prio)
-	{
 		return ERR_PTR(-EINVAL);
-	}
 
 	return _create_ft_common(ns, vport, fs_prio, max_fte, name);
 }
@@ -1982,12 +1975,10 @@ static struct fs_prio *fs_create_prio(struct mlx5_flow_namespace *ns,
 {
 	struct fs_prio *fs_prio;
 
-	printk_once("fs_prio = kzalloc\n");
 	fs_prio = kzalloc(sizeof(*fs_prio), GFP_KERNEL);
 	if (!fs_prio)
 		return ERR_PTR(-ENOMEM);
 
-	printk_once("fs_prio = kzalloc 1\n");
 	fs_prio->base.type = FS_TYPE_PRIO;
 	fs_add_node(&fs_prio->base, &ns->base, name, 1);
 	fs_prio->max_ft = max_ft;
@@ -2114,8 +2105,6 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_core_dev *dev
 
 	return root_ns;
 err:
-	printk_once("create_root_ns error\n");
-
 	return NULL;
 }
 
@@ -2357,10 +2346,8 @@ static int init_root_ns(struct mlx5_core_dev *dev)
 					      flow_table_properties_nic_receive.
 					      max_ft_level);
 
-	printk_once("init_root_ns\n");
 	dev->root_ns = create_root_ns(dev, FS_FT_NIC_RX,
 				      MLX5_CORE_FS_ROOT_NS_NAME);
-	printk_once("IS_ERR_OR_NULL(dev->root_ns) %d %p %p\n", IS_ERR_OR_NULL(dev->root_ns), dev->root_ns, dev);
 	if (IS_ERR_OR_NULL(dev->root_ns))
 		goto err;
 

@@ -120,7 +120,6 @@ lkpi_request_irq(struct device *xdev, unsigned int irq,
 	unsigned resflags;
 	int error;
 	int rid;
-	printk("irqname in %s for %d\n", name, irq);
 
 	dev = lkpi_pci_find_irq_dev(irq);
 	if (dev == NULL)
