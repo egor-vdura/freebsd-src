@@ -808,7 +808,6 @@ netisr_select_cpuid(struct netisr_proto *npp, u_int dispatch_policy,
 	 * In the event we have only one worker, shortcut and deliver to it
 	 * without further ado.
 	 */
-  //printf("netisr_select_cpuid: nws_count %d\n", nws_count);
 	if (nws_count == 1) {
 		*cpuidp = nws_array[0];
 		return (m);
@@ -1135,7 +1134,6 @@ netisr_dispatch_src(u_int proto, uintptr_t source, struct mbuf *m)
 #endif
 
 	dispatch_policy = netisr_get_dispatch(npp);
-  //printf("netisr_dispatch_src: proto %u policy %d\n", proto, dispatch_policy);
 	if (dispatch_policy == NETISR_DISPATCH_DEFERRED)
 		return (netisr_queue_src(proto, source, m));
 
@@ -1172,7 +1170,6 @@ netisr_dispatch_src(u_int proto, uintptr_t source, struct mbuf *m)
 		goto out_unpin;
 	}
 	KASSERT(!CPU_ABSENT(cpuid), ("%s: CPU %u absent", __func__, cpuid));
-  //printf("netisr_dispatch_src: cpu_id %d, curcpu %d\n", cpuid, curcpu);
 	if (cpuid != curcpu)
 		goto queue_fallback;
 	nwsp = DPCPU_PTR(nws);

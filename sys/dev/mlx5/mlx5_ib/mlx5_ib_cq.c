@@ -36,7 +36,6 @@
 static void mlx5_ib_cq_comp(struct mlx5_core_cq *cq, struct mlx5_eqe *eqe __unused)
 {
 	struct ib_cq *ibcq = &to_mibcq(cq)->ibcq;
-	printk("mlx5_ib_cq_comp CQN: %d IRQN:%d Vector:%d\n", cq->cqn, cq->irqn, cq->vector);
 	ibcq->comp_handler(ibcq, ibcq->cq_context);
 }
 
@@ -931,7 +930,6 @@ int mlx5_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	int eqn;
 	int err;
 
-  printf(">> mlx5_ib_create_cq, vector %d\n", vector);
 	if (entries < 0 ||
 	    (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz))))
 		return -EINVAL;
@@ -987,7 +985,6 @@ int mlx5_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		goto err_cqb;
 
 	mlx5_ib_dbg(dev, "cqn 0x%x\n", cq->mcq.cqn);
-	printk("IB CQ %d set to EQ %d\n", cq->mcq.cqn, eqn);
 	cq->mcq.irqn = irqn;
 	cq->mcq.comp  = mlx5_ib_cq_comp;
 	cq->mcq.event = mlx5_ib_cq_event;
@@ -1001,7 +998,6 @@ int mlx5_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		}
 
 
-  printf("<< mlx5_ib_create_cq\n");
 	kvfree(cqb);
 	return 0;
 

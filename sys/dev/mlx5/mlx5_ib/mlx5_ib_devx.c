@@ -1418,7 +1418,6 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_OBJ_CREATE)(
 	if (!devx_is_obj_create_cmd(cmd_in, &opcode))
 		return -EINVAL;
 
-  printf(">> UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_OBJ_CREATE), opcode %u\n", opcode);
 
 	cmd_out = uverbs_zalloc(attrs, cmd_out_len);
 	if (IS_ERR(cmd_out))

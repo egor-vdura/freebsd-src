@@ -328,7 +328,6 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 	int lro_num_seg;	/* HW LRO session aggregated packets counter */
 	uint64_t tstmp;
 
-  //printf("cqe->hds_ip_ext 0x%x\n", cqe->hds_ip_ext);
 	lro_num_seg = be32_to_cpu(cqe->srqn) >> 24;
 	if (lro_num_seg > 1) {
 		mlx5e_lro_update_hdr(mb, cqe);
@@ -431,7 +430,6 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 		rq->stats.csum_none++;
 	}
 
-  //printf("csum flags: 0x%x\n", mb->m_pkthdr.csum_flags);
 	if (cqe_has_vlan(cqe)) {
 		mb->m_pkthdr.ether_vtag = be16_to_cpu(cqe->vlan_info);
 		mb->m_flags |= M_VLANTAG;
@@ -583,7 +581,6 @@ mlx5e_poll_rx_cq(struct mlx5e_rq *rq, int budget)
 		    BUS_DMASYNC_POSTREAD);
 
 		if (unlikely((cqe->op_own >> 4) != MLX5_CQE_RESP_SEND)) {
-      printf("mlx5e_poll_rx_cq error!\n");
 			mlx5e_dump_err_cqe(&rq->cq, rq->rqn, (const void *)cqe);
 			rq->stats.wqe_err++;
 			goto wq_ll_pop;
@@ -649,8 +646,6 @@ rx_common:
       m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
       eh = mtod(mb, struct ipoib_header *);
       bzero(eh->hwaddr, 4);	/* Zero the queue pair, only dgid is in grh */
-    //   ETHER_BPF_MTAP(rq->ifp, mb);
-    //   ETHER_BPF_MTAP(rq->ifp, mb);
     }
 //#if !defined(HAVE_TCP_LRO_RX)
     //printk("LRO in\n");

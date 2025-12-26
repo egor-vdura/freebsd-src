@@ -354,10 +354,8 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
 	for (i = 0; i < nvec; i++)
 		priv->msix_arr[i].entry = i;
 
-	printk("nent msix enable %d %d\n", MLX5_EQ_VEC_COMP_BASE + 1, nvec);
 	nvec = pci_enable_msix_range(dev->pdev, priv->msix_arr,
 				     MLX5_EQ_VEC_COMP_BASE + 1, nvec);
-	printk("nent msix ERR %d %d\n", MLX5_EQ_VEC_COMP_BASE + 1, nvec);
 	if (nvec < 0)
 		return nvec;
 
@@ -725,29 +723,24 @@ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
 	int err;
 	int i;
 
-	printk(">> alloc_comp_eqs\n");
 	INIT_LIST_HEAD(&table->comp_eqs_list);
 	ncomp_vec = table->num_comp_vectors;
 	nent = mlx5_core_get_comp_eq_size();
-	printk("nent in %d %d\n", nent, ncomp_vec);
 	for (i = 0; i < ncomp_vec; i++) {
 		eq = kzalloc_node(sizeof(*eq), GFP_KERNEL, dev->priv.numa_node);
 
 		err = mlx5_create_map_eq(dev, eq,
 					 i + MLX5_EQ_VEC_COMP_BASE, nent, 0);
 		if (err) {
-	        printk("nent out err %d\n", err);
 			kfree(eq);
 			goto clean;
 		}
-		printk("allocated completion EQN %d\n", eq->eqn);
-		mlx5_core_err(dev, "allocated completion EQN %d <\n", eq->eqn);
+		mlx5_core_dbg(dev, "allocated completion EQN %d\n", eq->eqn);
 		eq->index = i;
 		spin_lock(&table->lock);
 		list_add_tail(&eq->list, &table->comp_eqs_list);
 		spin_unlock(&table->lock);
 	}
-	printk("<< alloc_comp_eqs\n");
 
 	return 0;
 
@@ -1087,8 +1080,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
 		goto out;
 	}
 
-	printk_once("firmware version: %d.%d.%d\n",
-	    fw_rev_maj(dev), fw_rev_min(dev), fw_rev_sub(dev));
 	mlx5_core_dbg(dev, "firmware version: %d.%d.%d\n",
 	    fw_rev_maj(dev), fw_rev_min(dev), fw_rev_sub(dev));
 

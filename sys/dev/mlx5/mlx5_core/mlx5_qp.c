@@ -134,9 +134,6 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
 	qp->uid = MLX5_GET(create_qp_in, in, uid);
 	qp->qpn = MLX5_GET(create_qp_out, out, qpn);
 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
-#ifdef VDURA_CHANGES
-	printf("QP: qpn = 0x%x\n", qp->qpn);
-#endif
 
 	err = create_qprqsq_common(dev, qp, MLX5_RES_QP);
 	if (err)

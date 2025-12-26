@@ -291,44 +291,27 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 	case htons(ETHERTYPE_IP):
 		parser->ip4 = ptr;
 		if (__predict_false(mlen < sizeof(struct ip)))
-		{
-			// printf("B2\n");
 			return (NULL);
-		}
 		/* Ensure there are no IPv4 options. */
 		if ((parser->ip4->ip_hl << 2) != sizeof (*parser->ip4))
-		{
-			// printf("C1 %d %d %lu\n", (parser->ip4->ip_hl << 2), parser->ip4->ip_hl, sizeof (*parser->ip4));
 			break;
-		}
 		/* .. and the packet is not fragmented. */
 		if (parser->ip4->ip_off & htons(IP_MF|IP_OFFMASK))
-		{
-			// printf("C2\n");
 			break;
-		}
 		/* .. and the packet has valid src/dst addrs */
 		if (__predict_false(parser->ip4->ip_src.s_addr == INADDR_ANY ||
 			parser->ip4->ip_dst.s_addr == INADDR_ANY))
-		{
-			// printf("C3\n");
 			break;
-		}
 		ptr = (uint8_t *)ptr + (parser->ip4->ip_hl << 2);
 		mlen -= sizeof(struct ip);
 		if (update_data) {
 			parser->data.s_addr.v4 = parser->ip4->ip_src;
 			parser->data.d_addr.v4 = parser->ip4->ip_dst;
 		}
-		// printf("D1 %d\n", parser->ip4->ip_p);
 		switch (parser->ip4->ip_p) {
 		case IPPROTO_UDP:
 			if (__predict_false(mlen < sizeof(struct udphdr)))
-			{
-
-			// printf("B3\n");
 				return (NULL);
-			}
 			parser->udp = ptr;
 			if (update_data) {
 				parser->data.lro_type = LRO_TYPE_IPV4_UDP;
@@ -343,10 +326,7 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 		case IPPROTO_TCP:
 			parser->tcp = ptr;
 			if (__predict_false(mlen < sizeof(struct tcphdr)))
-			{
-				// printf("B4s\n");
 				return (NULL);
-			}
 			if (update_data) {
 				parser->data.lro_type = LRO_TYPE_IPV4_TCP;
 				parser->data.s_port = parser->tcp->th_sport;
@@ -355,18 +335,12 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 				MPASS(parser->data.lro_type == LRO_TYPE_IPV4_TCP);
 			}
 			if (__predict_false(mlen < (parser->tcp->th_off << 2)))
-			{
-				// printf("B5\n");
 				return (NULL);
-			}
 			ptr = (uint8_t *)ptr + (parser->tcp->th_off << 2);
 			parser->total_hdr_len = (uint8_t *)ptr - (uint8_t *)old;
 			return (ptr);
 		default:
-			{
-				// printf("C4\n");
-				break;
-			}
+			break;
 		}
 		break;
 #endif
@@ -425,7 +399,6 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 		break;
 	}
 	/* Invalid packet - cannot parse */
-	// printf("B6 %d\n", eth_type);
 	return (NULL);
 }
 
@@ -440,10 +413,7 @@ tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, boo
 	/* Try to parse outer headers first. */
 	data_ptr = tcp_lro_low_level_parser(m->m_data, po, update_data, false, m->m_len);
 	if (data_ptr == NULL || po->total_hdr_len > m->m_len)
-	{
-		// printf("A1 %p %d %d\n", data_ptr, po->total_hdr_len, m->m_len);
 		return (NULL);
-	}
 
 	if (update_data) {
 		/* Store VLAN ID, if any. */
@@ -474,7 +444,6 @@ tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, boo
 		switch (pi->data.lro_type) {
 		case LRO_TYPE_IPV4_TCP:
 		case LRO_TYPE_IPV6_TCP:
-			// printf("A4\n");
 			return (pi);
 		default:
 			break;
@@ -484,12 +453,10 @@ tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, boo
 	case LRO_TYPE_IPV6_TCP:
 		if (update_data)
 			memset(pi, 0, sizeof(*pi));
-		// printf("A3\n");
 		return (po);
 	default:
 		break;
 	}
-	// printf("A2\n");
 	return (NULL);
 }
 
@@ -1346,18 +1313,12 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 #ifdef INET
 	/* Quickly decide if packet cannot be LRO'ed */
 	if (__predict_false(V_ipforwarding != 0))
-  {
-    // printf("ERR 1\n");
 		return (TCP_LRO_CANNOT);
-  }
 #endif
 #ifdef INET6
 	/* Quickly decide if packet cannot be LRO'ed */
 	if (__predict_false(V_ip6_forwarding != 0))
-  {
-    // printf("ERR 2\n");
 		return (TCP_LRO_CANNOT);
-  }
 #endif
 	if (((m->m_pkthdr.csum_flags & (CSUM_DATA_VALID | CSUM_PSEUDO_HDR)) !=
 	     ((CSUM_DATA_VALID | CSUM_PSEUDO_HDR))) || 
@@ -1368,34 +1329,24 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 		 * a packet.
 		 */
 		counter_u64_add(tcp_bad_csums, 1);
-    // printf("ERR 3\n");
 		return (TCP_LRO_CANNOT);
 	}
 	/* We expect a contiguous header [eh, ip, tcp]. */
 	pa = tcp_lro_parser(m, &po, &pi, true);
 	if (__predict_false(pa == NULL))
-  {  
-	// printf("ERR 4\n");
 		return (TCP_LRO_NOT_SUPPORTED);
-}
 
 	/* We don't expect any padding. */
 	error = tcp_lro_trim_mbuf_chain(m, pa);
 	if (__predict_false(error != 0))
-{
-    // printf("ERR 5\n");
 		return (error);
-}
 
 #ifdef INET
 	switch (pa->data.lro_type) {
 	case LRO_TYPE_IPV4_TCP:
 		error = tcp_lro_rx_ipv4(lc, m, pa->ip4);
 		if (__predict_false(error != 0))
-    {
-    // printf("ERR 6\n");
 			return (error);
-    }
 		break;
 	default:
 		break;
@@ -1412,10 +1363,7 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 
 	/* Don't process SYN packets. */
 	if (__predict_false(tcp_get_flags(th) & TH_SYN))
-{
-    // printf("ERR 7\n");
 		return (TCP_LRO_CANNOT);
-}
 
 	/* Get total TCP header length and compute payload length. */
 	tcp_opt_len = (th->th_off << 2);
@@ -1425,10 +1373,7 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 
 	/* Don't process invalid TCP headers. */
 	if (__predict_false(tcp_opt_len < 0 || tcp_data_len < 0))
-{
-    // printf("ERR 8\n");
 		return (TCP_LRO_CANNOT);
-}
 
 	/* Compute TCP data only checksum. */
 	if (tcp_data_len == 0)
@@ -1464,7 +1409,6 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 		if (tcp_data_len == 0 &&
 		    SEQ_LT(ntohl(th->th_ack), ntohl(le->ack_seq))) {
 			m_freem(m);
-    // printf("ERR 9\n");
 			return (0);
 		}
 
@@ -1472,16 +1416,12 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 		le->m_last_mbuf->m_nextpkt = m;
 		/* Now set the tail to "m". */
 		le->m_last_mbuf = m;
-    // printf("ERR 10\n");
 		return (0);
 	}
 
 	/* Try to find an empty slot. */
 	if (LIST_EMPTY(&lc->lro_free))
-{
-    // printf("ERR 11\n");
 		return (TCP_LRO_NO_ENTRIES);
-}
 
 	/* Start a new segment chain. */
 	le = LIST_FIRST(&lc->lro_free);
@@ -1500,7 +1440,6 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 	/* Now set the tail to "m". */
 	le->m_last_mbuf = m;
 
-    // printf("ERR 12\n");
 	return (0);
 }
 
@@ -1546,7 +1485,6 @@ tcp_lro_queue_mbuf(struct lro_ctrl *lc, struct mbuf *mb)
 	    lc->lro_mbuf_max == 0)) {
 		/* packet drop */
 		m_freem(mb);
-    printf("Failed tcp lro\n");
 		return;
 	}
 
@@ -1554,7 +1492,6 @@ tcp_lro_queue_mbuf(struct lro_ctrl *lc, struct mbuf *mb)
 	if (__predict_false((lc->ifp->if_capenable & IFCAP_LRO) == 0)) {
 		/* input packet to network layer */
 		(*lc->ifp->if_input) (lc->ifp, mb);
-    printf("tcp lro ift incapable\n");
 		return;
 	}
 
@@ -1576,14 +1513,10 @@ tcp_lro_queue_mbuf(struct lro_ctrl *lc, struct mbuf *mb)
 
 	/* enter mbuf */
 	lc->lro_mbuf_data[lc->lro_mbuf_count].mb = mb;
-//printf("%lu %lu %lu\n", (uint64_t)lc->lro_mbuf_data[lc->lro_mbuf_count].seq, (uint64_t)mb->m_pkthdr.flowid, (uint64_t)M_HASHTYPE_GET(mb));
 
 	/* flush if array is full */
 	if (__predict_false(++lc->lro_mbuf_count == lc->lro_mbuf_max))
-  {
-    // printf("%d\n", lc->lro_mbuf_max);
 		tcp_lro_flush_all(lc);
-  }
 }
 
 /* end */

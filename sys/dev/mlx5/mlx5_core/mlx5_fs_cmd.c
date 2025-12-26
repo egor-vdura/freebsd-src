@@ -40,7 +40,6 @@ int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
 			    unsigned int id, u16 vport)
 {
 	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)] = {0};
-	// u32 out[MLX5_ST_SZ_DW(set_flow_table_root_out)] = {0};
 
 	if (!dev)
 		return -EINVAL;
@@ -49,53 +48,10 @@ int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
 	MLX5_SET(set_flow_table_root_in, in, table_type, type);
 
-	// if (disconnect)
-	// 	MLX5_SET(set_flow_table_root_in, in, op_mod, 1);
-	// else
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
 	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
 
-	// MLX5_SET(set_flow_table_root_in, in, other_vport,
-	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
-
 	return mlx5_cmd_exec_in(dev, set_flow_table_root, in);
-
-	// MLX5_SET(set_flow_table_root_in, in, vport_number, ft->vport);
-	// MLX5_SET(set_flow_table_root_in, in, other_vport,
-	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
-
-	// err = mlx5_cmd_exec_in(dev, set_flow_table_root_in, in);
-	// if (!err &&
-	//     ft->type == FS_FT_FDB &&
-	//     mlx5_lag_is_shared_fdb(dev) &&
-	//     mlx5_lag_is_master(dev)) {
-	// 	struct mlx5_core_dev *peer_dev;
-	// 	int i, j;
-
-	// 	mlx5_lag_for_each_peer_mdev(dev, peer_dev, i) {
-	// 		err = mlx5_cmd_set_slave_root_fdb(dev, peer_dev, !disconnect, id);
-	// 		if (err) {
-	// 			mlx5_lag_for_each_peer_mdev(dev, peer_dev, j) {
-	// 				if (j < i)
-	// 					mlx5_cmd_set_slave_root_fdb(dev, peer_dev, 1,
-	// 								    ns->root_ft->id);
-	// 				else
-	// 					break;
-	// 			}
-
-	// 			MLX5_SET(set_flow_table_root_in, in, op_mod, 0);
-	// 			MLX5_SET(set_flow_table_root_in, in, table_id,
-	// 				 ns->root_ft->id);
-	// 			mlx5_cmd_exec_in(dev, set_flow_table_root, in);
-	// 		}
-	// 		if (err)
-	// 			break;
-	// 	}
-
-	// }
-
-	// return err;
-	// return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 }
 
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
@@ -121,36 +77,6 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 	MLX5_SET(set_flow_table_root_in, in, other_vport, 0);
 
 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-	// err = mlx5_cmd_exec_in(dev, set_flow_table_root, in);
-	// if (!err &&
-	//     ft->type == FS_FT_FDB &&
-	//     mlx5_lag_is_shared_fdb(dev) &&
-	//     mlx5_lag_is_master(dev)) {
-	// 	struct mlx5_core_dev *peer_dev;
-	// 	int i, j;
-
-	// 	mlx5_lag_for_each_peer_mdev(dev, peer_dev, i) {
-	// 		err = mlx5_cmd_set_slave_root_fdb(dev, peer_dev, !disconnect,
-	// 						  (!disconnect) ? ft->id : 0);
-	// 		if (err && !disconnect) {
-	// 			mlx5_lag_for_each_peer_mdev(dev, peer_dev, j) {
-	// 				if (j < i)
-	// 					mlx5_cmd_set_slave_root_fdb(dev, peer_dev, 1,
-	// 								    ns->root_ft->id);
-	// 				else
-	// 					break;
-	// 			}
-
-	// 			MLX5_SET(set_flow_table_root_in, in, op_mod, 0);
-	// 			MLX5_SET(set_flow_table_root_in, in, table_id,
-	// 				 ns->root_ft->id);
-	// 			mlx5_cmd_exec_in(dev, set_flow_table_root, in);
-	// 		}
-	// 		if (err)
-	// 			break;
-	// 	}
-
-	// }
 }
 enum {
 	MLX5_SHARED_RESOURCE_UID = 0xffff,
@@ -160,9 +86,6 @@ int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			  u16 vport, enum fs_ft_type type, unsigned int level,
 			  unsigned int log_size, const char *name, unsigned int *table_id)
 {
-	// int en_encap = !!(ft->flags & MLX5_FLOW_TABLE_TUNNEL_EN_REFORMAT);
-	// int en_decap = !!(ft->flags & MLX5_FLOW_TABLE_TUNNEL_EN_DECAP);
-	// int term = !!(ft->flags & MLX5_FLOW_TABLE_TERMINATION);
 	int en_encap = 0;
 	int en_decap = 0;
 	int term = 0;
@@ -177,22 +100,13 @@ int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 	MLX5_SET(create_flow_table_in, in, opcode,
 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
 
-	// MLX5_SET(create_flow_table_in, in, uid, ft_attr->uid);
 	MLX5_SET(create_flow_table_in, in, uid, MLX5_SHARED_RESOURCE_UID);
 	MLX5_SET(create_flow_table_in, in, table_type, type);
 	MLX5_SET(create_flow_table_in, in, flow_table_context.level, level);
-	// MLX5_SET(create_flow_table_in, in, flow_table_context.level, 0);
 	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size, log_size);
-	// MLX5_SET(create_flow_table_in, in, flow_table_context.log_size, size ? ilog2(size) : 0);
 
-	// if (strstr(name, FS_REFORMAT_KEYWORD) != NULL)
-	// 	MLX5_SET(create_flow_table_in, in,
-	// 		 flow_table_context.reformat_en, 1);
 	MLX5_SET(create_flow_table_in, in, vport_number, vport);
-	// MLX5_SET(create_flow_table_in, in, other_vport, 1);
 	MLX5_SET(create_flow_table_in, in, other_vport, 0);
-	// MLX5_SET(create_flow_table_in, in, other_vport,
-	// 	 !!(ft->flags & MLX5_FLOW_TABLE_OTHER_VPORT));
 
 	MLX5_SET(create_flow_table_in, in, flow_table_context.decap_en,
 		 en_decap);
@@ -201,44 +115,13 @@ int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 	MLX5_SET(create_flow_table_in, in, flow_table_context.termination_table,
 		 term);
 
-	// switch (ft->op_mod) {
-	// case FS_FT_OP_MOD_NORMAL:
-		// if (next_ft) {
-		// 	MLX5_SET(create_flow_table_in, in,
-		// 		 flow_table_context.table_miss_action,
-		// 		 MLX5_FLOW_TABLE_MISS_ACTION_FWD);
-		// 	MLX5_SET(create_flow_table_in, in,
-		// 		 flow_table_context.table_miss_id, next_ft->id);
-		// } else {
-			MLX5_SET(create_flow_table_in, in,
-				 flow_table_context.table_miss_action,
-				 MLX5_FLOW_TABLE_MISS_ACTION_DEF);
-		// }
-	// 	break;
-
-	// case FS_FT_OP_MOD_LAG_DEMUX:
-	// 	MLX5_SET(create_flow_table_in, in, op_mod, 0x1);
-	// 	if (next_ft)
-	// 		MLX5_SET(create_flow_table_in, in,
-	// 			 flow_table_context.lag_master_next_table_id,
-	// 			 next_ft->id);
-	// 	break;
-	// }
-
+	MLX5_SET(create_flow_table_in, in,
+			flow_table_context.table_miss_action,
+			MLX5_FLOW_TABLE_MISS_ACTION_DEF);
 
 	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 	if (!err)
 		*table_id = MLX5_GET(create_flow_table_out, out, table_id);
-
-
-	// err = mlx5_cmd_exec_inout(dev, create_flow_table, in, out);
-	// if (!err) {
-	// 	ft->id = MLX5_GET(create_flow_table_out, out,
-	// 			  table_id);
-	// 	ft->max_fte = size;
-	// } else {
-	// 	mlx5_ft_pool_put_sz(ns->dev, size);
-	// }
 
 	return err;
 }

@@ -748,7 +748,6 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
 	}
 
 	if (MLX5_CAP_GEN(mdev, ipoib_ipoib_offloads)) {
-    printf("ipoib_ipoib_offloads enabled\n");
 		props->device_cap_flags |= IB_DEVICE_UD_IP_CSUM;
 		props->device_cap_flags |= IB_DEVICE_UD_TSO;
 	}
@@ -2154,10 +2153,7 @@ static struct mlx5_ib_flow_prio *get_flow_table(struct mlx5_ib_dev *dev,
 	}
 
 	if (!ns)
-	{
-		printk(KERN_WARNING "get_flow_table mlx5_get_flow_namespace failure\n");
 		return ERR_PTR(-ENOTSUPP);
-	}
 
 	ft = prio->flow_table;
 	if (!ft) {

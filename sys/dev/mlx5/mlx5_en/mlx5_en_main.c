@@ -1768,9 +1768,6 @@ mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param,
 	    (__be64 *) MLX5_ADDR_OF(wq, wq, pas));
 
 	err = mlx5_core_create_sq(sq->priv->mdev, in, inlen, &sq->sqn);
-  if (!err) {
-    printf("Created SQN: 0x%x", sq->sqn);
-  }
 
 	kvfree(in);
 
@@ -2058,7 +2055,6 @@ mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param, int eq_ix)
 	MLX5_SET64(cqc, cqc, dbr_addr, cq->wq_ctrl.db.dma);
 
 	err = mlx5_core_create_cq(cq->priv->mdev, mcq, in, inlen, out, sizeof(out));
-	printk("ETH CQ %d set to EQ %d\n", mcq->cqn, eqn);
 
 	kvfree(in);
 
@@ -2150,7 +2146,6 @@ mlx5e_open_sqs(struct mlx5e_channel *c,
 
 	for (tc = 0; tc < c->priv->num_tc; tc++) {
 		err = mlx5e_open_sq(c, tc, &cparam->sq, &c->sq[tc]);
-		printk("SQ %d\n", c->sq[tc].sqn);
 		if (err)
 			goto err_close_sqs;
 	}
@@ -2255,7 +2250,6 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	MLX5E_ZERO(&c->iq, mlx5e_iq_zero_start);
 
 	/* open transmit completion queue */
-  printf("mlx5e_open_channel: mlx5e_open_tx_cqs\n");
 	err = mlx5e_open_tx_cqs(c, cparam);
 	if (err)
 		goto err_free;
@@ -2265,7 +2259,6 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	    &mlx5e_rx_cq_comp, c->ix);
 	if (err)
 		goto err_close_tx_cqs;
-	printk("channel CQN %d\n", c->rq.cq.mcq.cqn);
 		
 	err = mlx5e_open_sqs(c, cparam);
 	if (err)
@@ -2278,7 +2271,6 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	err = mlx5e_open_rq(c, &cparam->rq, &c->rq);
 	if (err)
 		goto err_close_iq;
-	printk("channel RQN 0x%x\n", c->rq.rqn);
 
 	/* poll receive queue initially */
 	NET_EPOCH_ENTER(et);
@@ -2502,9 +2494,7 @@ mlx5e_open_channels(struct mlx5e_priv *priv)
 	cparam = malloc(sizeof(*cparam), M_MLX5EN, M_WAITOK);
 
 	mlx5e_build_channel_param(priv, cparam);
-  printf("mlx5e_open_channels: num_channels %u\n", priv->params.num_channels);
 	for (i = 0; i < priv->params.num_channels; i++) {
-    printf("mlx5e_open_channels: channel %d\n", i);
 		err = mlx5e_open_channel(priv, cparam, &priv->channel[i]);
 		if (err)
 			goto err_close_channels;

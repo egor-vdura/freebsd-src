@@ -244,9 +244,7 @@ mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth)
   // Skip IB header, go straight to IP
   init_eth_hdr_len = mb->m_len;
   eth_hdr_len = 0;
-//   printk("RRR %d\n", mb->m_len);
 	mb = mb->m_next;
-//   printk("RRR %d\n", mb->m_len);
 
 	ip = (const struct ip *)(mb->m_data);
 	switch (ip->ip_p) {
@@ -260,7 +258,6 @@ mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth)
 		th = NULL;
 		goto udp_packet;
 	default:
-	//   printk("RRR2 %d\n", mb->m_len);
 		goto failure;
 	}
 tcp_packet:
@@ -269,7 +266,6 @@ tcp_packet:
 		if (unlikely(mb->m_len != eth_hdr_len ||
 		    m_th == NULL || m_th->m_len < sizeof(*th)))
 			{
-				// printk("RRR1 %d %lu %d\n", m_th->m_len, sizeof(*th), eth_hdr_len);
 				goto failure;
 			}
 		th = (const struct tcphdr *)(m_th->m_data);
@@ -286,7 +282,6 @@ udp_packet:
 	 */
 	if (unlikely(mb->m_pkthdr.len < eth_hdr_len))
 	{
-		// printk("RRR3 %d %d\n", mb->m_pkthdr.len, eth_hdr_len);
 		goto failure;
 	}
 	if (ppth != NULL)
@@ -1420,7 +1415,6 @@ mlx5e_poll_tx_cq(struct mlx5e_sq *sq, int budget)
 
 		/* check if the completion event indicates an error */
 		if (unlikely(get_cqe_opcode(cqe) != MLX5_CQE_REQ)) {
-      printf("mlx5e_poll_tx_cq error!\n");
 			mlx5e_dump_err_cqe(&sq->cq, sq->sqn, (const void *)cqe);
 			sq->stats.cqe_err++;
 		}
@@ -1482,7 +1476,7 @@ mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb)
 
 	if (unlikely((if_getdrvflags(ifp) & IFF_DRV_RUNNING) == 0 ||
 	    READ_ONCE(sq->running) == 0)) {
-		printk(KERN_WARNING "GAAAAAH, Driver not running!\n");
+		printk(KERN_WARNING "Driver not running!\n");
 		m_freem(mb);
 		return (ENETDOWN);
 	}

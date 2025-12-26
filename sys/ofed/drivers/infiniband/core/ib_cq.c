@@ -96,7 +96,6 @@ __ib_alloc_cq_user(struct ib_device *dev, void *private,
 	struct ib_cq *cq;
 	int ret;
 
-  printf(">> __ib_alloc_cq_user vector %d\n", comp_vector);
 
 	/*
 	 * Check for invalid parameters early on to avoid
@@ -137,7 +136,6 @@ __ib_alloc_cq_user(struct ib_device *dev, void *private,
 	default:
 		break;
 	}
-  printf("<< __ib_alloc_cq_user vector %d\n", comp_vector);
 	return (cq);
 
 out_free_cq:
