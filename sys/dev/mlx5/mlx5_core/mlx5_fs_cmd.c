@@ -35,24 +35,6 @@
 #include <dev/mlx5/mlx5_core/fs_core.h>
 #include <dev/mlx5/mlx5_core/mlx5_core.h>
 
-int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
-			    enum fs_ft_type type, u32 underlay_qpn,
-			    unsigned int id, u16 vport)
-{
-	u32 in[MLX5_ST_SZ_DW(set_flow_table_root_in)] = {0};
-
-	if (!dev)
-		return -EINVAL;
-
-	MLX5_SET(set_flow_table_root_in, in, opcode,
-		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
-	MLX5_SET(set_flow_table_root_in, in, table_type, type);
-
-	MLX5_SET(set_flow_table_root_in, in, table_id, id);
-	MLX5_SET(set_flow_table_root_in, in, underlay_qpn, underlay_qpn);
-
-	return mlx5_cmd_exec_in(dev, set_flow_table_root, in);
-}
 
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 			    enum fs_ft_type type,
@@ -68,8 +50,7 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
 	MLX5_SET(set_flow_table_root_in, in, table_type, type);
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
-	printk("mlx5_cmd_update_root_ft %d %d %d\n", dev->enabled, dev->underlay_qpn, dev->vport);
-	if (dev->enabled == true)
+	if (dev->qpn_enabled == true)
 	{
 		MLX5_SET(set_flow_table_root_in, in, underlay_qpn, dev->underlay_qpn);
 		MLX5_SET(set_flow_table_root_in, in, vport_number, dev->vport);

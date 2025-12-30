@@ -3611,7 +3611,8 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 	}
 
 	dev->mdev->vport = 0;
-	dev->mdev->enabled = true;
+	dev->mdev->qpn_enabled = true;
+	dev->mdev->underlay_qpn = dev->qpn;
 
 	unsigned int root_table_id;
 	/* setup root flow table with the default rule*/	
@@ -3648,7 +3649,7 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
   flow_index = 16;
   my_mlx5_cmd_fs_create_fte(dev->mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
   /* Set our underlay QP as the root of the FT */
-  mlx5_cmd_update_root_ft_uqp(dev->mdev, FS_FT_NIC_RX, dev->qpn, table_id, 0);
+  mlx5_cmd_update_root_ft(dev->mdev, FS_FT_NIC_RX, table_id);
 
 	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
 
