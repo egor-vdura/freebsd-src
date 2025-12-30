@@ -1262,7 +1262,7 @@ int ipoib_if_open(struct mlx5_ib_dev *dev);
 
 int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev);
 
-void give_me_CONTEXT(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*));
+void ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*));
 
 int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn);
 

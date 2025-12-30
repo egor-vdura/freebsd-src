@@ -1143,17 +1143,16 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 	return 0;
 }
 
-void OurInit(void *_ipoib_dev, void *_ib_dev);
-void OurInit(void *_ipoib_dev, void *_ib_dev)
+static
+void ipoib_mlx5_callback(void *_ipoib_dev, void *_ib_dev)
 {
 	struct ipoib_dev_priv* ipoib_dev = _ipoib_dev;
 	struct mlx5_ib_dev *ib_dev = _ib_dev;
 
 	if_t ipoib_if = ipoib_dev->dev;
 
-	mlx5_ib_warn(ib_dev, "OurInit\n");
-	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0)
-	{
+	ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback\n");
+	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0) {
 		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
 		return;
 	}
@@ -1161,31 +1160,30 @@ void OurInit(void *_ipoib_dev, void *_ib_dev)
 		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
 		return;
 	} else {
-    printf("OurInit underlay qpn 0x%x\n", ib_dev->qpn);
-    ipoib_dev->qp->qp_num = ib_dev->qpn;
-    caddr_t lla = if_getlladdr(ipoib_if);
-    lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
-    lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
-    lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
-  }
-  if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn))
-  {	
+		ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback underlay qpn 0x%x\n", ib_dev->qpn);
+		ipoib_dev->qp->qp_num = ib_dev->qpn;
+		caddr_t lla = if_getlladdr(ipoib_if);
+		lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
+		lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
+		lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
+	}
+
+	if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn)) {
 		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
 		return;
-  } else {
+	} else {
 		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
-  }
-	printk("mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
-   ib_dev->priv->IB_tisn = ib_dev->tisn;
-	// /* move to if if access to dev can be performed */
-	if (ipoib_if_open(ib_dev) != 0)
+	}
+
+	ib_dev->priv->IB_tisn = ib_dev->tisn;
+
+   if (ipoib_if_open(ib_dev) != 0)
 	{
 		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
 		return;
 	}
-	// ipoib_dev->qp->qp_num = ib_dev->qpn;
 }
-EXPORT_SYMBOL(OurInit);
+EXPORT_SYMBOL(ipoib_mlx5_callback);
 
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
@@ -1261,7 +1259,7 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	// struct ib_device *ca
 	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 	ib_dev->pkey_index = priv->pkey_index;
-	give_me_CONTEXT(priv, NULL, OurInit);
+	ipoib_mlx5_hook(priv, NULL, ipoib_mlx5_callback);
 
 	priv->gone = 0;	/* ready */
 
@@ -1314,7 +1312,6 @@ ipoib_add_one(struct ib_device *device)
 	}
 
 	ib_set_client_data(device, &ipoib_client, dev_list);
-
 }
 
 static void

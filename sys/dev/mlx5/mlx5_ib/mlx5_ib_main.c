@@ -3748,11 +3748,13 @@ enum {
 	MLX5E_NIC_PRIO,
 };
 
-/* mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv
- * If we place give_me_CONTEXT on ipoib, due to module dependencies, linking fails
- * So we need to setup all context, and then run a controlled callback
+/* This function coordinates the IPoIB interface and the mlx5_ib driver.
+ * mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv, so there
+ *  is an extra parameter used (_callback) into the ipoib driver, where the actual setup
+ *  and linkage is performed
+ * If we place ipoib_mlx5_hook on ipoib, due to module dependencies, linking fails
  */
-void give_me_CONTEXT(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*))
+void ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*))
 {
 	static void(*callback)(void*,void*) = NULL;
 	static void* ipoib_dev = NULL;
@@ -3760,28 +3762,24 @@ void give_me_CONTEXT(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,voi
 	if (ipoib_dev == NULL && _ipoib_dev != NULL)
 	{
 		ipoib_dev = _ipoib_dev;
-		printk("give_me_CONTEXT 1\n");
 	}
 	if (ib_dev == NULL && _ib_dev != NULL)
 	{
 		ib_dev = _ib_dev;
-		printk("give_me_CONTEXT 2\n");
 	}
 	if (_callback != NULL)
 	{
 		callback = _callback;
 	}
 
-	printk("give_me_CONTEXT callback %p\n", callback);
 	if (ib_dev == NULL || ipoib_dev == NULL)
 	{
 		/* Not enough CONTEXT YET */
 		return;
 	}
-	printk("give_me_CONTEXT 3\n");
 	callback(ipoib_dev, ib_dev);
 }
-EXPORT_SYMBOL(give_me_CONTEXT);
+EXPORT_SYMBOL(ipoib_mlx5_hook);
 
 int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
@@ -4121,7 +4119,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
-	give_me_CONTEXT(NULL, dev, NULL);
+	ipoib_mlx5_hook(NULL, dev, NULL);
 
 	dev->ib_active = true;
 
