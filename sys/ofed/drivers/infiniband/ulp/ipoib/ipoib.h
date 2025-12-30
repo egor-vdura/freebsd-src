@@ -453,9 +453,15 @@ int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
 #ifdef VDURA_CHANGES
 #define ipoib_send mlx5i_xmit
+#else
+#define ipoib_send ib_send
 #endif
-void ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
+
+void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
+		struct ipoib_ah *address, u32 dqpn);
+void ib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 qpn);
+
 void ipoib_reap_ah(struct work_struct *work);
 
 void ipoib_mark_paths_invalid(struct ipoib_dev_priv *priv);

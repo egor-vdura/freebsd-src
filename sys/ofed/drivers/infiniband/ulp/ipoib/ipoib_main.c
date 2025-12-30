@@ -169,8 +169,6 @@ err_disable:
 	return -EINVAL;
 }
 
-
-
 static void
 ipoib_init(void *arg)
 {
@@ -754,7 +752,7 @@ ipoib_start_locked(if_t dev, struct ipoib_dev_priv *priv)
 }
 
 static
-void my_xmit_locked(if_t ifp, struct mbuf *mb)
+void ipoib_xmit_locked(if_t ifp, struct mbuf *mb)
 {
 	struct ipoib_dev_priv *priv = if_getsoftc(ifp);
 	infiniband_bpf_mtap(ifp, mb);
@@ -763,7 +761,7 @@ void my_xmit_locked(if_t ifp, struct mbuf *mb)
 }
 
 static
-int my_xmit(if_t ifp, struct mbuf *mb)
+int ipoib_xmit(if_t ifp, struct mbuf *mb)
 {
 	struct mlx5e_sq *sq;
 	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
@@ -780,17 +778,16 @@ int my_xmit(if_t ifp, struct mbuf *mb)
 select_queue:
 		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
-      		printf("mlx5i_xmit Invalid send queue"); 
+			printf("ipoib_xmit Invalid send queue");
 			/* Free mbuf */
 			m_freem(mb);
-
 			/* Invalid send queue */
 			return (ENXIO);
 		}
 	}
 
 	mtx_lock(&sq->lock);
-	my_xmit_locked(ifp, mb);
+	ipoib_xmit_locked(ifp, mb);
 	mtx_unlock(&sq->lock);
 	return 0;
 }
@@ -1007,7 +1004,6 @@ void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
 	struct mlx5e_priv *priv = ib_dev->priv;
 	if_t ifp = ipoib_priv->dev;
-	int ret;
 	
 	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
 		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
@@ -1029,29 +1025,20 @@ select_queue:
 
 	mtx_lock(&sq->lock);
 
-  struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
-  //printf("IPOIB pseudo header:\n");
-  //for (int i = 0 ; i < INFINIBAND_ALEN; i++) {
-  //  printf("%02x ", ipoibh->hwaddr[i]);
-  //}
-  //printf("\n");
+	struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
 
-  av.key.qkey.qkey = cpu_to_be32(ipoib_priv->qkey);
-  /* ext bit (31st bit) should be set for IPoIB */
-  av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
-  av.fl_mlid = 0;
-  av.grh_gid_fl = cpu_to_be32(1u << 30);
-  memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
-  ah2av(address, &av);
+	av.key.qkey.qkey = cpu_to_be32(ipoib_priv->qkey);
+	/* ext bit (31st bit) should be set for IPoIB */
+	av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
+	av.fl_mlid = 0;
+	av.grh_gid_fl = cpu_to_be32(1u << 30);
+	memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
+	ah2av(address, &av);
 
 	m_adj(mb, sizeof (struct ipoib_pseudoheader));
-  
-//   printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
-//   print_mbuf(mb);
-	ret = mlx5i_xmit_locked(mb, &av, dqpn, sq);
-  if (0) {
-    printf("mlx5e_xmit_locked ret: %d\n", ret);
-  }
+
+	mlx5i_xmit_locked(mb, &av, dqpn, sq);
+
 	mtx_unlock(&sq->lock);
 }
 
@@ -1117,7 +1104,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_setioctlfn(dev, ipoib_ioctl);
 	// if_setstartfn(dev, ipoib_start);
   /* TODO: Use mlx5i_* as tramsmit function */
-	if_settransmitfn(dev, my_xmit);
+	if_settransmitfn(dev, ipoib_xmit);
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
