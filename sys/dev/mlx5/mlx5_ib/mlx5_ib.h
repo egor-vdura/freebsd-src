@@ -751,53 +751,11 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
-enum mlx5_tunnel_types {
-	MLX5E_TT_IPV4_GRE,
-	MLX5E_TT_IPV6_GRE,
-	MLX5E_TT_IPV4_IPIP,
-	MLX5E_TT_IPV6_IPIP,
-	MLX5E_TT_IPV4_IPV6,
-	MLX5E_TT_IPV6_IPV6,
-	MLX5E_NUM_TUNNEL_TT,
-};
-
 #include <dev/mlx5/fs.h>
-
-#define MLX5E_TTC_MAX_NUM_GROUPS		7
-#define MLX5E_TTC_GROUP_TCPUDP_SIZE	(MLX5E_TT_IPV6_UDP + 1)
-
-struct mlx5_fs_ttc_groups {
-	bool use_l4_type;
-	int num_groups;
-	int group_size[MLX5E_TTC_MAX_NUM_GROUPS];
-};
-
-struct mlx5_flow_handle {
-	int num_rules;
-	struct mlx5_flow_rule *rule[] __counted_by(num_rules);
-};
-
-struct mlx5_ttc_rule {
-	struct mlx5_flow_handle *rule;
-	struct mlx5_flow_destination default_dest;
-};
-
-struct mlx5_ttc_table {
-	int num_groups;
-	const struct mlx5_fs_ttc_groups *groups;
-	struct mlx5_core_dev *mdev;
-	struct mlx5_flow_table *t;
-	struct mlx5_flow_group **g;
-	struct mlx5_ttc_rule rules[MLX5E_NUM_TT];
-	struct mlx5_flow_handle *tunnel_rules[MLX5E_NUM_TUNNEL_TT];
-	u32 refcnt;
-	struct mutex mutex; /* Protect adding rules for ipsec crypto offload */
-};
 
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
 	struct mlx5e_priv* priv;
-	struct mlx5_ttc_table *inner_ttc;
 	u16 pkey_index;
 	u32 qpn;
   u32 tisn;
