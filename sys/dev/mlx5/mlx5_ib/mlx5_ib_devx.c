@@ -302,7 +302,7 @@ static u16 get_dec_obj_type(struct devx_obj *obj, u16 event_num)
 		return get_legacy_obj_type(opcode);
 
 	switch (opcode) {
-	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJ:
 		return (obj->obj_id >> 48);
 	case MLX5_CMD_OP_CREATE_RQ:
 		return MLX5_OBJ_TYPE_RQ;
@@ -383,9 +383,9 @@ static u64 devx_get_obj_id(const void *in)
 	u64 obj_id;
 
 	switch (opcode) {
-	case MLX5_CMD_OP_MODIFY_GENERAL_OBJECT:
-	case MLX5_CMD_OP_QUERY_GENERAL_OBJECT:
-		obj_id = get_enc_obj_id(MLX5_CMD_OP_CREATE_GENERAL_OBJECT |
+	case MLX5_CMD_OP_MODIFY_GENERAL_OBJ:
+	case MLX5_CMD_OP_QUERY_GENERAL_OBJ:
+		obj_id = get_enc_obj_id(MLX5_CMD_OP_CREATE_GENERAL_OBJ |
 					MLX5_GET(general_obj_in_cmd_hdr, in,
 						 obj_type) << 16,
 					MLX5_GET(general_obj_in_cmd_hdr, in,
@@ -782,7 +782,7 @@ static bool devx_is_obj_create_cmd(const void *in, u16 *opcode)
 	*opcode = MLX5_GET(general_obj_in_cmd_hdr, in, opcode);
 
 	switch (*opcode) {
-	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJ:
 	case MLX5_CMD_OP_CREATE_MKEY:
 	case MLX5_CMD_OP_CREATE_CQ:
 	case MLX5_CMD_OP_ALLOC_PD:
@@ -835,7 +835,7 @@ static bool devx_is_obj_modify_cmd(const void *in)
 	u16 opcode = MLX5_GET(general_obj_in_cmd_hdr, in, opcode);
 
 	switch (opcode) {
-	case MLX5_CMD_OP_MODIFY_GENERAL_OBJECT:
+	case MLX5_CMD_OP_MODIFY_GENERAL_OBJ:
 	case MLX5_CMD_OP_MODIFY_CQ:
 	case MLX5_CMD_OP_MODIFY_RMP:
 	case MLX5_CMD_OP_MODIFY_SQ:
@@ -880,7 +880,7 @@ static bool devx_is_obj_query_cmd(const void *in)
 	u16 opcode = MLX5_GET(general_obj_in_cmd_hdr, in, opcode);
 
 	switch (opcode) {
-	case MLX5_CMD_OP_QUERY_GENERAL_OBJECT:
+	case MLX5_CMD_OP_QUERY_GENERAL_OBJ:
 	case MLX5_CMD_OP_QUERY_MKEY:
 	case MLX5_CMD_OP_QUERY_CQ:
 	case MLX5_CMD_OP_QUERY_RMP:
@@ -1107,8 +1107,8 @@ static void devx_obj_build_destroy_cmd(void *in, void *out, void *din,
 	MLX5_SET(general_obj_in_cmd_hdr, din, uid, uid);
 
 	switch (MLX5_GET(general_obj_in_cmd_hdr, in, opcode)) {
-	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
-		MLX5_SET(general_obj_in_cmd_hdr, din, opcode, MLX5_CMD_OP_DESTROY_GENERAL_OBJECT);
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJ:
+		MLX5_SET(general_obj_in_cmd_hdr, din, opcode, MLX5_CMD_OP_DESTROY_GENERAL_OBJ);
 		MLX5_SET(general_obj_in_cmd_hdr, din, obj_type, obj_type);
 		break;
 
@@ -1474,7 +1474,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_OBJ_CREATE)(
 	if (err)
 		goto obj_destroy;
 
-	if (opcode == MLX5_CMD_OP_CREATE_GENERAL_OBJECT)
+	if (opcode == MLX5_CMD_OP_CREATE_GENERAL_OBJ)
 		obj_type = MLX5_GET(general_obj_in_cmd_hdr, cmd_in, obj_type);
 	obj->obj_id = get_enc_obj_id(opcode | obj_type << 16, obj_id);
 
