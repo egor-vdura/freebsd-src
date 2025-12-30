@@ -96,7 +96,6 @@ __ib_alloc_cq_user(struct ib_device *dev, void *private,
 	struct ib_cq *cq;
 	int ret;
 
-
 	/*
 	 * Check for invalid parameters early on to avoid
 	 * extra error handling code:

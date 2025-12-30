@@ -943,39 +943,6 @@ ipoib_priv_alloc(void)
 
 #include <dev/mlx5/mlx5_en/en.h>
 
-#if 0
-static void print_mbuf(const struct mbuf *m)
-{
-    int i;
-    unsigned char *data = m->m_data;
-
-    if (!m) {
-        printf("mbuf is NULL\n");
-        return;
-    }
-
-    printf("mbuf: m_len=%d, m_flags=0x%x, m_type=%d\n", m->m_len, m->m_flags, m->m_type);
-	  //if (m->m_flags & M_PKTHDR) {
-    //  printf("Header sizes:\n");
-    //  printf("l2hlen: %u\n", m->m_pkthdr.l2hlen);
-    //  printf("l3hlen: %u\n", m->m_pkthdr.l3hlen);
-    //  printf("l4hlen: %u\n", m->m_pkthdr.l4hlen);
-    //  printf("l5hlen: %u\n", m->m_pkthdr.l5hlen);
-    //  printf("inner_l2hlen: %u\n", m->m_pkthdr.inner_l2hlen);
-    //  printf("inner_l3hlen: %u\n", m->m_pkthdr.inner_l3hlen);
-    //  printf("inner_l4hlen: %u\n", m->m_pkthdr.inner_l4hlen);
-    //  printf("inner_l5hlen: %u\n", m->m_pkthdr.inner_l5hlen);
-    //}
-
-    for (i = 0; i < m->m_len; i++) {
-        printf("%02x ", data[i]);
-        if ((i+1) % 16 == 0)
-            printf("\n");
-    }
-    if (i % 16 != 0)
-        printf("\n");
-}
-#endif
 static
 void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
 {
@@ -987,7 +954,6 @@ void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
   if (!err) {
     //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
     av->rlid = cpu_to_be16(ah_attr.dlid);
-    //printf("ah2av: static_rate 0x%x\n", ah_attr.static_rate);
     /* TODO: Compare with linux? */
     av->stat_rate_sl = ah_attr.static_rate << 4;
     /* TODO: Should ah_attr.sl be used? */
@@ -1004,7 +970,7 @@ void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
 	struct mlx5e_priv *priv = ib_dev->priv;
 	if_t ifp = ipoib_priv->dev;
-	
+
 	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
 		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
 		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
@@ -1016,7 +982,7 @@ void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 select_queue:
 		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
-      printf("mlx5i_xmit Invalid send queue"); 
+      printf("mlx5i_xmit Invalid send queue");
 			/* Free mbuf */
 			m_freem(mb);
 		}
@@ -1041,41 +1007,6 @@ select_queue:
 
 	mtx_unlock(&sq->lock);
 }
-
-#if 0
-int
-mlx5i_xmit(if_t ifp, struct mbuf *mb)
-{
-	struct mlx5e_sq *sq;
-	int ret;
-
-	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
-		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
-		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
-		if (unlikely(sq == NULL)) {
-			goto select_queue;
-		}
-	} else {
-select_queue:
-		sq = mlx5i_select_queue(ifp, mb);
-		if (unlikely(sq == NULL)) {
-			/* Free mbuf */
-			m_freem(mb);
-
-			/* Invalid send queue */
-			return (ENXIO);
-		}
-	}
-
-	mtx_lock(&sq->lock);
-  printf("mlx5i_xmit: sqn 0x%x \n", sq->sqn);
-  print_mbuf(mb);
-	ret = mlx5e_xmit_locked(ifp, sq, mb);
-	mtx_unlock(&sq->lock);
-
-	return (ret);
-}
-#endif
 
 struct ipoib_dev_priv *
 ipoib_intf_alloc(const char *name, struct ib_device *hca)
@@ -1102,9 +1033,11 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	// if_setstartfn(dev, ipoib_start);
-  /* TODO: Use mlx5i_* as tramsmit function */
+#ifdef VDURA_CHANGES
 	if_settransmitfn(dev, ipoib_xmit);
+#else
+	if_setstartfn(dev, ipoib_start);
+#endif
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
@@ -1130,12 +1063,11 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_sethwassist(priv->dev, CSUM_IP | CSUM_TCP | CSUM_UDP);
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
-
-	#endif
-	// if (priv->dev->features & NETIF_F_SG && priv->hca_caps & IB_DEVICE_UD_TSO) {
+#endif
+#ifdef VDURA_CHANGES
 	priv->dev->if_capabilities |= IFCAP_TSO4;
 	priv->dev->if_hwassist |= CSUM_TSO;
-	// }
+#endif
 	if_setcapabilitiesbit(priv->dev,
 	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));
