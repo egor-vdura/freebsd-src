@@ -179,6 +179,7 @@ tcp_lro_init_args(struct lro_ctrl *lc, struct ifnet *ifp,
 	unsigned i;
 
 	lc->lro_bad_csum = 0;
+	lc->is_eth = true;
 	lc->lro_queued = 0;
 	lc->lro_flushed = 0;
 	lc->lro_mbuf_count = 0;
@@ -238,9 +239,9 @@ print_hex(void* _A, int Size)
 }
 
 static inline void *
-tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data, bool is_vxlan, int mlen)
+tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data, bool is_vxlan, int mlen, bool is_eth)
 {
-	// const struct ether_vlan_header *eh;
+	const struct ether_vlan_header *eh;
 	void *old;
 	uint16_t eth_type;
 
@@ -259,28 +260,30 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 		}
 	}
 
-	// eh = ptr;
-	
-	eth_type = htons(ETHERTYPE_IP);
-	if(0)
-	print_hex(ptr, mlen);
-	mlen -= 24;
-	ptr = (uint8_t *)ptr + 24;
-	// if (__predict_false(eh->evl_encap_proto == htons(ETHERTYPE_VLAN))) {
-	// 	eth_type = eh->evl_proto;
-	// 	if (update_data) {
-	// 		/* strip priority and keep VLAN ID only */
-	// 		parser->data.vlan_id = eh->evl_tag & htons(EVL_VLID_MASK);
-	// 	}
-	// 	/* advance to next header */
-	// 	ptr = (uint8_t *)ptr + ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
-	// 	mlen -= (ETHER_HDR_LEN  + ETHER_VLAN_ENCAP_LEN);
-	// } else {
-	// 	eth_type = eh->evl_encap_proto;
-	// 	/* advance to next header */
-	// 	mlen -= ETHER_HDR_LEN;
-	// 	ptr = (uint8_t *)ptr + ETHER_HDR_LEN;
-	// }
+	eh = ptr;
+  if(is_eth) {
+    if (__predict_false(eh->evl_encap_proto == htons(ETHERTYPE_VLAN))) {
+      eth_type = eh->evl_proto;
+      if (update_data) {
+        /* strip priority and keep VLAN ID only */
+        parser->data.vlan_id = eh->evl_tag & htons(EVL_VLID_MASK);
+      }
+      /* advance to next header */
+      ptr = (uint8_t *)ptr + ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
+      mlen -= (ETHER_HDR_LEN  + ETHER_VLAN_ENCAP_LEN);
+    } else {
+      eth_type = eh->evl_encap_proto;
+      /* advance to next header */
+      mlen -= ETHER_HDR_LEN;
+      ptr = (uint8_t *)ptr + ETHER_HDR_LEN;
+    }
+  } else {
+    // We only support ETH or IPoIB underlay protocol
+    mlen -= 24;
+    ptr = (uint8_t *)ptr + 24;
+    eth_type = htons(ETHERTYPE_IP);
+  }
+
 	if (__predict_false(mlen <= 0))
 	{
 		// printf("B1\n");
@@ -406,12 +409,12 @@ static const int vxlan_csum = CSUM_INNER_L3_CALC | CSUM_INNER_L3_VALID |
     CSUM_INNER_L4_CALC | CSUM_INNER_L4_VALID;
 
 static inline struct lro_parser *
-tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, bool update_data)
+tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, bool update_data, bool is_eth)
 {
 	void *data_ptr;
 
 	/* Try to parse outer headers first. */
-	data_ptr = tcp_lro_low_level_parser(m->m_data, po, update_data, false, m->m_len);
+	data_ptr = tcp_lro_low_level_parser(m->m_data, po, update_data, false, m->m_len, is_eth);
 	if (data_ptr == NULL || po->total_hdr_len > m->m_len)
 		return (NULL);
 
@@ -436,7 +439,7 @@ tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, boo
 
 		/* Try to parse inner headers. */
 		data_ptr = tcp_lro_low_level_parser(data_ptr, pi, update_data, true,
-						    (m->m_len - ((caddr_t)data_ptr - m->m_data)));
+						    (m->m_len - ((caddr_t)data_ptr - m->m_data)), is_eth);
 		if (data_ptr == NULL || (pi->total_hdr_len + po->total_hdr_len) > m->m_len)
 			break;
 
@@ -938,7 +941,7 @@ tcp_push_and_replace(struct lro_ctrl *lc, struct lro_entry *le, struct mbuf *m)
 	tcp_flush_out_entry(lc, le);
 
 	/* Re-parse new header, should not fail. */
-	pa = tcp_lro_parser(m, &le->outer, &le->inner, false);
+	pa = tcp_lro_parser(m, &le->outer, &le->inner, false, lc->is_eth);
 	KASSERT(pa != NULL,
 	    ("tcp_push_and_replace: LRO parser failed on m=%p\n", m));
 
@@ -1332,7 +1335,7 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 		return (TCP_LRO_CANNOT);
 	}
 	/* We expect a contiguous header [eh, ip, tcp]. */
-	pa = tcp_lro_parser(m, &po, &pi, true);
+	pa = tcp_lro_parser(m, &po, &pi, true, lc->is_eth);
 	if (__predict_false(pa == NULL))
 		return (TCP_LRO_NOT_SUPPORTED);
 
