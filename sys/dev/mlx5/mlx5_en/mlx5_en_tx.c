@@ -1549,9 +1549,9 @@ select_queue:
 		}
 	}
 
-	// mtx_lock(&sq->lock);
+	mtx_lock(&sq->lock);
 	ret = mlx5e_xmit_locked(ifp, sq, mb);
-	// mtx_unlock(&sq->lock);
+	mtx_unlock(&sq->lock);
 
 	return (ret);
 }

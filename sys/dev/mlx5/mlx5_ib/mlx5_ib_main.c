@@ -3438,7 +3438,7 @@ err_qp_modify_to_err:
 #include <dev/mlx5/mlx5_ifc.h>
 
 static
-int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
+int mlx5i_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			  u16 vport, enum fs_ft_type type, unsigned int level,
 			  unsigned int log_size, const char *name, unsigned int *table_id, unsigned int *next_id)
 {
@@ -3494,7 +3494,7 @@ int my_mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 }
 
 static
-int my_mlx5_cmd_fs_create_fg(struct mlx5_core_dev *dev,
+int mlx5i_cmd_fs_create_fg(struct mlx5_core_dev *dev,
 	unsigned int table_id,
 			  u32 start_flow_index, u32 end_flow_index, bool match_criteria_enable,
 			  bool match_ip_protocol, bool match_ip_version, unsigned int *group_id)
@@ -3536,7 +3536,7 @@ int my_mlx5_cmd_fs_create_fg(struct mlx5_core_dev *dev,
 }
 
 static
-int my_mlx5_cmd_fs_create_fte(struct mlx5_core_dev *dev,
+int mlx5i_cmd_fs_create_fte(struct mlx5_core_dev *dev,
 	unsigned int table_id, u32 group_id,
   unsigned int flow_index, u8 ip_version, u8 ip_protocol, u8 destination_id)
 {
@@ -3591,40 +3591,45 @@ void ipoib_fs_create(struct mlx5_core_dev *mdev)
 {
 	unsigned int root_table_id;
 	/* setup root flow table with the default rule*/
-	my_mlx5_cmd_fs_create_ft(mdev,
+	mlx5i_cmd_fs_create_ft(mdev,
 		0, 0, 67, 0, "roottable0", &root_table_id, NULL);
 
 	unsigned int table_id;
-	my_mlx5_cmd_fs_create_ft(mdev,
+	mlx5i_cmd_fs_create_ft(mdev,
 		0, 0, 58, 0x7, "roottable0", &table_id, &root_table_id);
 
 	unsigned int group_ids[3] = {0};
-	my_mlx5_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(group_ids[0]));
-	my_mlx5_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(group_ids[1]));
-	my_mlx5_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(group_ids[2]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(group_ids[0]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(group_ids[1]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(group_ids[2]));
 
   unsigned int dest_id = 0;
   unsigned int flow_index = 0;
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
 
   flow_index = 14;
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
 
   flow_index = 16;
-  my_mlx5_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
+  mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
   /* Set our underlay QP as the root of the FT */
   mlx5_cmd_update_root_ft(mdev, FS_FT_NIC_RX, table_id);
 
 }
 
+static
+void ipoib_fs_destroy(struct mlx5_core_dev *mdev)
+{
+  (void)mdev;
+}
 int ipoib_if_open(struct mlx5_ib_dev *dev)
 {
 	struct mlx5e_priv *epriv = dev->priv;
@@ -3675,6 +3680,8 @@ err_close_channels:
   mlx5e_close_channels(epriv);
 err_remove_fs_underlay_qp:
 	mlx5i_uninit_underlay_qp(dev);
+  ipoib_fs_destroy(dev->mdev);
+
 	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
 	PRIV_UNLOCK(epriv);
 	return err;
@@ -4103,11 +4110,12 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
-	ipoib_mlx5_hook(NULL, dev, NULL);
-
-	dev->ib_active = true;
-
-	return dev;
+	err = ipoib_mlx5_hook(NULL, dev, NULL);
+  if (!err)
+  {
+	  dev->ib_active = true;
+	  return dev;
+  }
 
 err_umrc:
 	destroy_umrc_res(dev);
