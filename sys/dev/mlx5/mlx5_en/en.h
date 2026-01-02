@@ -1237,6 +1237,10 @@ void	mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
 
 int mlx5e_open_channels(struct mlx5e_priv *priv);
 void mlx5e_close_channels(struct mlx5e_priv *priv);
+
+int mlx5e_open_tises(struct mlx5e_priv *priv);
+void mlx5e_close_tises(struct mlx5e_priv *priv);
+
 int mlx5e_activate_rqt(struct mlx5e_priv *priv);
 
 void	mlx5e_vxlan_start(void *arg, if_t ifp, sa_family_t family,

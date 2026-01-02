@@ -1105,14 +1105,6 @@ int ipoib_mlx5_callback(void *_ipoib_dev, void *_ib_dev)
 	lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
 	lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
 	
-  ret = mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn);
-	if (ret) {
-		mlx5_ib_err(ib_dev, "mlx5i_create_tis failure\n");
-    goto remove_underlay_qp;
-	}
-
-	ib_dev->priv->IB_tisn = ib_dev->tisn;
-
   ret = ipoib_if_open(ib_dev);
   if (!ret)
 	{
@@ -1120,11 +1112,10 @@ int ipoib_mlx5_callback(void *_ipoib_dev, void *_ib_dev)
 	}
 	mlx5_ib_err(ib_dev, "ipoib_if_open failure\n");
 
-  //mlx5i_delete_tis();
+   //mlx5_ib_rem_underlay_qp();
 ib_unset_en:
    //mlx5_ib_unset_en();
-remove_underlay_qp:
-   //mlx5_ib_em_underlay_qp();
+//remove_underlay_qp:
    return ret;
 }
 EXPORT_SYMBOL(ipoib_mlx5_callback);

@@ -3653,11 +3653,17 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 
   ipoib_fs_create(dev->mdev);
 
+  err = mlx5e_open_tises(epriv);
+  if (err) {
+    mlx5_ib_err(dev, "mlx5e_open_tises failed, %d\n", err);
+		goto err_remove_fs_underlay_qp;
+  }
+
 	err = mlx5e_open_channels(epriv);
 	if (err)
 	{
-		mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
-		goto err_remove_fs_underlay_qp;
+		mlx5_ib_err(dev, "mlx5e_open_channels failed %d\n", err);
+		goto err_close_tises;
 	}
 
 	// Setup channels to be non ethernet (IPoIB)
@@ -3678,6 +3684,8 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 
 err_close_channels:
   mlx5e_close_channels(epriv);
+err_close_tises:
+  mlx5e_close_tises(epriv);
 err_remove_fs_underlay_qp:
 	mlx5i_uninit_underlay_qp(dev);
   ipoib_fs_destroy(dev->mdev);
@@ -3726,19 +3734,6 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 	mlx5_ib_warn(dev, "Created mlx5i_create_underlay_qp (%u)\n", dev->qpn);
 
 	return 0;
-}
-
-int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 tdn, u32 *tisn)
-{
-  u32 in[MLX5_ST_SZ_DW(create_tis_in)] = {};
-  void *tisc;
-
-  tisc = MLX5_ADDR_OF(create_tis_in, in, ctx);
-
-  MLX5_SET(tisc, tisc, underlay_qpn, underlay_qpn);
-  MLX5_SET(tisc, tisc, transport_domain, tdn);
-
-  return mlx5_core_create_tis(mdev, in, MLX5_ST_SZ_BYTES(create_tis_in), tisn);
 }
 
 enum {
@@ -3877,8 +3872,7 @@ err_free_sysctl:
 // 	mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
 
 err_free_ifp:
- 	//if_free(ifp);
- 	//free(priv, M_MLX5EN);
+ 	free(priv, M_MLX5EN);
 	return 1;
 }
 
