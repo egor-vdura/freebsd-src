@@ -931,7 +931,7 @@ struct mlx5e_channel {
 	u32	rqtn;
 } __aligned(MLX5E_CACHELINE_SIZE);
 
-enum mlx5_traffic_types {
+enum mlx5e_traffic_types {
 	MLX5E_TT_IPV4_TCP,
 	MLX5E_TT_IPV6_TCP,
 	MLX5E_TT_IPV4_UDP,
@@ -943,16 +943,7 @@ enum mlx5_traffic_types {
 	MLX5E_TT_IPV4,
 	MLX5E_TT_IPV6,
 	MLX5E_TT_ANY,
-	MLX5E_TT_DECRYPTED_ESP_OUTER_IPV4_TCP,
-	MLX5E_TT_DECRYPTED_ESP_OUTER_IPV6_TCP,
-	MLX5E_TT_DECRYPTED_ESP_OUTER_IPV4_UDP,
-	MLX5E_TT_DECRYPTED_ESP_OUTER_IPV6_UDP,
-	MLX5E_TT_DECRYPTED_ESP_INNER_IPV4_TCP,
-	MLX5E_TT_DECRYPTED_ESP_INNER_IPV6_TCP,
-	MLX5E_TT_DECRYPTED_ESP_INNER_IPV4_UDP,
-	MLX5E_TT_DECRYPTED_ESP_INNER_IPV6_UDP,
-	MLX5E_NUM_TT,
-	MLX5E_NUM_INDIR_TIRS = MLX5E_TT_ANY,
+  MLX5E_NUM_TT,
 };
 
 enum {
@@ -1245,6 +1236,7 @@ void	mlx5e_enable_vlan_filter(struct mlx5e_priv *priv);
 void	mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
 
 int mlx5e_open_channels(struct mlx5e_priv *priv);
+void mlx5e_close_channels(struct mlx5e_priv *priv);
 int mlx5e_activate_rqt(struct mlx5e_priv *priv);
 
 void	mlx5e_vxlan_start(void *arg, if_t ifp, sa_family_t family,
@@ -1372,8 +1364,6 @@ mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb);
 
 int
 mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq *sq);
-
-extern uint32_t mlx5e_hash_value;
 
 struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
 

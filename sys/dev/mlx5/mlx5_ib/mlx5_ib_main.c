@@ -3627,26 +3627,19 @@ void ipoib_fs_create(struct mlx5_core_dev *mdev)
 
 int ipoib_if_open(struct mlx5_ib_dev *dev)
 {
-	// struct mlx5_core_dev *mdev = dev->mdev;
-	// int ncv = mdev->priv.eq_table.num_comp_vectors;
-	// struct mlx5e_priv* priv = malloc_domainset(sizeof(*priv) +
-	//     (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
-	//     M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
-	// dev->priv = priv;
-
 	struct mlx5e_priv *epriv = dev->priv;
-	// struct mlx5_core_dev *mdev = epriv->mdev;
 	int err = 0;
 
 	PRIV_LOCK(epriv);
 
-// 	set_bit(MLX5E_STATE_OPENED, &epriv->state);
-	// err = mlx5e_open_tises(priv);
+  /* check if already opened */
+	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0)
+		return (0);
 
 	err = mlx5i_init_underlay_qp(dev);
 	if (err) {
 		mlx5_ib_warn(dev, "mlx5i_init_underlay_qp failed, %d\n", err);
-		goto err_clear_state_opened_flag;
+    return err;
 	}
 
 	dev->mdev->vport = 0;
@@ -3655,44 +3648,34 @@ int ipoib_if_open(struct mlx5_ib_dev *dev)
 
   ipoib_fs_create(dev->mdev);
 
-	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
-
 	err = mlx5e_open_channels(epriv);
 	if (err)
 	{
 		mlx5_ib_warn(dev, "mlx5e_open_channels failed %d\n", err);
 		goto err_remove_fs_underlay_qp;
 	}
-  // Setup channels to be non ethernet (IPoIB)
-  for (int i = 0; i < epriv->params.num_channels; i++) {
-    epriv->channel[i].rq.lro.is_eth = false;
+
+	// Setup channels to be non ethernet (IPoIB)
+	for (int i = 0; i < epriv->params.num_channels; i++) {
+	  epriv->channel[i].rq.lro.is_eth = false;
   }
 
 	err = mlx5e_activate_rqt(epriv);
 	if (err) {
-		mlx5_ib_warn(dev, "mlx5e_activate_rqt failed %d\n", err);
-	// 	// mlx5_en_err(ifp, "mlx5e_activate_rqt failed, %d\n", err);
+		mlx5_ib_err(dev, "mlx5e_activate_rqt failed %d\n", err);
 		goto err_close_channels;
 	}
-	mlx5_ib_warn(dev, "mlx5e_activate_rqt success\n");
-	//mlx5e_update_carrier(epriv);
+	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
 
-
-	// 	err = epriv->profile->update_rx(epriv);
-// 	if (err)
-// 		goto err_close_channels;
-
-// 	mlx5e_activate_priv_channels(epriv);
-
+  set_bit(MLX5E_STATE_OPENED, &epriv->state);
 	PRIV_UNLOCK(epriv);
 	return 0;
 
 err_close_channels:
-// 	mlx5e_close_channels(&epriv->channels);
+  mlx5e_close_channels(epriv);
 err_remove_fs_underlay_qp:
 	mlx5i_uninit_underlay_qp(dev);
-err_clear_state_opened_flag:
-// 	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
+	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
 	PRIV_UNLOCK(epriv);
 	return err;
 }
@@ -3763,9 +3746,9 @@ enum {
  *  and linkage is performed
  * If we place ipoib_mlx5_hook on ipoib, due to module dependencies, linking fails
  */
-void ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,void*))
+int ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, int(*_callback)(void*,void*))
 {
-	static void(*callback)(void*,void*) = NULL;
+	static int(*callback)(void*,void*) = NULL;
 	static void* ipoib_dev = NULL;
 	static void *ib_dev = NULL;
 	if (ipoib_dev == NULL && _ipoib_dev != NULL)
@@ -3784,9 +3767,9 @@ void ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, void(*_callback)(void*,voi
 	if (ib_dev == NULL || ipoib_dev == NULL)
 	{
 		/* Not enough CONTEXT YET */
-		return;
+		return 0;
 	}
-	callback(ipoib_dev, ib_dev);
+	return callback(ipoib_dev, ib_dev);
 }
 EXPORT_SYMBOL(ipoib_mlx5_hook);
 
@@ -3799,13 +3782,13 @@ int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 	struct mlx5e_priv* priv = malloc_domainset(sizeof(*priv) +
 	    (sizeof(priv->channel[0]) * mdev->priv.eq_table.num_comp_vectors),
 	    M_MLX5EN, mlx5_dev_domainset(mdev), M_WAITOK | M_ZERO);
-	// priv->ifp = Do we really need to set this here?
+
+	/* Needed because of m_snd_tag_init */
 	priv->ifp = ipoib_if;
-	// Yes we do, because of m_snd_tag_init
 	dev->priv = priv;
 
 	/* setup all static fields and internal structures */
-	mlx5_core_warn(mdev, "GAAAH mlx5e_priv_static_init(%d)\n", mdev->priv.eq_table.num_comp_vectors);
+	mlx5_core_warn(mdev, "mlx5e_priv_static_init (%d)\n", mdev->priv.eq_table.num_comp_vectors);
 	if (mlx5e_priv_static_init(priv, mdev, mdev->priv.eq_table.num_comp_vectors)) {
 		mlx5_core_err(mdev, "mlx5e_priv_static_init() failed\n");
 		goto err_free_ifp;
@@ -3835,14 +3818,6 @@ int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 		mlx5_core_err(mdev, "mlx5e_create_mkey() failed %d\n", err);
 		goto err_dealloc_transport_domain;
 	}
-	// mlx5_query_nic_vport_mac_address(priv->mdev, 0, dev_addr);
-
-	/* check if we should generate a random MAC address */
-	// if (MLX5_CAP_GEN(priv->mdev, vport_group_manager) == 0 &&
-	//     is_zero_ether_addr(dev_addr)) {
-	// 	random_ether_addr(dev_addr);
-	// 	// mlx5_en_err(ifp, "Assigned random MAC address\n");
-	// }
 
 	err = mlx5e_open_drop_rq(priv, &priv->drop_rq);
 	if (err) {
@@ -3895,8 +3870,8 @@ err_free_sysctl:
 // 	mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
 
 err_free_ifp:
-// 	if_free(ifp);
-// 	free(priv, M_MLX5EN);
+ 	//if_free(ifp);
+ 	//free(priv, M_MLX5EN);
 	return 1;
 }
 

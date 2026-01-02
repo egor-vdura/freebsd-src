@@ -93,7 +93,9 @@ static if_t ipoib_get_net_dev_by_params(
 		struct ib_device *dev, u8 port, u16 pkey,
 		const union ib_gid *gid, const struct sockaddr *addr,
 		void *client_data);
+#ifndef VDURA_CHANGES
 static void ipoib_start(if_t dev);
+#endif
 static int ipoib_ioctl(if_t ifp, u_long command, caddr_t data);
 
 static struct unrhdr *ipoib_unrhdr;
@@ -946,8 +948,8 @@ ipoib_priv_alloc(void)
 static
 void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
 {
-  struct ib_ah *ah = address->ah; 
-  struct ib_ah_attr ah_attr = {0}; 
+  struct ib_ah *ah = address->ah;
+  struct ib_ah_attr ah_attr = {0};
   int err;
 
   err = ah->device->query_ah(ah, &ah_attr);
@@ -1076,44 +1078,54 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 }
 
 static
-void ipoib_mlx5_callback(void *_ipoib_dev, void *_ib_dev)
+int ipoib_mlx5_callback(void *_ipoib_dev, void *_ib_dev)
 {
+  int ret = 0;
 	struct ipoib_dev_priv* ipoib_dev = _ipoib_dev;
 	struct mlx5_ib_dev *ib_dev = _ib_dev;
 
 	if_t ipoib_if = ipoib_dev->dev;
 
 	ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback\n");
-	if (mlx5_ib_set_en(ib_dev, ipoib_if) != 0) {
-		mlx5_ib_warn(ib_dev, "mlx5_ib_set_en failure\n");
-		return;
-	}
-	if (mlx5i_create_underlay_qp(ib_dev) != 0) {
-		mlx5_ib_warn(ib_dev, "mlx5i_create_underlay_qp failure\n");
-		return;
-	} else {
-		ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback underlay qpn 0x%x\n", ib_dev->qpn);
-		ipoib_dev->qp->qp_num = ib_dev->qpn;
-		caddr_t lla = if_getlladdr(ipoib_if);
-		lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
-		lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
-		lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
+  ret = mlx5_ib_set_en(ib_dev, ipoib_if);
+	if (ret) {
+		mlx5_ib_err(ib_dev, "mlx5_ib_set_en failure\n");
+		return ret;
 	}
 
-	if (mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn)) {
-		mlx5_ib_warn(ib_dev, "mlx5i_create_tis failure\n");
-		return;
-	} else {
-		mlx5_ib_warn(ib_dev, "mlx5i_create_tis SUCCESS (tisn 0x%x)\n", ib_dev->tisn);
+  ret = mlx5i_create_underlay_qp(ib_dev);
+	if (ret) {
+		mlx5_ib_err(ib_dev, "mlx5i_create_underlay_qp failure\n");
+    goto ib_unset_en;
+	}
+  ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback underlay qpn 0x%x\n", ib_dev->qpn);
+	ipoib_dev->qp->qp_num = ib_dev->qpn;
+	caddr_t lla = if_getlladdr(ipoib_if);
+	lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
+	lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
+	lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
+	
+  ret = mlx5i_create_tis(ib_dev->mdev, ib_dev->qpn, ib_dev->priv->tdn, &ib_dev->tisn);
+	if (ret) {
+		mlx5_ib_err(ib_dev, "mlx5i_create_tis failure\n");
+    goto remove_underlay_qp;
 	}
 
 	ib_dev->priv->IB_tisn = ib_dev->tisn;
 
-   if (ipoib_if_open(ib_dev) != 0)
+  ret = ipoib_if_open(ib_dev);
+  if (!ret)
 	{
-		mlx5_ib_warn(ib_dev, "ipoib_if_open failure\n");
-		return;
+    return 0;
 	}
+	mlx5_ib_err(ib_dev, "ipoib_if_open failure\n");
+
+  //mlx5i_delete_tis();
+ib_unset_en:
+   //mlx5_ib_unset_en();
+remove_underlay_qp:
+   //mlx5_ib_em_underlay_qp();
+   return ret;
 }
 EXPORT_SYMBOL(ipoib_mlx5_callback);
 

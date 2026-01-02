@@ -2191,68 +2191,11 @@ mlx5e_destroy_vxlan_flow_table(struct mlx5e_priv *priv)
 	mlx5e_destroy_flow_table(&priv->fts.vxlan);
 }
 
-
-static
-bool mlx5_eth_supported(struct mlx5e_priv *priv)
-{
-	// if (!IS_ENABLED(CONFIG_MLX5_CORE_EN))
-	// 	return false;
-
-	// if (MLX5_CAP_GEN(priv->mdev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
-	// 	return false;
-
-	// if (!MLX5_CAP_GEN(priv->mdev, eth_net_offloads)) {
-	// 	mlx5_en_warn(priv->ifp,  "Missing eth_net_offloads capability\n");
-	// 	return false;
-	// }
-
-	if (!MLX5_CAP_GEN(priv->mdev, nic_flow_table)) {
-		mlx5_en_warn(priv->ifp,  "Missing nic_flow_table capability\n");
-		return false;
-	}
-
-	// if (!MLX5_CAP_ETH(priv->mdev, csum_cap)) {
-	// 	mlx5_en_warn(priv->ifp,  "Missing csum_cap capability\n");
-	// 	return false;
-	// }
-
-	// if (!MLX5_CAP_ETH(priv->mdev, max_lso_cap)) {
-	// 	mlx5_en_warn(priv->ifp,  "Missing max_lso_cap capability\n");
-	// 	return false;
-	// }
-
-	// if (!MLX5_CAP_ETH(priv->mdev, vlan_cap)) {
-	// 	mlx5_en_warn(priv->ifp,  "Missing vlan_cap capability\n");
-	// 	return false;
-	// }
-
-	// if (!MLX5_CAP_ETH(priv->mdev, rss_ind_tbl_cap)) {
-	// 	mlx5_en_warn(priv->ifp,  "Missing rss_ind_tbl_cap capability\n");
-	// 	return false;
-	// }
-
-	if (MLX5_CAP_FLOWTABLE(priv->mdev,
-			       flow_table_properties_nic_receive.max_ft_level) < 3) {
-		mlx5_en_warn(priv->ifp,  "max_ft_level < 3\n");
-		return false;
-	}
-
-	// if (!MLX5_CAP_ETH(priv->mdev, self_lb_en_modifiable))
-	// 	mlx5_en_warn(priv->ifp,  "Self loop back prevention is not supported\n");
-	// if (!MLX5_CAP_GEN(priv->mdev, cq_moderation))
-	// 	mlx5_en_warn(priv->ifp,  "CQ moderation is not supported\n");
-
-	mlx5_en_warn(priv->ifp,  "All ok\n");
-	return true;
-}
-
 int
 mlx5e_open_flow_tables(struct mlx5e_priv *priv)
 {
 	int err;
 
-	mlx5_eth_supported(priv);
-	mlx5_en_warn(priv->ifp, "%p %p %p\n", priv, priv->ifp, priv->mdev);
 	/* setup namespace pointer */
 	priv->fts.ns = mlx5_get_flow_namespace(
 	    priv->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
@@ -2262,6 +2205,7 @@ mlx5e_open_flow_tables(struct mlx5e_priv *priv)
 		mlx5_en_err(priv->ifp, "Failed to allocate NS\n");
 		return 1;
 	}
+
 	err = mlx5e_create_vlan_flow_table(priv);
 	if (err)
 		return (err);

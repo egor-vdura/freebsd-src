@@ -28,5 +28,3 @@ tags
 .cache
 .clangd
 .ccls-cache
-
-.vscode

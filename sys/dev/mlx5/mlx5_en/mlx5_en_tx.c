@@ -74,7 +74,7 @@ mlx5e_send_nop(struct mlx5e_sq *sq, u32 ds_cnt)
 	sq->pc += sq->mbuf[pi].num_wqebbs;
 }
 
-uint32_t mlx5e_hash_value;
+static uint32_t mlx5e_hash_value;
 
 static void
 mlx5e_hash_init(void *arg)
@@ -787,7 +787,6 @@ mlx5i_sq_xmit(struct mlx5e_sq *sq, struct mlx5_av	*av, struct mbuf **mbp)
 	struct mlx5e_xmit_args args = {};
 	struct mlx5_wqe_data_seg *dseg;
 	struct mlx5i_tx_wqe *wqe;
-	// if_t ifp;
 	int nsegs;
 	int err;
 	int x;
@@ -837,16 +836,11 @@ top:
 	/* Setup local variables */
 	pi = sq->pc & sq->wq.sz_m1;
 	wqe = mlx5_wq_cyc_get_wqe(&sq->wq, pi);
-	// ifp = sq->ifp;
 
 	memset(wqe, 0, sizeof(*wqe));
 
 	/* get pointer to mbuf */
 	mb = *mbp;
-
-	/* Send a copy of the frame to the BPF listener, if any */
-	// if (ifp != NULL)
-	// 	ETHER_BPF_MTAP(ifp, mb);
 
 	if (mb->m_pkthdr.csum_flags & (CSUM_IP | CSUM_TSO)) {
 		wqe->eth.cs_flags |= MLX5_ETH_WQE_L3_CSUM;

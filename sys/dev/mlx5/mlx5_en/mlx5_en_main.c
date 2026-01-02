@@ -2535,7 +2535,7 @@ err_close_channels:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_channels(struct mlx5e_priv *priv)
 {
 	int i;

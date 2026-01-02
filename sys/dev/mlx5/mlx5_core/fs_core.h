@@ -45,8 +45,8 @@ enum fs_ft_type {
 	FS_FT_ESW_EGRESS_ACL  = 0x2,
 	FS_FT_ESW_INGRESS_ACL = 0x3,
 	FS_FT_FDB             = 0X4,
-	FS_FT_SNIFFER_RX	    = 0X5,
-	FS_FT_SNIFFER_TX    	= 0X6,
+	FS_FT_SNIFFER_RX      = 0X5,
+	FS_FT_SNIFFER_TX      = 0X6
 };
 
 enum fs_fte_status {
@@ -306,10 +306,6 @@ int mlx5_cmd_fs_delete_fte(struct mlx5_core_dev *dev,
 			   enum fs_fte_status *fte_status,
 			   enum fs_ft_type type, unsigned int table_id,
 			   unsigned int index);
-
-int mlx5_cmd_update_root_ft_uqp(struct mlx5_core_dev *dev,
-			    enum fs_ft_type type, u32 underlay_qpn,
-			    unsigned int id, u16 vport);
 
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 			    enum fs_ft_type type,
