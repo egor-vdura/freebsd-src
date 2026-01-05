@@ -991,7 +991,7 @@ select_queue:
 		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
-	mtx_lock(&sq->lock);
+	// mtx_lock(&sq->lock);
 
 	struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
 
@@ -1007,7 +1007,7 @@ select_queue:
 
 	mlx5i_xmit_locked(mb, &av, dqpn, sq);
 
-	mtx_unlock(&sq->lock);
+	// mtx_unlock(&sq->lock);
 }
 
 struct ipoib_dev_priv *

@@ -1091,7 +1091,6 @@ struct mlx5e_priv {
 	struct mlx5_core_mkey mr;
 
 	u32	tisn[MLX5E_MAX_TX_NUM_TC];
-	u32	IB_tisn;
 	u32	rqtn;
 	u32	tirn[MLX5E_NUM_TT];
 	u32	tirn_inner_vxlan[MLX5E_NUM_TT];

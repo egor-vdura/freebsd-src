@@ -2258,7 +2258,6 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	    &mlx5e_rx_cq_comp, c->ix);
 	if (err)
 		goto err_close_tx_cqs;
-		
 	err = mlx5e_open_sqs(c, cparam);
 	if (err)
 		goto err_close_rx_cq;
