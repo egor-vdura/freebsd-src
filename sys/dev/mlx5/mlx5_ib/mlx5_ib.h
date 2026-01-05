@@ -1219,8 +1219,6 @@ int ipoib_if_open(struct mlx5_ib_dev *dev);
 
 int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev);
 
-int ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, int(*_callback)(void*,void*));
-
 int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if);
 
 #endif /* MLX5_IB_H */

@@ -3742,39 +3742,6 @@ enum {
 	MLX5E_NIC_PRIO,
 };
 
-/* This function coordinates the IPoIB interface and the mlx5_ib driver.
- * mlx5_ib does not have easy access to ipoib headers to have ipoib_dev_priv, so there
- *  is an extra parameter used (_callback) into the ipoib driver, where the actual setup
- *  and linkage is performed
- * If we place ipoib_mlx5_hook on ipoib, due to module dependencies, linking fails
- */
-int ipoib_mlx5_hook(void *_ipoib_dev, void *_ib_dev, int(*_callback)(void*,void*))
-{
-	static int(*callback)(void*,void*) = NULL;
-	static void* ipoib_dev = NULL;
-	static void *ib_dev = NULL;
-	if (ipoib_dev == NULL && _ipoib_dev != NULL)
-	{
-		ipoib_dev = _ipoib_dev;
-	}
-	if (ib_dev == NULL && _ib_dev != NULL)
-	{
-		ib_dev = _ib_dev;
-	}
-	if (_callback != NULL)
-	{
-		callback = _callback;
-	}
-
-	if (ib_dev == NULL || ipoib_dev == NULL)
-	{
-		/* Not enough CONTEXT YET */
-		return 0;
-	}
-	return callback(ipoib_dev, ib_dev);
-}
-EXPORT_SYMBOL(ipoib_mlx5_hook);
-
 int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
@@ -3891,6 +3858,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (!dev)
 		return NULL;
 
+  dev->ib_dev.direct_connect = true;
 	dev->mdev = mdev;
 
 	dev->port = kcalloc(MLX5_CAP_GEN(mdev, num_ports), sizeof(*dev->port),
@@ -4104,12 +4072,8 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
-	err = ipoib_mlx5_hook(NULL, dev, NULL);
-  if (!err)
-  {
-	  dev->ib_active = true;
-	  return dev;
-  }
+  dev->ib_active = true;
+  return dev;
 
 err_umrc:
 	destroy_umrc_res(dev);
