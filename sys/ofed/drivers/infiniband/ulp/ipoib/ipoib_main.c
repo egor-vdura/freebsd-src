@@ -87,7 +87,6 @@ struct workqueue_struct *ipoib_workqueue;
 
 struct ib_sa_client ipoib_sa_client;
 
-static int ipoib_mlx5_sync(void* _ipoib_dev, void *_ib_dev);
 static int ipoib_mlx5_callback(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev);
 static void ipoib_add_one(struct ib_device *device);
 static void ipoib_remove_one(struct ib_device *device, void *client_data);
@@ -1048,7 +1047,6 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	priv->dev = dev;
 	if_link_state_change(priv->dev, LINK_STATE_DOWN);
 
-  ipoib_mlx5_sync(priv, NULL);
 	return if_getsoftc(dev);
 }
 
@@ -1119,29 +1117,6 @@ ib_unset_en:
 //remove_underlay_qp:
    return ret;
 }
-
-static
-int ipoib_mlx5_sync(void* _ipoib_dev, void *_ib_dev)
-{
-       static struct ipoib_dev_priv* ipoib_dev = NULL;
-       static struct mlx5_ib_dev *ib_dev = NULL;
-       if (ipoib_dev == NULL && _ipoib_dev != NULL)
-       {
-               ipoib_dev = _ipoib_dev;
-       }
-       if (ib_dev == NULL && _ib_dev != NULL)
-       {
-               ib_dev = _ib_dev;
-       }
-
-       if (ib_dev == NULL || ipoib_dev == NULL)
-       {
-               /* Not enough CONTEXT YET */
-               return 0;
-       }
-       return ipoib_mlx5_callback(ipoib_dev, ib_dev);
-}
-
 
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
@@ -1218,6 +1193,11 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 	ib_dev->pkey_index = priv->pkey_index;
 
+  if(hca->direct_connect == true) {
+    /* Setup optimizations and direct connection */
+    ipoib_mlx5_callback(priv, (struct mlx5_ib_dev *)hca);
+  } else {
+  }
 
 	priv->gone = 0;	/* ready */
 
@@ -1270,10 +1250,6 @@ ipoib_add_one(struct ib_device *device)
 	}
 
 	ib_set_client_data(device, &ipoib_client, dev_list);
-  if(device->direct_connect == true) {
-    ipoib_mlx5_sync(NULL, device);
-  } else {
-  }
 }
 
 static void
