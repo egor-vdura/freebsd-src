@@ -94,9 +94,7 @@ static if_t ipoib_get_net_dev_by_params(
 		struct ib_device *dev, u8 port, u16 pkey,
 		const union ib_gid *gid, const struct sockaddr *addr,
 		void *client_data);
-#ifndef VDURA_CHANGES
 static void ipoib_start(if_t dev);
-#endif
 static int ipoib_ioctl(if_t ifp, u_long command, caddr_t data);
 
 static struct unrhdr *ipoib_unrhdr;
@@ -755,43 +753,13 @@ ipoib_start_locked(if_t dev, struct ipoib_dev_priv *priv)
 }
 
 static
-void ipoib_xmit_locked(if_t ifp, struct mbuf *mb)
+int ipoib_xmit(if_t ifp, struct mbuf *mb)
 {
 	struct ipoib_dev_priv *priv = if_getsoftc(ifp);
 	infiniband_bpf_mtap(ifp, mb);
+	spin_lock(&priv->lock);
 	ipoib_send_one(priv, mb);
-	return;
-}
-
-static
-int ipoib_xmit(if_t ifp, struct mbuf *mb)
-{
-	struct mlx5e_sq *sq;
-	struct ipoib_dev_priv *ipoib_priv = if_getsoftc(ifp);
-	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
-	struct mlx5e_priv *priv = ib_dev->priv;
-	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
-		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
-		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
-		if (unlikely(sq == NULL)) {
-			goto select_queue;
-		}
-		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
-	} else {
-select_queue:
-		sq = mlx5e_select_queue(priv, mb);
-		if (unlikely(sq == NULL)) {
-			printf("ipoib_xmit Invalid send queue");
-			/* Free mbuf */
-			m_freem(mb);
-			/* Invalid send queue */
-			return (ENXIO);
-		}
-	}
-
-	mtx_lock(&sq->lock);
-	ipoib_xmit_locked(ifp, mb);
-	mtx_unlock(&sq->lock);
+	spin_unlock(&priv->lock);
 	return 0;
 }
 
@@ -992,7 +960,7 @@ select_queue:
 		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
-	// mtx_lock(&sq->lock);
+	mtx_lock(&sq->lock);
 
 	struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
 
@@ -1008,7 +976,7 @@ select_queue:
 
 	mlx5i_xmit_locked(mb, &av, dqpn, sq);
 
-	// mtx_unlock(&sq->lock);
+	mtx_unlock(&sq->lock);
 }
 
 struct ipoib_dev_priv *
@@ -1036,11 +1004,11 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-#ifdef VDURA_CHANGES
-	if_settransmitfn(dev, ipoib_xmit);
-#else
-	if_setstartfn(dev, ipoib_start);
-#endif
+  if(hca->direct_connect == true) {
+	  if_settransmitfn(dev, ipoib_xmit);
+  } else {
+	  if_setstartfn(dev, ipoib_start);
+  }
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
