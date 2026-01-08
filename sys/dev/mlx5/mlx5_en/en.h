@@ -1370,4 +1370,6 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq
 
 struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
 
+void mlx5_ib_teardown_en_priv(struct mlx5e_priv* priv);
+
 #endif					/* _MLX5_EN_H_ */

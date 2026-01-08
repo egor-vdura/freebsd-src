@@ -498,17 +498,21 @@ void ib_unregister_client(struct ib_client *client)
 		down_write(&lists_rwsem);
 		spin_lock_irqsave(&device->client_data_lock, flags);
 		list_for_each_entry_safe(context, tmp, &device->client_data_list, list)
+    {
 			if (context->client == client) {
 				context->going_down = true;
 				found_context = context;
 				break;
 			}
+    }
 		spin_unlock_irqrestore(&device->client_data_lock, flags);
 		up_write(&lists_rwsem);
 
 		if (client->remove)
+    {
 			client->remove(device, found_context ?
 					       found_context->data : NULL);
+    }
 
 		if (!found_context) {
 			pr_warn("No client context found for %s/%s\n",

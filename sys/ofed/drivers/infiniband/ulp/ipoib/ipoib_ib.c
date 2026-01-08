@@ -788,9 +788,12 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	 * Move our QP to the error state and then reinitialize in
 	 * when all work requests have completed or have been flushed.
 	 */
-	qp_attr.qp_state = IB_QPS_ERR;
-	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
-		check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
+  if (priv->direct_connect == false)
+  {
+	  qp_attr.qp_state = IB_QPS_ERR;
+	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
+		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
+  }
 
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;

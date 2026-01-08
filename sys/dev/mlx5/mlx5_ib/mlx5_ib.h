@@ -758,6 +758,7 @@ struct mlx5_ib_dev {
 	struct mlx5e_priv* priv;
 	u16 pkey_index;
 	u32 qpn;
+	u32 qp_uid;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
@@ -1215,10 +1216,8 @@ int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 
 
 			
-int ipoib_if_open(struct mlx5_ib_dev *dev);
+int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev);
 
-int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev);
-
-int mlx5_ib_set_en(struct mlx5_ib_dev *dev, if_t ipoib_if);
+int mlx5_ib_setup_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if);
 
 #endif /* MLX5_IB_H */

@@ -204,8 +204,12 @@ ipoib_stop(struct ipoib_dev_priv *priv)
 		/* Bring down any child interfaces too */
 		mutex_lock(&priv->vlan_mutex);
 		list_for_each_entry(cpriv, &priv->child_intfs, list)
+    {
 			if ((if_getdrvflags(cpriv->dev) & IFF_DRV_RUNNING) != 0)
+      {
 				ipoib_stop(cpriv);
+      }
+    }
 		mutex_unlock(&priv->vlan_mutex);
 	}
 
@@ -493,7 +497,9 @@ ipoib_flush_paths(struct ipoib_dev_priv *priv)
 	list_splice_init(&priv->path_list, &remove_list);
 
 	list_for_each_entry(path, &remove_list, list)
+  {
 		rb_erase(&path->rb_node, &priv->path_tree);
+  }
 
 	list_for_each_entry_safe(path, tp, &remove_list, list) {
 		if (path->query)
@@ -986,6 +992,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_t dev;
 
 	priv = ipoib_priv_alloc();
+  priv->direct_connect = false;
 	dev = priv->dev = if_alloc(IFT_INFINIBAND);
 	if_setsoftc(dev, priv);
 	priv->gone = 2; /* initializing */
@@ -1047,43 +1054,43 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 }
 
 static
-int ipoib_mlx5_callback(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
+int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
 {
   int ret = 0;
 
 	if_t ipoib_if = ipoib_dev->dev;
 
-	ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback\n");
-  ret = mlx5_ib_set_en(ib_dev, ipoib_if);
+	ipoib_dbg(ipoib_dev, "ipoib_direct_init\n");
+  ret = mlx5_ib_setup_en_priv(ib_dev, ipoib_if);
 	if (ret) {
-		mlx5_ib_err(ib_dev, "mlx5_ib_set_en failure\n");
+		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure\n");
 		return ret;
 	}
 
-  ret = mlx5i_create_underlay_qp(ib_dev);
-	if (ret) {
-		mlx5_ib_err(ib_dev, "mlx5i_create_underlay_qp failure\n");
-    goto ib_unset_en;
+  ret = mlx5_ib_direct_setup(ib_dev);
+  if (ret)
+	{
+	  mlx5_ib_err(ib_dev, "ipoib_if_open failure\n");
+    goto direct_setup_err;
 	}
-  ipoib_dbg(ipoib_dev, "ipoib_mlx5_callback underlay qpn 0x%x\n", ib_dev->qpn);
+
 	ipoib_dev->qp->qp_num = ib_dev->qpn;
   caddr_t lla = if_getlladdr(ipoib_if);
   lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
   lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
   lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
 
-  ret = ipoib_if_open(ib_dev);
-  if (!ret)
-	{
-    return 0;
-	}
-	mlx5_ib_err(ib_dev, "ipoib_if_open failure\n");
+   return 0;
 
-   //mlx5_ib_rem_underlay_qp();
-ib_unset_en:
-   //mlx5_ib_unset_en();
-//remove_underlay_qp:
-   return ret;
+direct_setup_err:
+  mlx5_ib_teardown_en_priv(ib_dev->priv);
+  return ret;
+}
+
+static
+int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
+{
+  return 1;
 }
 
 static if_t
@@ -1096,6 +1103,12 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	priv = ipoib_intf_alloc(format, hca);
 	if (!priv)
 		goto alloc_mem_failed;
+
+  if(hca->direct_connect == true) {
+    /* Setup optimizations and direct connection */
+    priv->direct_connect = true;
+  }
+
 
 	if (!ib_query_port(hca, port, &attr))
 		priv->max_ib_mtu = ib_mtu_enum_to_int(attr.max_mtu);
@@ -1157,19 +1170,21 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	if_printf(priv->dev, "Attached to %s port %d\n", hca->name, port);
 
 
-	// struct ib_device *ca
 	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 	ib_dev->pkey_index = priv->pkey_index;
 
-  if(hca->direct_connect == true) {
-    /* Setup optimizations and direct connection */
-    ipoib_mlx5_callback(priv, (struct mlx5_ib_dev *)hca);
-  } else {
+  if(priv->direct_connect == true) {
+    result = ipoib_direct_init(priv, (struct mlx5_ib_dev *)hca);
+    if (result)
+      goto direct_deinit_err;
   }
 
 	priv->gone = 0;	/* ready */
 
 	return priv->dev;
+
+direct_deinit_err:
+  ipoib_direct_deinit(priv);
 
 event_failed:
 	ipoib_dev_cleanup(priv);
@@ -1570,8 +1585,8 @@ ipoib_cleanup_module(void)
 	EVENTHANDLER_DEREGISTER(vlan_config, ipoib_vlan_attach);
 	EVENTHANDLER_DEREGISTER(vlan_unconfig, ipoib_vlan_detach);
 	ib_unregister_client(&ipoib_client);
-	ib_sa_unregister_client(&ipoib_sa_client);
-	destroy_workqueue(ipoib_workqueue);
+	//ib_sa_unregister_client(&ipoib_sa_client);
+	//destroy_workqueue(ipoib_workqueue);
 }
 module_init_order(ipoib_init_module, SI_ORDER_FIFTH);
 module_exit_order(ipoib_cleanup_module, SI_ORDER_FIFTH);
