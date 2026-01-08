@@ -1093,7 +1093,7 @@ int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
 	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
   mlx5_ib_direct_teardown(ib_dev);
   mlx5_ib_free_en_priv(ib_dev->priv);
-  return 1;
+  return 0;
 }
 
 static if_t

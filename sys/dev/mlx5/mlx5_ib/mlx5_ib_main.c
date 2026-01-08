@@ -78,6 +78,9 @@ mlx5_port_type_cap_to_rdma_ll(int port_type_cap)
 	}
 }
 
+static
+void mlx5i_destroy_tables(struct mlx5_ib_dev* dev);
+
 static enum rdma_link_layer
 mlx5_ib_port_link_layer(struct ib_device *device, u8 port_num)
 {
@@ -3399,17 +3402,38 @@ int mlx5i_create_underlay_qp(struct mlx5_ib_dev *dev)
 static
 void mlx5i_destroy_underlay_qp(struct mlx5_ib_dev *dev)
 {
+  int err;
+	u32 out[MLX5_ST_SZ_DW(destroy_qp_out)] = {0};
+	u32 in[MLX5_ST_SZ_DW(destroy_qp_in)]   = {0};
+
+  mlx5_ib_warn(dev, "RAAA mlx5i_destroy_underlay_qp enter\n");
+	MLX5_SET(destroy_qp_in, in, opcode, MLX5_CMD_OP_DESTROY_QP);
+	MLX5_SET(destroy_qp_in, in, qpn, dev->qpn);
+	MLX5_SET(destroy_qp_in, in, uid, dev->qp_uid);
+	err = mlx5_cmd_exec(dev->mdev, in, sizeof(in), out, sizeof(out));
+  if (err)
+  {
+  	mlx5_ib_warn(dev, "RAAA mlx5i_destroy_underlay_qp failure\n");
+  }
+
 }
 
 static
 void mlx5i_deinit_underlay_qp(struct mlx5_ib_dev *dev)
 {
+  int err;
 	struct mlx5_core_dev *mdev = dev->mdev;
 	u32 in[MLX5_ST_SZ_DW(qp_2rst_in)] = {};
 
+  mlx5_ib_warn(dev, "RAAA mlx5i_deinit_underlay_qp enter\n");
 	MLX5_SET(qp_2rst_in, in, opcode, MLX5_CMD_OP_2RST_QP);
 	MLX5_SET(qp_2rst_in, in, qpn, dev->qpn);
-	mlx5_cmd_exec_in(mdev, qp_2rst, in);
+	err = mlx5_cmd_exec_in(mdev, qp_2rst, in);
+  if (err)
+  {
+  	mlx5_ib_warn(dev, "RAAA mlx5i_deinit_underlay_qp failure\n");
+  }
+
 }
 
 static
@@ -3640,19 +3664,18 @@ int mlx5i_create_fs(struct mlx5_core_dev *mdev)
 {
   int err = 0;
   // TODO properly handle err
-	unsigned int root_table_id;
+	unsigned int table_id;
 	/* setup root flow table with the default rule*/
 	mlx5i_cmd_fs_create_ft(mdev,
-		0, 0, 67, 0, "roottable0", &root_table_id, NULL);
+		0, 0, 67, 0, "roottable0", &(mdev->table_ids[0]), NULL);
 
-	unsigned int table_id;
 	mlx5i_cmd_fs_create_ft(mdev,
-		0, 0, 58, 0x7, "roottable0", &table_id, &root_table_id);
+		0, 0, 58, 0x7, "roottable0", &table_id, &(mdev->table_ids[0]));
+  mdev->table_ids[1] = table_id;
 
-	unsigned int group_ids[3] = {0};
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(group_ids[0]));
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(group_ids[1]));
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(group_ids[2]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(mdev->group_ids[0]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(mdev->group_ids[1]));
+	mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(mdev->group_ids[2]));
 
   unsigned int dest_id = 0;
   unsigned int flow_index = 0;
@@ -3678,9 +3701,85 @@ int mlx5i_create_fs(struct mlx5_core_dev *mdev)
 }
 
 static
-void mlx5i_fs_destroy(struct mlx5_core_dev *mdev)
+int mlx5i_fs_destroy_fte(struct mlx5_ib_dev* dev, unsigned int table_id, unsigned int index)
 {
-  (void)mdev;
+	u32 in[MLX5_ST_SZ_DW(delete_fte_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(delete_fte_out)] = {0};
+	int err;
+  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fte enter\n");
+
+	MLX5_SET(delete_fte_in, in, opcode, MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY);
+	MLX5_SET(delete_fte_in, in, table_type, 0);
+	MLX5_SET(delete_fte_in, in, table_id, table_id);
+	MLX5_SET(delete_fte_in, in, flow_index, index);
+
+	err =  mlx5_cmd_exec(dev->mdev, in, sizeof(in), out, sizeof(out));
+	if (err)
+    mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fte failure\n");
+
+	return err;
+}
+
+static
+void mlx5i_fs_destroy_fg(struct mlx5_ib_dev* dev, unsigned int group_id, unsigned int table_id)
+{
+  int err;
+	u32 in[MLX5_ST_SZ_DW(destroy_flow_group_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(destroy_flow_group_out)] = {0};
+
+  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fg enter\n");
+
+	MLX5_SET(destroy_flow_group_in, in, opcode,
+		 MLX5_CMD_OP_DESTROY_FLOW_GROUP);
+	MLX5_SET(destroy_flow_group_in, in, table_type, 0);
+	MLX5_SET(destroy_flow_group_in, in, table_id,   table_id);
+	MLX5_SET(destroy_flow_group_in, in, group_id, group_id);
+
+	err = mlx5_cmd_exec(dev->mdev, in, sizeof(in), out, sizeof(out));
+  if(err)
+    mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fg failure\n");
+}
+
+static
+void mlx5i_fs_destroy(struct mlx5_ib_dev* dev, unsigned int table_id)
+{
+  int err;
+	u32 in[MLX5_ST_SZ_DW(destroy_flow_table_in)] = {0};
+	u32 out[MLX5_ST_SZ_DW(destroy_flow_table_out)] = {0};
+  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy enter\n");
+	MLX5_SET(destroy_flow_table_in, in, opcode, MLX5_CMD_OP_DESTROY_FLOW_TABLE);
+	MLX5_SET(destroy_flow_table_in, in, table_type, 0);
+	MLX5_SET(destroy_flow_table_in, in, table_id, table_id);
+  err = mlx5_cmd_exec(dev->mdev, in, sizeof(in), out, sizeof(out));
+  if(err)
+  {
+    mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy failure\n");
+  }
+}
+
+static
+void mlx5i_destroy_tables(struct mlx5_ib_dev* dev)
+{
+  unsigned int flow_index = 0;
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+
+  flow_index = 14;
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+
+  flow_index = 16;
+  mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index++);
+
+  mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[0], dev->mdev->table_ids[1]);
+  mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[1], dev->mdev->table_ids[1]);
+  mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[2], dev->mdev->table_ids[1]);
 }
 
 int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev)
@@ -3750,7 +3849,7 @@ err_close_channels:
 err_close_tises:
   mlx5e_close_tises(epriv);
 err_remove_fs_underlay_qp:
-  mlx5i_fs_destroy(dev->mdev);
+  mlx5i_destroy_tables(dev);
 err_ud_qp_deinit:
 	mlx5i_deinit_underlay_qp(dev);
 err_ud_qp_destroy:
@@ -3767,9 +3866,12 @@ void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
   mlx5e_deactivate_rqt(epriv);
   mlx5e_close_channels(epriv);
   mlx5e_close_tises(epriv);
-  mlx5i_fs_destroy(dev->mdev);
+
+  mlx5i_destroy_tables(dev);
 	mlx5i_deinit_underlay_qp(dev);
   mlx5i_destroy_underlay_qp(dev);
+  mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
+  mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
 }
 
 
@@ -3872,17 +3974,18 @@ err_dealloc_priv:
 
 void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 {
+  mlx5e_close_tirs(priv);
 	mlx5e_close_rqts(priv);
-	mlx5e_close_drop_rq(&priv->drop_rq);
-	mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
-	mlx5_dealloc_transport_domain(priv->mdev, priv->tdn, 0);
-	mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
-	flush_workqueue(priv->wq);
+	//mlx5e_close_drop_rq(&priv->drop_rq);
+	//mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
+	//mlx5_dealloc_transport_domain(priv->mdev, priv->tdn, 0);
+	//mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
+	//flush_workqueue(priv->wq);
 
   //mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
 
- 	free(priv, M_MLX5EN);
-	mlx5e_close_tirs(priv);
+ 	//free(priv, M_MLX5EN);
+	//mlx5e_close_tirs(priv);
 }
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
