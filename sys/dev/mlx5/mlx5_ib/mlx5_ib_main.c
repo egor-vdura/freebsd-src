@@ -3761,13 +3761,17 @@ err_ud_qp_destroy:
 	return err;
 }
 
-/*
-static
-int mlx5_ib_direct_tear_down(struct mlx5_ib_dev *dev)
+void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
 {
-  return 1;
+	struct mlx5e_priv *epriv = dev->priv;
+  mlx5e_deactivate_rqt(epriv);
+  mlx5e_close_channels(epriv);
+  mlx5e_close_tises(epriv);
+  mlx5i_fs_destroy(dev->mdev);
+	mlx5i_deinit_underlay_qp(dev);
+  mlx5i_destroy_underlay_qp(dev);
 }
-*/
+
 
 enum {
 	MLX5E_TC_PRIO = 0,
@@ -3775,7 +3779,7 @@ enum {
 	MLX5E_NIC_PRIO,
 };
 
-int mlx5_ib_setup_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if)
+int mlx5_ib_alloc_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
 	struct mlx5_core_dev *mdev = dev->mdev;
@@ -3866,8 +3870,18 @@ err_dealloc_priv:
 	return 1;
 }
 
-void mlx5_ib_teardown_en_priv(struct mlx5e_priv* priv)
+void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 {
+	mlx5e_close_rqts(priv);
+	mlx5e_close_drop_rq(&priv->drop_rq);
+	mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
+	mlx5_dealloc_transport_domain(priv->mdev, priv->tdn, 0);
+	mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
+	flush_workqueue(priv->wq);
+
+  //mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
+
+ 	free(priv, M_MLX5EN);
 	mlx5e_close_tirs(priv);
 }
 

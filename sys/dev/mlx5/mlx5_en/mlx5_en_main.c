@@ -2861,7 +2861,7 @@ err_modify:
 	return (err);
 }
 
-static int
+int
 mlx5e_deactivate_rqt(struct mlx5e_priv *priv)
 {
 	u32 *in;

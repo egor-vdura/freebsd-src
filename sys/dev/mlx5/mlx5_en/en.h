@@ -1340,8 +1340,11 @@ mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
 mlx5e_open_drop_rq(struct mlx5e_priv *priv,
     struct mlx5e_rq *drop_rq);
 
-    void
+void
 mlx5e_close_drop_rq(struct mlx5e_rq *drop_rq);
+
+int
+mlx5e_deactivate_rqt(struct mlx5e_priv *priv);
 
 int
 mlx5e_open_rqts(struct mlx5e_priv *priv);
@@ -1369,7 +1372,5 @@ int
 mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq *sq);
 
 struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
-
-void mlx5_ib_teardown_en_priv(struct mlx5e_priv* priv);
 
 #endif					/* _MLX5_EN_H_ */

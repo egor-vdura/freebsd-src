@@ -1061,7 +1061,7 @@ int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_d
 	if_t ipoib_if = ipoib_dev->dev;
 
 	ipoib_dbg(ipoib_dev, "ipoib_direct_init\n");
-  ret = mlx5_ib_setup_en_priv(ib_dev, ipoib_if);
+  ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
 	if (ret) {
 		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure\n");
 		return ret;
@@ -1083,13 +1083,16 @@ int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_d
    return 0;
 
 direct_setup_err:
-  mlx5_ib_teardown_en_priv(ib_dev->priv);
+  mlx5_ib_free_en_priv(ib_dev->priv);
   return ret;
 }
 
 static
 int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
 {
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
+  mlx5_ib_direct_teardown(ib_dev);
+  mlx5_ib_free_en_priv(ib_dev->priv);
   return 1;
 }
 
@@ -1176,16 +1179,14 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
   if(priv->direct_connect == true) {
     result = ipoib_direct_init(priv, (struct mlx5_ib_dev *)hca);
     if (result)
-      goto direct_deinit_err;
+      goto direct_init_err;
   }
 
 	priv->gone = 0;	/* ready */
 
 	return priv->dev;
 
-direct_deinit_err:
-  ipoib_direct_deinit(priv);
-
+direct_init_err:
 event_failed:
 	ipoib_dev_cleanup(priv);
 
@@ -1258,6 +1259,7 @@ ipoib_remove_one(struct ib_device *device, void *client_data)
 
 		flush_workqueue(ipoib_workqueue);
 
+    ipoib_direct_deinit(priv);
 		ipoib_dev_cleanup(priv);
 		ipoib_detach(priv);
 	}
