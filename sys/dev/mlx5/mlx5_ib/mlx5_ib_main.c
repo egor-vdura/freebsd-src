@@ -3706,7 +3706,6 @@ int mlx5i_fs_destroy_fte(struct mlx5_ib_dev* dev, unsigned int table_id, unsigne
 	u32 in[MLX5_ST_SZ_DW(delete_fte_in)] = {0};
 	u32 out[MLX5_ST_SZ_DW(delete_fte_out)] = {0};
 	int err;
-  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fte enter\n");
 
 	MLX5_SET(delete_fte_in, in, opcode, MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY);
 	MLX5_SET(delete_fte_in, in, table_type, 0);
@@ -3727,8 +3726,6 @@ void mlx5i_fs_destroy_fg(struct mlx5_ib_dev* dev, unsigned int group_id, unsigne
 	u32 in[MLX5_ST_SZ_DW(destroy_flow_group_in)] = {0};
 	u32 out[MLX5_ST_SZ_DW(destroy_flow_group_out)] = {0};
 
-  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy_fg enter\n");
-
 	MLX5_SET(destroy_flow_group_in, in, opcode,
 		 MLX5_CMD_OP_DESTROY_FLOW_GROUP);
 	MLX5_SET(destroy_flow_group_in, in, table_type, 0);
@@ -3746,7 +3743,6 @@ void mlx5i_fs_destroy(struct mlx5_ib_dev* dev, unsigned int table_id)
   int err;
 	u32 in[MLX5_ST_SZ_DW(destroy_flow_table_in)] = {0};
 	u32 out[MLX5_ST_SZ_DW(destroy_flow_table_out)] = {0};
-  mlx5_ib_err(dev, "RAAA mlx5i_fs_destroy enter\n");
 	MLX5_SET(destroy_flow_table_in, in, opcode, MLX5_CMD_OP_DESTROY_FLOW_TABLE);
 	MLX5_SET(destroy_flow_table_in, in, table_type, 0);
 	MLX5_SET(destroy_flow_table_in, in, table_id, table_id);
@@ -3870,6 +3866,7 @@ void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
   mlx5i_destroy_tables(dev);
 	mlx5i_deinit_underlay_qp(dev);
   mlx5i_destroy_underlay_qp(dev);
+
   mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
   mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
 }

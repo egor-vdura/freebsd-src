@@ -87,7 +87,6 @@ struct workqueue_struct *ipoib_workqueue;
 
 struct ib_sa_client ipoib_sa_client;
 
-static int ipoib_mlx5_callback(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev);
 static void ipoib_add_one(struct ib_device *device);
 static void ipoib_remove_one(struct ib_device *device, void *client_data);
 static if_t ipoib_get_net_dev_by_params(
