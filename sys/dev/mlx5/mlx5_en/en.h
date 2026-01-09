@@ -1373,4 +1373,8 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq
 
 struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
 
+void
+mlx5e_priv_static_destroy(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
+    const uint32_t channels);
+
 #endif					/* _MLX5_EN_H_ */

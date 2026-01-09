@@ -4038,7 +4038,7 @@ err_alloc_bfreg:
 	return (err);
 }
 
-static void
+void
 mlx5e_priv_static_destroy(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
     const uint32_t channels)
 {

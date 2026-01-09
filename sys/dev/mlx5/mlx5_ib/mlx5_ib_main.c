@@ -3973,16 +3973,15 @@ void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 {
   mlx5e_close_tirs(priv);
 	mlx5e_close_rqts(priv);
-	//mlx5e_close_drop_rq(&priv->drop_rq);
-	//mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
-	//mlx5_dealloc_transport_domain(priv->mdev, priv->tdn, 0);
-	//mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
-	//flush_workqueue(priv->wq);
+	mlx5e_close_drop_rq(&priv->drop_rq);
+	mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
+	mlx5_dealloc_transport_domain(priv->mdev, priv->tdn, 0);
+	mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
+	flush_workqueue(priv->wq);
 
-  //mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
+  mlx5e_priv_static_destroy(priv, priv->mdev, priv->mdev->priv.eq_table.num_comp_vectors);
 
- 	//free(priv, M_MLX5EN);
-	//mlx5e_close_tirs(priv);
+ 	free(priv, M_MLX5EN);
 }
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
