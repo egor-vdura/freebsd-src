@@ -3440,6 +3440,7 @@ static
 int mlx5i_init_underlay_qp(struct mlx5_ib_dev *dev)
 {
 	// struct mlx5e_priv *epriv = dev->priv;
+  mlx5_ib_warn(dev, "RAAA mlx5i_init_underlay_qp %d\n", dev->qpn);
 
 	struct mlx5_core_dev *mdev = dev->mdev;
 	// struct mlx5i_priv *ipriv = priv->ppriv;
@@ -3515,6 +3516,7 @@ int mlx5i_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			  u16 vport, enum fs_ft_type type, unsigned int level,
 			  unsigned int log_size, const char *name, unsigned int *table_id, unsigned int *next_id)
 {
+	mlx5_core_warn(dev, ">>> mlx5i_cmd_fs_create_ft\n");
 	int en_encap = 0;
 	int en_decap = 0;
 	int term = 0;
@@ -3572,6 +3574,7 @@ int mlx5i_cmd_fs_create_fg(struct mlx5_core_dev *dev,
 			  u32 start_flow_index, u32 end_flow_index, bool match_criteria_enable,
 			  bool match_ip_protocol, bool match_ip_version, unsigned int *group_id)
 {
+	mlx5_core_warn(dev, ">>> mlx5i_cmd_fs_create_fg\n");
 	u32 in[MLX5_ST_SZ_DW(create_flow_group_in)] = {0};
 	u32 out[MLX5_ST_SZ_DW(create_flow_group_out)] = {0};
 	int err;
@@ -3613,6 +3616,7 @@ int mlx5i_cmd_fs_create_fte(struct mlx5_core_dev *dev,
 	unsigned int table_id, u32 group_id,
   unsigned int flow_index, u8 ip_version, u8 ip_protocol, u8 destination_id)
 {
+	mlx5_core_warn(dev, ">>> mlx5i_cmd_fs_create_fte\n");
 	u32 out[MLX5_ST_SZ_DW(set_fte_out)] = {0};
 	u32 *in;
 	int err;
@@ -3666,36 +3670,36 @@ int mlx5i_create_fs(struct mlx5_core_dev *mdev)
   // TODO properly handle err
 	unsigned int table_id;
 	/* setup root flow table with the default rule*/
-	mlx5i_cmd_fs_create_ft(mdev,
+	err = err | mlx5i_cmd_fs_create_ft(mdev,
 		0, 0, 67, 0, "roottable0", &(mdev->table_ids[0]), NULL);
 
-	mlx5i_cmd_fs_create_ft(mdev,
+	err = err | mlx5i_cmd_fs_create_ft(mdev,
 		0, 0, 58, 0x7, "roottable0", &table_id, &(mdev->table_ids[0]));
   mdev->table_ids[1] = table_id;
 
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(mdev->group_ids[0]));
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(mdev->group_ids[1]));
-	mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(mdev->group_ids[2]));
+	err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(mdev->group_ids[0]));
+	err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(mdev->group_ids[1]));
+	err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(mdev->group_ids[2]));
 
   unsigned int dest_id = 0;
   unsigned int flow_index = 0;
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
 
   flow_index = 14;
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
 
   flow_index = 16;
-  mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
   /* Set our underlay QP as the root of the FT */
-  mlx5_cmd_update_root_ft(mdev, FS_FT_NIC_RX, table_id);
+  err = err | mlx5_cmd_update_root_ft(mdev, FS_FT_NIC_RX, table_id);
 
   return err;
 }
@@ -3778,46 +3782,47 @@ void mlx5i_destroy_tables(struct mlx5_ib_dev* dev)
   mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[2], dev->mdev->table_ids[1]);
 }
 
-int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev)
+int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn)
 {
 	struct mlx5e_priv *epriv = dev->priv;
 	int err = 0;
 
 	PRIV_LOCK(epriv);
+  dev->qpn = qpn;
 
+	mlx5_core_warn(dev->mdev, ">>> mlx5_ib_direct_setup\n");
   /* check if already opened */
 	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0)
 		return (0);
 
+  /*
   err = mlx5i_create_underlay_qp(dev);
   if (err) {
     mlx5_ib_err(dev, "mlx5i_create_underlay_qp failure\n");
     return err;
   } 
-
-	err = mlx5i_init_underlay_qp(dev);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5i_init_underlay_qp failed, %d\n", err);
-    goto err_ud_qp_destroy; 
-	}
+  */
 
 	dev->mdev->vport = 0;
 	dev->mdev->qpn_enabled = true;
-	dev->mdev->underlay_qpn = dev->qpn;
+	dev->mdev->underlay_qpn = qpn;
 
   err = mlx5i_create_fs(dev->mdev);
+	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
   if (err) {
 		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
     goto err_ud_qp_deinit; 
   }
 
   err = mlx5e_open_tises(epriv);
+	mlx5_ib_warn(dev, "mlx5e_open_tises\n");
   if (err) {
     mlx5_ib_err(dev, "mlx5e_open_tises failed, %d\n", err);
 		goto err_remove_fs_underlay_qp;
   }
 
 	err = mlx5e_open_channels(epriv);
+	mlx5_ib_warn(dev, "mlx5e_open_channels\n");
 	if (err)
 	{
 		mlx5_ib_err(dev, "mlx5e_open_channels failed %d\n", err);
@@ -3830,14 +3835,15 @@ int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev)
   }
 
 	err = mlx5e_activate_rqt(epriv);
+	mlx5_ib_warn(dev, "mlx5e_activate_rqt\n");
 	if (err) {
 		mlx5_ib_err(dev, "mlx5e_activate_rqt failed %d\n", err);
 		goto err_close_channels;
 	}
-	mlx5_ib_warn(dev, "ipoib_if_open sucess!\n");
 
   set_bit(MLX5E_STATE_OPENED, &epriv->state);
 	PRIV_UNLOCK(epriv);
+	mlx5_ib_warn(dev, "<<< mlx5_ib_direct_setup\n");
 	return 0;
 
 err_close_channels:
@@ -3848,8 +3854,8 @@ err_remove_fs_underlay_qp:
   mlx5i_destroy_tables(dev);
 err_ud_qp_deinit:
 	mlx5i_deinit_underlay_qp(dev);
-err_ud_qp_destroy:
-  mlx5i_destroy_underlay_qp(dev);
+//err_ud_qp_destroy:
+  //mlx5i_destroy_underlay_qp(dev);
 	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
 
 	PRIV_UNLOCK(epriv);

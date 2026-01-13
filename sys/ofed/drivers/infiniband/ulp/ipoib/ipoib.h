@@ -317,6 +317,7 @@ struct ipoib_ethtool_st {
  */
 struct ipoib_dev_priv {
   bool direct_connect;
+  void* mlx5_ib_dev;
 	spinlock_t lock;
 	spinlock_t drain_lock;
 

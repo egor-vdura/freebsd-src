@@ -1217,7 +1217,7 @@ int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 //void mlx5_ib_free_en_priv(struct mlx5e_priv* priv);
 //void mlx5_ib_teardown_en_priv(struct mlx5e_priv* priv);
 	
-int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev);
+int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn);
 void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev);
 
 int mlx5_ib_alloc_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if);

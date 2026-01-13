@@ -1056,32 +1056,22 @@ static
 int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
 {
   int ret = 0;
+  ipoib_dev->mlx5_ib_dev = ib_dev;
 
+  //struct ib_qp_attr qp_attr;
 	if_t ipoib_if = ipoib_dev->dev;
 
-	ipoib_dbg(ipoib_dev, "ipoib_direct_init\n");
+	ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
   ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
 	if (ret) {
 		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure\n");
 		return ret;
 	}
 
-  ret = mlx5_ib_direct_setup(ib_dev);
-  if (ret)
-	{
-	  mlx5_ib_err(ib_dev, "ipoib_if_open failure\n");
-    goto direct_setup_err;
-	}
-
-	ipoib_dev->qp->qp_num = ib_dev->qpn;
-  caddr_t lla = if_getlladdr(ipoib_if);
-  lla[1] = (ipoib_dev->qp->qp_num >> 16) & 0xff;
-  lla[2] = (ipoib_dev->qp->qp_num >>  8) & 0xff;
-  lla[3] = (ipoib_dev->qp->qp_num      ) & 0xff;
-
+	ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
    return 0;
 
-direct_setup_err:
+//direct_setup_err:
   mlx5_ib_free_en_priv(ib_dev->priv);
   return ret;
 }
@@ -1232,6 +1222,7 @@ ipoib_add_one(struct ib_device *device)
 		}
 	}
 
+  printf("set client data %p %p %s\n", device, &ipoib_client, ipoib_client.name);
 	ib_set_client_data(device, &ipoib_client, dev_list);
 }
 

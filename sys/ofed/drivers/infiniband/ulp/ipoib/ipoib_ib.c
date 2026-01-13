@@ -45,6 +45,8 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
+#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
+
 #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG_DATA
 static int data_debug_level;
 
@@ -613,6 +615,8 @@ static void ipoib_ib_tx_timer_func(unsigned long ctx)
 	drain_tx_cq((struct ipoib_dev_priv *)ctx);
 }
 
+int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn);
+
 int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 {
 	int ret;
@@ -629,6 +633,18 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 		ipoib_warn(priv, "ipoib_init_qp returned %d\n", ret);
 		return -1;
 	}
+
+  ret = mlx5_ib_direct_setup(priv->mlx5_ib_dev, priv->qp->qp_num);
+  if (ret)
+  {
+    ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
+    return -1;
+  }
+
+  caddr_t lla = if_getlladdr(priv->dev);
+  lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+  lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+  lla[3] = (priv->qp->qp_num     ) & 0xff;
 
 	ret = ipoib_ib_post_receives(priv);
 	if (ret) {
@@ -788,12 +804,9 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	 * Move our QP to the error state and then reinitialize in
 	 * when all work requests have completed or have been flushed.
 	 */
-  if (priv->direct_connect == false)
-  {
 	  qp_attr.qp_state = IB_QPS_ERR;
 	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
 		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
-  }
 
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;
@@ -830,7 +843,7 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 			goto timeout;
 		}
 
-		ipoib_drain_cq(priv);
+		//ipoib_drain_cq(priv);
 
 		msleep(1);
 	}
@@ -851,7 +864,7 @@ timeout:
 
 	ipoib_ah_dev_cleanup(priv);
 
-	ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
+	//ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
 
 	return 0;
 }
@@ -873,6 +886,7 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 		    (unsigned long) priv);
 
 	if (if_getflags(dev) & IFF_UP) {
+    // This will be problematic here
 		if (ipoib_ib_dev_open(priv)) {
 			ipoib_transport_dev_cleanup(priv);
 			return -ENODEV;
