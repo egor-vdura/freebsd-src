@@ -3793,7 +3793,7 @@ int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn)
 	mlx5_core_warn(dev->mdev, ">>> mlx5_ib_direct_setup\n");
   /* check if already opened */
 	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0)
-		return (0);
+    goto direct_setup_out;
 
   /*
   err = mlx5i_create_underlay_qp(dev);
@@ -3858,6 +3858,7 @@ err_ud_qp_deinit:
   //mlx5i_destroy_underlay_qp(dev);
 	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
 
+direct_setup_out:
 	PRIV_UNLOCK(epriv);
 	return err;
 }
