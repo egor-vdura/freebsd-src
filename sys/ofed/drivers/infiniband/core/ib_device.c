@@ -213,6 +213,7 @@ struct ib_device *ib_alloc_device(size_t size)
 		return NULL;
 
   device->direct_connect = false;
+  device->direct_setup = false;
 	device->dev.parent = &linux_root_device;
 	device->dev.class = &ib_class;
 	device_initialize(&device->dev);

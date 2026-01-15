@@ -2121,6 +2121,7 @@ struct ib_device {
 
 	char                          name[IB_DEVICE_NAME_MAX];
 	bool direct_connect;
+	bool direct_setup;
 
 	struct list_head              event_handler_list;
 	spinlock_t                    event_handler_lock;

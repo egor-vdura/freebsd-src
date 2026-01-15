@@ -843,6 +843,7 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 			goto timeout;
 		}
 
+    //mlx5_ib_direct_teardown(priv->mlx5_ib_dev);
 		//ipoib_drain_cq(priv);
 
 		msleep(1);

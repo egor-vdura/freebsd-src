@@ -3786,6 +3786,11 @@ int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn)
 {
 	struct mlx5e_priv *epriv = dev->priv;
 	int err = 0;
+  if(dev->ib_dev.direct_setup == true)
+  {
+    return 0;
+  }
+  dev->ib_dev.direct_setup = true;
 
 	PRIV_LOCK(epriv);
   dev->qpn = qpn;
@@ -3871,8 +3876,10 @@ void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
   mlx5e_close_tises(epriv);
 
   mlx5i_destroy_tables(dev);
+  if(0){
 	mlx5i_deinit_underlay_qp(dev);
   mlx5i_destroy_underlay_qp(dev);
+}
 
   mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
   mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
