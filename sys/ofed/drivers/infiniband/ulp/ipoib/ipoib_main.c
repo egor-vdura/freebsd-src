@@ -1056,30 +1056,6 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 }
 
 static
-int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
-{
-  int ret = 0;
-  ipoib_dev->mlx5_ib_dev = ib_dev;
-
-  //struct ib_qp_attr qp_attr;
-	if_t ipoib_if = ipoib_dev->dev;
-
-	ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
-  ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
-	if (ret) {
-		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure\n");
-		return ret;
-	}
-
-	ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
-   return 0;
-
-//direct_setup_err:
-  mlx5_ib_free_en_priv(ib_dev->priv);
-  return ret;
-}
-
-static
 int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
 {
 	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
@@ -1164,21 +1140,10 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	}
 	if_printf(priv->dev, "Attached to %s port %d\n", hca->name, port);
 
-
-	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
-	ib_dev->pkey_index = priv->pkey_index;
-
-  if(priv->direct_connect == true) {
-    result = ipoib_direct_init(priv, (struct mlx5_ib_dev *)hca);
-    if (result)
-      goto direct_init_err;
-  }
-
 	priv->gone = 0;	/* ready */
 
 	return priv->dev;
 
-direct_init_err:
 event_failed:
 	ipoib_dev_cleanup(priv);
 

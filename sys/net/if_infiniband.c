@@ -534,9 +534,12 @@ infiniband_input(struct ifnet *ifp, struct mbuf *m)
 		KASSERT(lagg_input_infiniband_p != NULL,
 		    ("%s: if_lagg not loaded!", __func__));
 		m = (*lagg_input_infiniband_p)(ifp, m);
+    printf("LAGG MB: %p\n", m);
 		if (__predict_false(m == NULL))
 			goto done;
 		ifp = m->m_pkthdr.rcvif;
+    printf("LAGG IFP: %p\n", ifp);
+    if (ifp != NULL) printf("LAGG IFP Name: %s %s\n", ifp->if_dname, ifp->if_xname);
 	}
 
 	/*

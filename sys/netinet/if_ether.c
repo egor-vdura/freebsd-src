@@ -906,9 +906,9 @@ match:
 
 	if (ifp->if_addrlen != ah->ar_hln) {
 		ARP_LOG(LOG_WARNING, "from %*D: addr len: new %d, "
-		    "i/f %d (ignored)\n", ifp->if_addrlen,
+		    "i/f %d (ignored) for %s %s\n", ifp->if_addrlen,
 		    (u_char *) ar_sha(ah), ":", ah->ar_hln,
-		    ifp->if_addrlen);
+		    ifp->if_addrlen, ifp->if_xname, ifp->if_dname);
 		goto drop;
 	}
 

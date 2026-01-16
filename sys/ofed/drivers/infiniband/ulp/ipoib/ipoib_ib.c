@@ -615,8 +615,6 @@ static void ipoib_ib_tx_timer_func(unsigned long ctx)
 	drain_tx_cq((struct ipoib_dev_priv *)ctx);
 }
 
-int mlx5_ib_direct_setup(struct mlx5_ib_dev *dev, u32 qpn);
-
 int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 {
 	int ret;
@@ -634,7 +632,7 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 		return -1;
 	}
 
-  ret = mlx5_ib_direct_setup(priv->mlx5_ib_dev, priv->qp->qp_num);
+  ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
   if (ret)
   {
     ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
@@ -870,6 +868,38 @@ timeout:
 	return 0;
 }
 
+static
+int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
+{
+  int ret = 0;
+  ipoib_dev->mlx5_ib_dev = ib_dev;
+
+  //struct ib_qp_attr qp_attr;
+  if_t ipoib_if = ipoib_dev->dev;
+
+  ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
+
+  ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
+  if (ret) {
+    mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure %d\n", ret);
+    return ret;
+  }
+
+  ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
+  if (ret)
+  {
+		printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
+    return ret;
+  }
+
+  ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
+   return 0;
+
+//direct_setup_err:
+  mlx5_ib_free_en_priv(ib_dev->priv);
+  return ret;
+}
+
 int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int port)
 {
 	if_t dev = priv->dev;
@@ -881,7 +911,18 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	if (ipoib_transport_dev_init(priv, ca)) {
 		printk(KERN_WARNING "%s: ipoib_transport_dev_init failed\n", ca->name);
 		return -ENODEV;
-	}
+	} 
+
+  struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
+  ib_dev->pkey_index = priv->pkey_index;
+  
+  if(priv->direct_connect == true) {
+    if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca))
+    {
+		  printk(KERN_WARNING "%s:  ipoib_direct_init failed\n", ca->name);
+		  return -ENODEV;
+    }
+  }
 
 	setup_timer(&priv->poll_timer, ipoib_ib_tx_timer_func,
 		    (unsigned long) priv);
