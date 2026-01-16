@@ -958,9 +958,12 @@ void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 select_queue:
 		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
-      printf("mlx5i_xmit Invalid send queue");
+      printf("mlx5i_xmit Invalid send queue for %d", dqpn);
 			/* Free mbuf */
 			m_freem(mb);
+
+			/* Invalid send queue */
+			return;
 		}
 		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
