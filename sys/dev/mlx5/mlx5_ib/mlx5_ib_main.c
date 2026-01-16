@@ -3799,6 +3799,7 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn)
 	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0)
   {
 	  mlx5_core_warn(dev->mdev, "mlx5_ib_direct_setup already open\n");
+	PRIV_UNLOCK(epriv);
     return 0;
   }
 
@@ -3810,6 +3811,7 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn)
 	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
   if (err) {
 		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
+	PRIV_UNLOCK(epriv);
     return err;
   }
 
