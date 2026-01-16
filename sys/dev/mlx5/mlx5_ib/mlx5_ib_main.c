@@ -2636,17 +2636,20 @@ static void mlx5_ib_handle_internal_error(struct mlx5_ib_dev *ibdev)
 		if (!mqp->ibqp.srq) {
 			if (mqp->rq.tail != mqp->rq.head) {
 				recv_mcq = to_mcq(mqp->ibqp.recv_cq);
-				spin_lock_irqsave(&recv_mcq->lock, flags_cq);
-				if (recv_mcq->mcq.comp &&
-				    mqp->ibqp.recv_cq->comp_handler) {
-					if (!recv_mcq->mcq.reset_notify_added) {
-						recv_mcq->mcq.reset_notify_added = 1;
-						list_add_tail(&recv_mcq->mcq.reset_notify,
-							      &cq_armed_list);
-					}
-				}
-				spin_unlock_irqrestore(&recv_mcq->lock,
+        if(recv_mcq)
+        {
+			  	spin_lock_irqsave(&recv_mcq->lock, flags_cq);
+				  if (recv_mcq->mcq.comp &&
+				      mqp->ibqp.recv_cq->comp_handler) {
+				  	if (!recv_mcq->mcq.reset_notify_added) {
+				  		recv_mcq->mcq.reset_notify_added = 1;
+				  		list_add_tail(&recv_mcq->mcq.reset_notify,
+				  			      &cq_armed_list);
+				  	}
+				  }
+				  spin_unlock_irqrestore(&recv_mcq->lock,
 						       flags_cq);
+        }
 			}
 		}
 		spin_unlock_irqrestore(&mqp->rq.lock, flags_qp);
@@ -2655,7 +2658,8 @@ static void mlx5_ib_handle_internal_error(struct mlx5_ib_dev *ibdev)
 	 * lock/unlock above locks Now need to arm all involved CQs.
 	 */
 	list_for_each_entry(mcq, &cq_armed_list, reset_notify) {
-		mcq->comp(mcq, NULL);
+    if(mcq->comp)
+		  mcq->comp(mcq, NULL);
 	}
 	spin_unlock_irqrestore(&ibdev->reset_flow_resource_lock, flags);
 }
