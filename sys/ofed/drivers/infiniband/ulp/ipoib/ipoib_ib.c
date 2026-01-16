@@ -806,6 +806,7 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
 		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
 
+    mlx5_ib_direct_close(priv->mlx5_ib_dev);
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;
 
@@ -866,6 +867,15 @@ timeout:
 	//ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
 
 	return 0;
+}
+
+static
+int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
+{
+  struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
+  mlx5_ib_direct_teardown(ib_dev);
+  mlx5_ib_free_en_priv(ib_dev->priv);
+  return 0;
 }
 
 static
@@ -1039,6 +1049,7 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_stop_thread(priv, 1);
 	ipoib_mcast_dev_flush(priv);
 
+  ipoib_direct_deinit(priv);
 	ipoib_ah_dev_cleanup(priv);
 	ipoib_transport_dev_cleanup(priv);
 }

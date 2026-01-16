@@ -1055,15 +1055,6 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 	return 0;
 }
 
-static
-int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
-{
-	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
-  mlx5_ib_direct_teardown(ib_dev);
-  mlx5_ib_free_en_priv(ib_dev->priv);
-  return 0;
-}
-
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 {
@@ -1217,7 +1208,6 @@ ipoib_remove_one(struct ib_device *device, void *client_data)
 
 		flush_workqueue(ipoib_workqueue);
 
-    ipoib_direct_deinit(priv);
 		ipoib_dev_cleanup(priv);
 		ipoib_detach(priv);
 	}
