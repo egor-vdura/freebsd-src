@@ -632,11 +632,14 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 		return -1;
 	}
 
-  ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
-  if (ret)
+  if(priv->direct_connect == true)
   {
-    ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
-    return -1;
+    ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
+    if (ret)
+    {
+      ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
+      return -1;
+    }
   }
 
   caddr_t lla = if_getlladdr(priv->dev);
@@ -806,7 +809,10 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
 		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
 
+  if(priv->direct_connect == true)
+  {
     mlx5_ib_direct_close(priv->mlx5_ib_dev);
+  }
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;
 
@@ -895,11 +901,14 @@ int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_d
     return ret;
   }
 
-  ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
-  if (ret)
+  if(ipoib_dev->direct_connect == true)
   {
-		printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
-    return ret;
+    ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
+    if (ret)
+    {
+		  printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
+      return ret;
+    }
   }
 
   ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
@@ -926,7 +935,8 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
   struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
   ib_dev->pkey_index = priv->pkey_index;
   
-  if(priv->direct_connect == true) {
+  if(priv->direct_connect == true)
+  {
     if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca))
     {
 		  printk(KERN_WARNING "%s:  ipoib_direct_init failed\n", ca->name);
@@ -1049,7 +1059,10 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_stop_thread(priv, 1);
 	ipoib_mcast_dev_flush(priv);
 
-  ipoib_direct_deinit(priv);
+  if(priv->direct_connect == true)
+  {
+    ipoib_direct_deinit(priv);
+  }
 	ipoib_ah_dev_cleanup(priv);
 	ipoib_transport_dev_cleanup(priv);
 }

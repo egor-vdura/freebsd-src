@@ -1014,6 +1014,8 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
   if(hca->direct_connect == true) {
+    /* Setup optimizations and direct connection */
+    priv->direct_connect = true;
 	  if_settransmitfn(dev, ipoib_xmit);
   } else {
 	  if_setstartfn(dev, ipoib_start);
@@ -1065,12 +1067,6 @@ ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
 	priv = ipoib_intf_alloc(format, hca);
 	if (!priv)
 		goto alloc_mem_failed;
-
-  if(hca->direct_connect == true) {
-    /* Setup optimizations and direct connection */
-    priv->direct_connect = true;
-  }
-
 
 	if (!ib_query_port(hca, port, &attr))
 		priv->max_ib_mtu = ib_mtu_enum_to_int(attr.max_mtu);

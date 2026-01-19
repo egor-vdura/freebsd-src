@@ -3885,6 +3885,7 @@ err_remove_fs_underlay_qp:
 
 void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
 {
+	mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
 	struct mlx5e_priv *epriv = dev->priv;
 	PRIV_LOCK(epriv);
   mlx5e_deactivate_rqt(epriv);
@@ -3895,6 +3896,7 @@ void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
 
 void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
 {
+	mlx5_ib_warn(dev, "mlx5_ib_direct_teardown\n");
   mlx5i_destroy_tables(dev);
 
   mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
