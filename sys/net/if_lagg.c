@@ -393,10 +393,6 @@ lagg_proto_start(struct lagg_softc *sc, struct mbuf *m)
 static inline struct mbuf *
 lagg_proto_input(struct lagg_softc *sc, struct lagg_port *lp, struct mbuf *m)
 {
-
-  printf(">>> lagg_proto_input %d\n", sc->sc_proto);
-  printf("%p %p %p %p\n", lagg_default_input, lagg_fail_input, lagg_lacp_input, lagg_protos[sc->sc_proto].pr_input);
-  
 	return (lagg_protos[sc->sc_proto].pr_input(sc, lp, m));
 }
 
@@ -2196,7 +2192,6 @@ lagg_input_infiniband(struct ifnet *ifp, struct mbuf *m)
 	struct ifnet *scifp = sc->sc_ifp;
 
 	NET_EPOCH_ASSERT();
-  printf(">>> lagg_input_infiniband\n");
 	if ((scifp->if_drv_flags & IFF_DRV_RUNNING) == 0 ||
 	    lp->lp_detaching != 0 ||
 	    sc->sc_proto == LAGG_PROTO_NONE) {
