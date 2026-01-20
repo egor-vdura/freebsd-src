@@ -3887,7 +3887,12 @@ void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
 {
 	mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
 	struct mlx5e_priv *epriv = dev->priv;
+
+  if (test_bit(MLX5E_STATE_OPENED, &epriv->state) == 0)
+		return;
+
 	PRIV_LOCK(epriv);
+	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
   mlx5e_deactivate_rqt(epriv);
   mlx5e_close_channels(epriv);
   mlx5e_close_tises(epriv);
