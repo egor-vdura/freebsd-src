@@ -3674,8 +3674,17 @@ int mlx5i_activate_fs(struct mlx5_core_dev *mdev)
   return mlx5_cmd_update_root_ft(mdev, FS_FT_NIC_RX, mdev->table_ids[1]);
 }
 
+
 static
-int mlx5i_create_fs(struct mlx5_core_dev *mdev)
+u32 get_tir_number(int i, struct mlx5e_priv *epriv)
+{
+  u32 tir_n = (((i % 2) ? true : false) ? epriv->tirn_inner_vxlan[i/2] : epriv->tirn[i/2]);
+  printf("TIRN for %d = %d\n", i, tir_n);
+  return tir_n;
+}
+
+static
+int mlx5i_create_fs(struct mlx5_core_dev *mdev, struct mlx5e_priv *epriv)
 {
   int err = 0;
   // TODO properly handle err
@@ -3694,21 +3703,21 @@ int mlx5i_create_fs(struct mlx5_core_dev *mdev)
 
   unsigned int dest_id = 0;
   unsigned int flow_index = 0;
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
 
   flow_index = 14;
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, dest_id++);
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, get_tir_number(dest_id++, epriv));
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, get_tir_number(dest_id++, epriv));
 
   flow_index = 16;
-  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, dest_id++);
+  err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, get_tir_number(dest_id++, epriv));
 
   return err;
 }
@@ -3811,7 +3820,7 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn)
 	dev->mdev->qpn_enabled = true;
 	dev->mdev->underlay_qpn = qpn;
 
-  err = mlx5i_create_fs(dev->mdev);
+  err = mlx5i_create_fs(dev->mdev, epriv);
 	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
   if (err) {
 		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
