@@ -85,7 +85,7 @@ mlx5e_hash_init(void *arg)
 /* Make kernel call mlx5e_hash_init after the random stack finished initializing */
 SYSINIT(mlx5e_hash_init, SI_SUB_RANDOM, SI_ORDER_ANY, &mlx5e_hash_init, NULL);
 
-static struct mlx5e_sq *
+struct mlx5e_sq *
 mlx5e_select_queue_by_send_tag(if_t ifp, struct mbuf *mb)
 {
 	struct m_snd_tag *mb_tag;
@@ -132,10 +132,9 @@ top:
 	return (NULL);
 }
 
-static struct mlx5e_sq *
-mlx5e_select_queue(if_t ifp, struct mbuf *mb)
+struct mlx5e_sq *
+mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb)
 {
-	struct mlx5e_priv *priv = if_getsoftc(ifp);
 	struct mlx5e_sq *sq;
 	u32 ch;
 	u32 tc;
@@ -233,73 +232,84 @@ max_inline:
  * this function returns zero, the parsing failed.
  */
 int
-mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth)
+mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth)
 {
-	const struct ether_vlan_header *eh;
+	struct mbuf *mb = (struct mbuf*)_mb;
+  const struct ether_vlan_header *eh;
 	const struct tcphdr *th;
 	const struct ip *ip;
 	int ip_hlen, tcp_hlen;
-	const struct ip6_hdr *ip6;
-	uint16_t eth_type;
+  const struct ip6_hdr *ip6;
+  uint16_t eth_type;
 	int eth_hdr_len;
+  int init_eth_hdr_len = 0;
 
-	eh = mtod(mb, const struct ether_vlan_header *);
-	if (unlikely(mb->m_len < ETHER_HDR_LEN))
-		goto failure;
-	if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
-		if (unlikely(mb->m_len < ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN))
-			goto failure;
-		eth_type = ntohs(eh->evl_proto);
-		eth_hdr_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
-	} else {
-		eth_type = ntohs(eh->evl_encap_proto);
-		eth_hdr_len = ETHER_HDR_LEN;
-	}
+  // Is the underlay protocol IB or ETH
+  if (mb->m_len == 4 /* IPOIB_ENCAP_LEN */) {
+    init_eth_hdr_len = mb->m_len;
+    eth_hdr_len = 0;
+    eth_type = ETHERTYPE_IP;
+	  mb = mb->m_next;
+  } else {
+    eh = mtod(mb, const struct ether_vlan_header *);
+    if (unlikely(mb->m_len < ETHER_HDR_LEN))
+      goto failure;
+    if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
+      if (unlikely(mb->m_len < ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN))
+        goto failure;
+      eth_type = ntohs(eh->evl_proto);
+      eth_hdr_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
+    } else {
+      eth_type = ntohs(eh->evl_encap_proto);
+      eth_hdr_len = ETHER_HDR_LEN;
+    }
+  }
 
-	switch (eth_type) {
-	case ETHERTYPE_IP:
-		ip = (const struct ip *)(mb->m_data + eth_hdr_len);
-		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip)))
-			goto failure;
-		switch (ip->ip_p) {
-		case IPPROTO_TCP:
-			ip_hlen = ip->ip_hl << 2;
-			eth_hdr_len += ip_hlen;
-			goto tcp_packet;
-		case IPPROTO_UDP:
-			ip_hlen = ip->ip_hl << 2;
-			eth_hdr_len += ip_hlen + sizeof(struct udphdr);
-			th = NULL;
-			goto udp_packet;
-		default:
-			goto failure;
-		}
-		break;
-	case ETHERTYPE_IPV6:
-		ip6 = (const struct ip6_hdr *)(mb->m_data + eth_hdr_len);
-		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip6)))
-			goto failure;
-		switch (ip6->ip6_nxt) {
-		case IPPROTO_TCP:
-			eth_hdr_len += sizeof(*ip6);
-			goto tcp_packet;
-		case IPPROTO_UDP:
-			eth_hdr_len += sizeof(*ip6) + sizeof(struct udphdr);
-			th = NULL;
-			goto udp_packet;
-		default:
-			goto failure;
-		}
-		break;
-	default:
-		goto failure;
-	}
+  switch (eth_type) {
+  case ETHERTYPE_IP:
+    ip = (const struct ip *)(mb->m_data + eth_hdr_len);
+    if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip)))
+      goto failure;
+    switch (ip->ip_p) {
+    case IPPROTO_TCP:
+      ip_hlen = ip->ip_hl << 2;
+      eth_hdr_len += ip_hlen;
+      goto tcp_packet;
+    case IPPROTO_UDP:
+      ip_hlen = ip->ip_hl << 2;
+      eth_hdr_len += ip_hlen + sizeof(struct udphdr);
+      th = NULL;
+      goto udp_packet;
+    default:
+      goto failure;
+    }
+    break;
+  case ETHERTYPE_IPV6:
+    ip6 = (const struct ip6_hdr *)(mb->m_data + eth_hdr_len);
+    if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip6)))
+      goto failure;
+    switch (ip6->ip6_nxt) {
+    case IPPROTO_TCP:
+      eth_hdr_len += sizeof(*ip6);
+      goto tcp_packet;
+    case IPPROTO_UDP:
+      eth_hdr_len += sizeof(*ip6) + sizeof(struct udphdr);
+      th = NULL;
+      goto udp_packet;
+    default:
+      goto failure;
+    }
+    break;
+  default:
+    goto failure;
+  }
+
 tcp_packet:
 	if (unlikely(mb->m_len < eth_hdr_len + sizeof(*th))) {
 		const struct mbuf *m_th = mb->m_next;
 		if (unlikely(mb->m_len != eth_hdr_len ||
 		    m_th == NULL || m_th->m_len < sizeof(*th)))
-			goto failure;
+				goto failure;
 		th = (const struct tcphdr *)(m_th->m_data);
 	} else {
 		th = (const struct tcphdr *)(mb->m_data + eth_hdr_len);
@@ -316,7 +326,7 @@ udp_packet:
 		goto failure;
 	if (ppth != NULL)
 		*ppth = th;
-	return (eth_hdr_len);
+	return (eth_hdr_len + init_eth_hdr_len);
 failure:
 	if (ppth != NULL)
 		*ppth = NULL;
@@ -679,6 +689,386 @@ tx_drop:
 	m_freem(mb);
 	return err;
 }
+
+#ifdef VDURA_CHANGES
+static void dump_hex(const void *buf, int len)
+{
+    const u8 *p = buf;
+    int i;
+
+    for (i = 0; i < len; i++) {
+        if ((i % 16) == 0)
+            pr_info("%04x: ", i);
+        pr_cont("%02x ", p[i]);
+        if ((i % 16) == 15)
+            pr_cont("\n");
+    }
+    if (len % 16 != 0)
+        pr_cont("\n");
+}
+
+static void mlx5e_dump_wqe(const struct mlx5i_tx_wqe *wqe)
+{
+    const struct mlx5_wqe_ctrl_seg *ctrl = &wqe->ctrl;
+    int ds_cnt = be32_to_cpu(ctrl->qpn_ds) & 0x3f;  /* WQE size in 16B units */
+    int wqe_size = ds_cnt * MLX5_SEND_WQE_DS;
+    uint32_t inline_header_size = 0;
+    const struct mlx5_wqe_eth_seg *eseg = &wqe->eth;
+    const struct mlx5_wqe_datagram_seg *dseg = &wqe->datagram;
+    const struct mlx5_wqe_data_seg *dp;
+
+    pr_info("===== WQE DUMP =====\n");
+    pr_info("WQE size: %d bytes (%d DS)\n", wqe_size, ds_cnt);
+
+    /* CTRL SEG */
+    pr_info("--- CTRL SEG ---\n");
+    pr_info("opmod_idx_opcode: 0x%08x\n", be32_to_cpu(ctrl->opmod_idx_opcode));
+    pr_info("qpn:              0x%08x\n", (be32_to_cpu(ctrl->qpn_ds) >> 8) & 0x00FFFFFF);
+    pr_info("ds:               0x%08x\n", ds_cnt);
+    pr_info("fm_ce_se:         0x%02x\n", ctrl->fm_ce_se);
+    pr_info("imm:              0x%08x\n", be32_to_cpu(ctrl->imm));
+    dump_hex(ctrl, sizeof(*ctrl));
+
+    /* DATAGRAM SEG */
+    pr_info("--- DATAGRAM SEG ---\n");
+    pr_info("av (address vector):\n");
+    dump_hex(&dseg->av, sizeof(struct mlx5_av));
+
+    /* ETH SEG */
+    pr_info("--- ETH SEG ---\n");
+    pr_info("cs_flags: 0x%x\n", eseg->cs_flags);
+    pr_info("mss: 0x%x\n", be16_to_cpu(eseg->mss));
+    pr_info("flow_table_metadata: 0x%x\n", be32_to_cpu(eseg->flow_table_metadata));
+    pr_info("insert_vlan: 0x%x\n", be32_to_cpu(eseg->trailer) & (1U << 31));
+    pr_info("insert_trailer: 0x%x\n", be32_to_cpu(eseg->trailer) & (1U << 30));
+    pr_info("trailer_header_association: 0x%x\n", (be32_to_cpu(eseg->trailer) >> 26) & 0x07);
+    if (!(be32_to_cpu(eseg->trailer) & (1U << 31))) {
+      inline_header_size = (be32_to_cpu(eseg->trailer) >> 16) & 0x3FF;
+      pr_info("inline_header_size: 0x%x\n", inline_header_size);
+      pr_info("inline headers:\n");
+      dump_hex(eseg->inline_hdr_start, inline_header_size);
+    }
+
+    /* DATA SEGS */
+    pr_info("--- DATA SEGMENTS ---\n");
+    int remaining = wqe_size - offsetof(struct mlx5i_tx_wqe, data) - (inline_header_size > 2 ? (inline_header_size - 2) : 0);
+    pr_info("remaining bytes: %d\n", remaining);
+
+    int i = 0;
+    dp = (struct mlx5_wqe_data_seg *)(((char *)wqe->data) + (inline_header_size > 2 ? (inline_header_size - 2) : 0));
+    while (remaining >= sizeof(struct mlx5_wqe_data_seg)) {
+        pr_info("DATA SEG #%d\n", i);
+        pr_info("byte_count: 0x%08x\n", be32_to_cpu(dp->byte_count));
+        pr_info("lkey:       0x%08x\n", be32_to_cpu(dp->lkey));
+        pr_info("addr:       0x%016llx\n",
+                (unsigned long long)be64_to_cpu(dp->addr));
+
+        //pr_info("data:\n");
+        //dump_hex((void*)be64_to_cpu(dp->addr), be32_to_cpu(dp->byte_count));
+
+        pr_info("DATA SEG raw:\n");
+        dump_hex(dp, sizeof(*dp));
+
+        dp++;
+        remaining -= sizeof(struct mlx5_wqe_data_seg);
+        i++;
+    }
+
+    //pr_info("=== FULL RAW WQE ===\n");
+    //dump_hex(wqe, wqe_size);
+
+    pr_info("====================\n");
+}
+
+static int
+mlx5i_sq_xmit(struct mlx5e_sq *sq, struct mlx5_av	*av, struct mbuf **mbp)
+{
+	bus_dma_segment_t segs[MLX5E_MAX_TX_MBUF_FRAGS];
+	struct mlx5e_xmit_args args = {};
+	struct mlx5_wqe_data_seg *dseg;
+	struct mlx5i_tx_wqe *wqe;
+	int nsegs;
+	int err;
+	int x;
+	struct mbuf *mb;
+	u16 ds_cnt;
+	u16 pi;
+	u8 opcode;
+
+#ifdef KERN_TLS
+top:
+#endif
+	/* Return ENOBUFS if the queue is full */
+	if (unlikely(!mlx5e_sq_has_room_for(sq, 2 * MLX5_SEND_WQE_MAX_WQEBBS))) {
+		sq->stats.enobuf++;
+		return (ENOBUFS);
+	}
+
+	/* Align SQ edge with NOPs to avoid WQE wrap around */
+	pi = ((~sq->pc) & sq->wq.sz_m1);
+	if (pi < (MLX5_SEND_WQE_MAX_WQEBBS - 1)) {
+		/* Send one multi NOP message instead of many */
+		mlx5e_send_nop(sq, (pi + 1) * MLX5_SEND_WQEBB_NUM_DS);
+		pi = ((~sq->pc) & sq->wq.sz_m1);
+		if (pi < (MLX5_SEND_WQE_MAX_WQEBBS - 1)) {
+			sq->stats.enobuf++;
+			return (ENOMEM);
+		}
+	}
+
+#ifdef KERN_TLS
+	/* Special handling for TLS packets, if any */
+	switch (mlx5e_sq_tls_xmit(sq, &args, mbp)) {
+	case MLX5E_TLS_LOOP:
+		goto top;
+	case MLX5E_TLS_FAILURE:
+		mb = *mbp;
+		err = ENOMEM;
+		goto tx_drop;
+	case MLX5E_TLS_DEFERRED:
+		return (0);
+	case MLX5E_TLS_CONTINUE:
+	default:
+		break;
+	}
+#endif
+
+	/* Setup local variables */
+	pi = sq->pc & sq->wq.sz_m1;
+	wqe = mlx5_wq_cyc_get_wqe(&sq->wq, pi);
+
+	memset(wqe, 0, sizeof(*wqe));
+
+	/* get pointer to mbuf */
+	mb = *mbp;
+
+	if (mb->m_pkthdr.csum_flags & (CSUM_IP | CSUM_TSO)) {
+		wqe->eth.cs_flags |= MLX5_ETH_WQE_L3_CSUM;
+	}
+	if (mb->m_pkthdr.csum_flags & (CSUM_TCP | CSUM_UDP | CSUM_UDP_IPV6 | CSUM_TCP_IPV6 | CSUM_TSO)) {
+		wqe->eth.cs_flags |= MLX5_ETH_WQE_L4_CSUM;
+	}
+	if (wqe->eth.cs_flags == 0) {
+		sq->stats.csum_offload_none++;
+	}
+	if (mb->m_pkthdr.csum_flags & CSUM_TSO) {
+		u32 payload_len;
+		u32 mss = mb->m_pkthdr.tso_segsz;
+		u32 num_pkts;
+
+		wqe->eth.mss = cpu_to_be16(mss);
+		opcode = MLX5_OPCODE_LSO;
+		if (args.ihs == 0)
+		{
+			args.ihs = mlx5e_get_full_header_size(mb, NULL);
+		}
+		if (unlikely(args.ihs == 0)) {
+			err = EINVAL;
+			goto tx_drop;
+		}
+		payload_len = mb->m_pkthdr.len - args.ihs;
+		if (payload_len == 0)
+			num_pkts = 1;
+		else
+			num_pkts = DIV_ROUND_UP(payload_len, mss);
+		sq->mbuf[pi].num_bytes = payload_len + (num_pkts * args.ihs);
+
+
+		sq->stats.tso_packets++;
+		sq->stats.tso_bytes += payload_len;
+	} else {
+		opcode = MLX5_OPCODE_SEND;
+
+    /* TODO: How to properly calculate header size? */
+#if 0
+		if (args.ihs == 0) {
+      printf("mlx5i_sq_xmit: sq->min_inline_mode: %u\n", sq->min_inline_mode);
+			switch (sq->min_inline_mode) {
+			case MLX5_INLINE_MODE_IP:
+			case MLX5_INLINE_MODE_TCP_UDP:
+				args.ihs = mlx5e_get_full_header_size(mb, NULL);
+				if (unlikely(args.ihs == 0))
+					args.ihs = mlx5e_get_l2_header_size(sq, mb);
+				break;
+			case MLX5_INLINE_MODE_L2:
+				args.ihs = mlx5e_get_l2_header_size(sq, mb);
+				break;
+			case MLX5_INLINE_MODE_NONE:
+				/* FALLTHROUGH */
+			default:
+				if ((mb->m_flags & M_VLANTAG) != 0 &&
+				    (sq->min_insert_caps & MLX5E_INSERT_VLAN) != 0) {
+					/* inlining VLAN data is not required */
+					wqe->eth.vlan_cmd = htons(0x8000); /* bit 0 CVLAN */
+					wqe->eth.vlan_hdr = htons(mb->m_pkthdr.ether_vtag);
+					args.ihs = 0;
+				} else if ((mb->m_flags & M_VLANTAG) == 0 &&
+				    (sq->min_insert_caps & MLX5E_INSERT_NON_VLAN) != 0) {
+					/* inlining non-VLAN data is not required */
+					args.ihs = 0;
+				} else {
+					/* we are forced to inlining L2 header, if any */
+					args.ihs = mlx5e_get_l2_header_size(sq, mb);
+				}
+				break;
+			}
+      printf("mlx5i_sq_xmit: args->ihs: %u\n", args.ihs);
+		}
+#endif
+		sq->mbuf[pi].num_bytes = max_t (unsigned int,
+		    mb->m_pkthdr.len, ETHER_MIN_LEN - ETHER_CRC_LEN);
+	}
+
+  memcpy(&wqe->datagram, av, sizeof(*av));
+
+	if (likely(args.ihs == 0)) {
+		/* nothing to inline */
+	} else {
+		/* check if inline header size is too big */
+		if (unlikely(args.ihs > sq->max_inline)) {
+			if (unlikely(mb->m_pkthdr.csum_flags & (CSUM_TSO |
+                           CSUM_ENCAP_VXLAN))) {
+				err = EINVAL;
+				goto tx_drop;
+			}
+			args.ihs = sq->max_inline;
+		}
+		m_copydata(mb, 0, args.ihs, wqe->eth.inline_hdr_start);
+		m_adj(mb, args.ihs);
+		wqe->eth.inline_hdr_sz = cpu_to_be16(args.ihs);
+	}
+
+	ds_cnt = sizeof(*wqe) / MLX5_SEND_WQE_DS;
+	if (args.ihs > sizeof(wqe->eth.inline_hdr_start)) {
+		ds_cnt += DIV_ROUND_UP(args.ihs - sizeof(wqe->eth.inline_hdr_start),
+		    MLX5_SEND_WQE_DS);
+	}
+	dseg = ((struct mlx5_wqe_data_seg *)&wqe->ctrl) + ds_cnt;
+
+	err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
+	    mb, segs, &nsegs, BUS_DMA_NOWAIT);
+	if (err == EFBIG) {
+		/* Update statistics */
+		sq->stats.defragged++;
+		/* Too many mbuf fragments */
+		mb = m_defrag(*mbp, M_NOWAIT);
+		if (mb == NULL) {
+			mb = *mbp;
+			goto tx_drop;
+		}
+		/* Try again */
+		err = bus_dmamap_load_mbuf_sg(sq->dma_tag, sq->mbuf[pi].dma_map,
+		    mb, segs, &nsegs, BUS_DMA_NOWAIT);
+	}
+	/* Catch errors */
+	if (err != 0)
+	{
+		goto tx_drop;
+	}
+
+	/* Make sure all mbuf data, if any, is visible to the bus */
+	if (nsegs != 0) {
+		bus_dmamap_sync(sq->dma_tag, sq->mbuf[pi].dma_map,
+		    BUS_DMASYNC_PREWRITE);
+	} else {
+		/* All data was inlined, free the mbuf. */
+		bus_dmamap_unload(sq->dma_tag, sq->mbuf[pi].dma_map);
+		m_freem(mb);
+		mb = NULL;
+	}
+
+	for (x = 0; x != nsegs; x++) {
+		if (segs[x].ds_len == 0)
+			continue;
+		dseg->addr = cpu_to_be64((uint64_t)segs[x].ds_addr);
+		dseg->lkey = sq->mkey_be;
+		dseg->byte_count = cpu_to_be32((uint32_t)segs[x].ds_len);
+		dseg++;
+	}
+
+	ds_cnt = (dseg - ((struct mlx5_wqe_data_seg *)&wqe->ctrl));
+
+	wqe->ctrl.opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | opcode);
+	wqe->ctrl.qpn_ds = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+	wqe->ctrl.imm = cpu_to_be32(args.tisn << 8);
+
+	if (mlx5e_do_send_cqe_inline(sq))
+	/* TODO: Linux sets 0 here? */
+		wqe->ctrl.fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
+	else
+		wqe->ctrl.fm_ce_se = 0;
+
+	/* Copy data for doorbell */
+	memcpy(sq->doorbell.d32, &wqe->ctrl, sizeof(sq->doorbell.d32));
+
+	/* Store pointer to mbuf */
+	sq->mbuf[pi].mbuf = mb;
+	sq->mbuf[pi].num_wqebbs = DIV_ROUND_UP(ds_cnt, MLX5_SEND_WQEBB_NUM_DS);
+	if (unlikely(args.mst != NULL))
+		sq->mbuf[pi].mst = m_snd_tag_ref(args.mst);
+	else
+		MPASS(sq->mbuf[pi].mst == NULL);
+
+  if (0) {
+    mlx5e_dump_wqe(wqe);
+  }
+
+	sq->pc += sq->mbuf[pi].num_wqebbs;
+
+	/* Count all traffic going out */
+	sq->stats.packets++;
+	sq->stats.bytes += sq->mbuf[pi].num_bytes;
+
+	*mbp = NULL;	/* safety clear */
+	return (0);
+
+tx_drop:
+	sq->stats.dropped++;
+	*mbp = NULL;
+	m_freem(mb);
+	return err;
+}
+
+int
+mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av	*av, u32 dqpn, struct mlx5e_sq *sq)
+{
+	int err = 0;
+
+  (void)dqpn;
+
+	if (unlikely((if_getdrvflags(sq->ifp) & IFF_DRV_RUNNING) == 0 ||
+	    READ_ONCE(sq->running) == 0)) {
+		printk(KERN_WARNING "Driver not running!\n");
+		m_freem(mb);
+		return (ENETDOWN);
+	}
+
+	/* Do transmit */
+	if (mlx5i_sq_xmit(sq, av, &mb) != 0) {
+		/* NOTE: m_freem() is NULL safe */
+		m_freem(mb);
+		err = ENOBUFS;
+	}
+
+	/* Write the doorbell record, if any. */
+	mlx5e_tx_notify_hw(sq, false);
+
+	/*
+	 * Check if we need to start the event timer which flushes the
+	 * transmit ring on timeout:
+	 */
+	if (unlikely(sq->cev_next_state == MLX5E_CEV_STATE_INITIAL &&
+	    sq->cev_factor != 1)) {
+		/* start the timer */
+		mlx5e_sq_cev_timeout(sq);
+	} else {
+		/* don't send NOPs yet */
+		sq->cev_next_state = MLX5E_CEV_STATE_HOLD_NOPS;
+	}
+	// printk("Sending on SQ from TIS %d dqpn %d\n", sq->tisn, dqpn);
+	return (err);
+}
+#endif
 
 int
 mlx5e_sq_xmit(struct mlx5e_sq *sq, struct mbuf **mbp)
@@ -1098,13 +1488,14 @@ mlx5e_poll_tx_cq(struct mlx5e_sq *sq, int budget)
 	sq->cc = sqcc;
 }
 
-static int
+int
 mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb)
 {
 	int err = 0;
 
 	if (unlikely((if_getdrvflags(ifp) & IFF_DRV_RUNNING) == 0 ||
 	    READ_ONCE(sq->running) == 0)) {
+		printk(KERN_WARNING "Driver not running!\n");
 		m_freem(mb);
 		return (ENETDOWN);
 	}
@@ -1148,7 +1539,7 @@ mlx5e_xmit(if_t ifp, struct mbuf *mb)
 		}
 	} else {
 select_queue:
-		sq = mlx5e_select_queue(ifp, mb);
+		sq = mlx5e_select_queue(if_getsoftc(ifp), mb);
 		if (unlikely(sq == NULL)) {
 			/* Free mbuf */
 			m_freem(mb);

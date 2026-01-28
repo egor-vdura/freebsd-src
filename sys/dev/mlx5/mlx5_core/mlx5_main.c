@@ -2161,6 +2161,12 @@ struct pci_driver mlx5_core_driver = {
 #endif
 };
 
+#ifdef VDURA_CHANGES
+#define MLX5DBG_FREEBSD
+#include "./mlx5_dbg_dev.c"
+#undef MLX5DBG_FREEBSD
+#endif
+
 static int __init init(void)
 {
 	int err;
@@ -2168,6 +2174,17 @@ static int __init init(void)
 	err = pci_register_driver(&mlx5_core_driver);
 	if (err)
 		goto err_debug;
+
+#ifdef VDURA_CHANGES
+  printf("Initializing debug device\n");
+  err = mlx5_init_dbg_dev();
+	if (err) {
+		printf("Failed to init debug device\n");
+		goto err_ctl;
+	} else {
+		printf("debug device created\n");
+  }
+#endif
 
 	err = mlx5_ctl_init();
 	if (err)
@@ -2185,6 +2202,9 @@ err_debug:
 static void __exit cleanup(void)
 {
 	mlx5_ctl_fini();
+#ifdef VDURA_CHANGES
+	mlx5_dbg_dev_fini();
+#endif
 	pci_unregister_driver(&mlx5_core_driver);
 }
 

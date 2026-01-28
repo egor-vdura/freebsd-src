@@ -393,7 +393,6 @@ lagg_proto_start(struct lagg_softc *sc, struct mbuf *m)
 static inline struct mbuf *
 lagg_proto_input(struct lagg_softc *sc, struct lagg_port *lp, struct mbuf *m)
 {
-
 	return (lagg_protos[sc->sc_proto].pr_input(sc, lp, m));
 }
 

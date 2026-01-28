@@ -384,6 +384,7 @@ static int fail_join(struct mcast_group *group, struct mcast_member *member,
 	spin_lock_irq(&group->lock);
 	list_del_init(&member->list);
 	spin_unlock_irq(&group->lock);
+  printf("fail join\n");
 	return member->multicast.callback(status, &member->multicast);
 }
 
@@ -460,6 +461,7 @@ retest:
 			else
 				list_del_init(&member->list);
 			spin_unlock_irq(&group->lock);
+  printf("mcast work handler\n");
 			ret = multicast->callback(status, multicast);
 		} else {
 			spin_unlock_irq(&group->lock);
@@ -505,6 +507,7 @@ static void process_join_error(struct mcast_group *group, int status)
 		atomic_inc(&member->refcount);
 		list_del_init(&member->list);
 		spin_unlock_irq(&group->lock);
+  printf("process join error\n");
 		ret = member->multicast.callback(status, &member->multicast);
 		deref_member(member);
 		if (ret)
@@ -621,8 +624,10 @@ ib_sa_join_multicast(struct ib_sa_client *client,
 	int ret;
 
 	dev = ib_get_client_data(device, &mcast_client);
-	if (!dev)
+	if (!dev){
+    printf("REEEEE 1\n");
 		return ERR_PTR(-ENODEV);
+  }
 
 	member = kmalloc(sizeof *member, gfp_mask);
 	if (!member)
@@ -704,7 +709,10 @@ int ib_sa_get_mcmember_rec(struct ib_device *device, u8 port_num,
 
 	dev = ib_get_client_data(device, &mcast_client);
 	if (!dev)
+  {
+    printf("REEEEE 2\n");
 		return -ENODEV;
+  }
 
 	port = &dev->port[port_num - dev->start_port];
 	spin_lock_irqsave(&port->lock, flags);
@@ -843,6 +851,7 @@ static void mcast_add_one(struct ib_device *device)
 	}
 
 	dev->device = device;
+  printf("ib_init_ah_from_path 6 %p %p\n", device, &mcast_client);
 	ib_set_client_data(device, &mcast_client, dev);
 
 	INIT_IB_EVENT_HANDLER(&dev->event_handler, device, mcast_event_handler);

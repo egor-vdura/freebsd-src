@@ -847,6 +847,7 @@ struct mlx5e_sq {
 	struct	mlx5e_sq_stats stats;
 	struct	callout cev_callout;
 	int	db_inhibit;
+	u32 tisn;
 
 	/* data path */
 #define	mlx5e_sq_zero_start dma_tag
@@ -942,7 +943,7 @@ enum mlx5e_traffic_types {
 	MLX5E_TT_IPV4,
 	MLX5E_TT_IPV6,
 	MLX5E_TT_ANY,
-	MLX5E_NUM_TT,
+  MLX5E_NUM_TT,
 };
 
 enum {
@@ -1155,6 +1156,18 @@ struct mlx5e_tx_wqe {
 	struct mlx5_wqe_eth_seg eth;
 };
 
+struct mlx5_wqe_eth_pad {
+  u8 rsvd0[16];
+};
+
+struct mlx5i_tx_wqe {
+  struct mlx5_wqe_ctrl_seg     ctrl;
+  struct mlx5_wqe_datagram_seg datagram;
+  struct mlx5_wqe_eth_pad      pad;
+  struct mlx5_wqe_eth_seg      eth;
+  struct mlx5_wqe_data_seg     data[];
+};
+
 struct mlx5e_tx_umr_wqe {
 	struct mlx5_wqe_ctrl_seg ctrl;
 	struct mlx5_wqe_umr_ctrl_seg umr;
@@ -1220,6 +1233,14 @@ void	mlx5e_vlan_rx_add_vid(void *, if_t, u16);
 void	mlx5e_vlan_rx_kill_vid(void *, if_t, u16);
 void	mlx5e_enable_vlan_filter(struct mlx5e_priv *priv);
 void	mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
+
+int mlx5e_open_channels(struct mlx5e_priv *priv);
+void mlx5e_close_channels(struct mlx5e_priv *priv);
+
+int mlx5e_open_tises(struct mlx5e_priv *priv);
+void mlx5e_close_tises(struct mlx5e_priv *priv);
+
+int mlx5e_activate_rqt(struct mlx5e_priv *priv);
 
 void	mlx5e_vxlan_start(void *arg, if_t ifp, sa_family_t family,
 	    u_int port);
@@ -1305,5 +1326,54 @@ void	mlx5e_iq_static_destroy(struct mlx5e_iq *);
 void	mlx5e_iq_notify_hw(struct mlx5e_iq *);
 int	mlx5e_iq_get_producer_index(struct mlx5e_iq *);
 void	mlx5e_iq_load_memory_single(struct mlx5e_iq *, u16, void *, size_t, u64 *, u32);
+
+int
+mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
+    struct mlx5e_priv *priv,
+    int num_comp_vectors);
+    int
+mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
+		  struct mlx5_core_mkey *mkey);
+
+      int
+mlx5e_open_drop_rq(struct mlx5e_priv *priv,
+    struct mlx5e_rq *drop_rq);
+
+void
+mlx5e_close_drop_rq(struct mlx5e_rq *drop_rq);
+
+int
+mlx5e_deactivate_rqt(struct mlx5e_priv *priv);
+
+int
+mlx5e_open_rqts(struct mlx5e_priv *priv);
+
+int
+mlx5e_open_tirs(struct mlx5e_priv *priv);
+
+void
+mlx5e_close_rqts(struct mlx5e_priv *priv);
+
+void
+mlx5e_close_tirs(struct mlx5e_priv *priv);
+
+int
+mlx5e_priv_static_init(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
+    const uint32_t channels);
+
+struct mlx5e_sq *
+mlx5e_select_queue_by_send_tag(if_t ifp, struct mbuf *mb);
+
+int
+mlx5e_xmit_locked(if_t ifp, struct mlx5e_sq *sq, struct mbuf *mb);
+
+int
+mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, u32 dqpn, struct mlx5e_sq *sq);
+
+struct mlx5e_sq *mlx5e_select_queue(struct mlx5e_priv *priv, struct mbuf *mb);
+
+void
+mlx5e_priv_static_destroy(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
+    const uint32_t channels);
 
 #endif					/* _MLX5_EN_H_ */

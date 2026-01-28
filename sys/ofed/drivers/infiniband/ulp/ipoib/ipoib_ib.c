@@ -45,6 +45,8 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
+#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
+
 #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG_DATA
 static int data_debug_level;
 
@@ -476,8 +478,9 @@ post_send(struct ipoib_dev_priv *priv, unsigned int wr_id,
 	return ib_post_send(priv->qp, &priv->tx_wr.wr, &bad_wr);
 }
 
+
 void
-ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
+ib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
     struct ipoib_ah *address, u32 qpn)
 {
 	if_t dev = priv->dev;
@@ -628,6 +631,21 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 		ipoib_warn(priv, "ipoib_init_qp returned %d\n", ret);
 		return -1;
 	}
+
+  if(priv->direct_connect == true)
+  {
+    ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
+    if (ret)
+    {
+      ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
+      return -1;
+    }
+  }
+
+  caddr_t lla = if_getlladdr(priv->dev);
+  lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+  lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+  lla[3] = (priv->qp->qp_num     ) & 0xff;
 
 	ret = ipoib_ib_post_receives(priv);
 	if (ret) {
@@ -787,10 +805,14 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	 * Move our QP to the error state and then reinitialize in
 	 * when all work requests have completed or have been flushed.
 	 */
-	qp_attr.qp_state = IB_QPS_ERR;
-	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
-		check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
+	  qp_attr.qp_state = IB_QPS_ERR;
+	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
+		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
 
+  if(priv->direct_connect == true)
+  {
+    mlx5_ib_direct_close(priv->mlx5_ib_dev);
+  }
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;
 
@@ -826,7 +848,8 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 			goto timeout;
 		}
 
-		ipoib_drain_cq(priv);
+    //mlx5_ib_direct_teardown(priv->mlx5_ib_dev);
+		//ipoib_drain_cq(priv);
 
 		msleep(1);
 	}
@@ -847,9 +870,53 @@ timeout:
 
 	ipoib_ah_dev_cleanup(priv);
 
-	ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
+	//ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
 
 	return 0;
+}
+
+static
+int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
+{
+  struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
+  mlx5_ib_direct_teardown(ib_dev);
+  mlx5_ib_free_en_priv(ib_dev->priv);
+  return 0;
+}
+
+static
+int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
+{
+  int ret = 0;
+  ipoib_dev->mlx5_ib_dev = ib_dev;
+
+  //struct ib_qp_attr qp_attr;
+  if_t ipoib_if = ipoib_dev->dev;
+
+  ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
+
+  ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
+  if (ret) {
+    mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure %d\n", ret);
+    return ret;
+  }
+
+  if(ipoib_dev->direct_connect == true)
+  {
+    ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
+    if (ret)
+    {
+		  printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
+      return ret;
+    }
+  }
+
+  ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
+   return 0;
+
+//direct_setup_err:
+  mlx5_ib_free_en_priv(ib_dev->priv);
+  return ret;
 }
 
 int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int port)
@@ -863,12 +930,25 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	if (ipoib_transport_dev_init(priv, ca)) {
 		printk(KERN_WARNING "%s: ipoib_transport_dev_init failed\n", ca->name);
 		return -ENODEV;
-	}
+	} 
+
+  struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
+  ib_dev->pkey_index = priv->pkey_index;
+  
+  if(priv->direct_connect == true)
+  {
+    if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca))
+    {
+		  printk(KERN_WARNING "%s:  ipoib_direct_init failed\n", ca->name);
+		  return -ENODEV;
+    }
+  }
 
 	setup_timer(&priv->poll_timer, ipoib_ib_tx_timer_func,
 		    (unsigned long) priv);
 
 	if (if_getflags(dev) & IFF_UP) {
+    // This will be problematic here
 		if (ipoib_ib_dev_open(priv)) {
 			ipoib_transport_dev_cleanup(priv);
 			return -ENODEV;
@@ -979,6 +1059,10 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_stop_thread(priv, 1);
 	ipoib_mcast_dev_flush(priv);
 
+  if(priv->direct_connect == true)
+  {
+    ipoib_direct_deinit(priv);
+  }
 	ipoib_ah_dev_cleanup(priv);
 	ipoib_transport_dev_cleanup(priv);
 }

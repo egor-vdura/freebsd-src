@@ -1639,6 +1639,8 @@ mlx5e_create_vlan_groups(struct mlx5e_flow_table *ft)
 	return (err);
 }
 
+#include <dev/mlx5/mlx5_core/fs_core.h>
+
 static int
 mlx5e_create_vlan_flow_table(struct mlx5e_priv *priv)
 {
@@ -2197,6 +2199,12 @@ mlx5e_open_flow_tables(struct mlx5e_priv *priv)
 	/* setup namespace pointer */
 	priv->fts.ns = mlx5_get_flow_namespace(
 	    priv->mdev, MLX5_FLOW_NAMESPACE_KERNEL);
+
+	if (priv->fts.ns == NULL)
+	{
+		mlx5_en_err(priv->ifp, "Failed to allocate NS\n");
+		return 1;
+	}
 
 	err = mlx5e_create_vlan_flow_table(priv);
 	if (err)

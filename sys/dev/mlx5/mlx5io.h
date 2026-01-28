@@ -60,6 +60,63 @@ struct mlx5_eeprom_get {
 	size_t eeprom_info_out_len;
 };
 
+struct mlx5_get_eq_list {
+	struct mlx5_tool_addr devaddr;
+	uint32_t *eq_list;
+	size_t eq_list_len;
+};
+
+struct mlx5_get_eq_info {
+	struct mlx5_tool_addr devaddr;
+  uint8_t eqn; /* in */
+	uint32_t num_eqes;
+	uint32_t intr;
+	uint32_t log_pg_sz;
+	uint32_t status;
+	uint32_t ec;
+	uint32_t oi;
+	uint32_t st;
+	uint32_t page_offset;
+	uint32_t uar_page;
+	uint32_t consumer_counter;
+	uint32_t producer_counter;
+	uint32_t syndrome;
+	uint64_t event_bitmask;
+	uint32_t status2;
+};
+
+struct mlx5_get_cq_list {
+	struct mlx5_tool_addr devaddr;
+	uint32_t *cq_list;
+	size_t cq_list_len;
+};
+
+struct mlx5_get_cq_info {
+	struct mlx5_tool_addr devaddr;
+  uint32_t cqn; /* in */
+	uint32_t status;
+	uint32_t dbr_umem_valid;
+	uint32_t cqe_sz;
+	uint32_t cc;
+	uint32_t scqe_break_moderation_en;
+	uint32_t oi;
+	uint32_t cq_period_mode;
+	uint32_t cqe_compression_en;
+	uint32_t mini_cqe_res_format;
+	uint32_t st;
+	uint32_t page_offset;
+	uint32_t log_cq_size;
+	uint32_t uar_page;
+	uint32_t cq_period;
+	uint32_t cq_max_count;
+	uint32_t c_eqn;
+	uint32_t log_page_size;
+	uint32_t last_notified_index;
+	uint32_t consumer_counter;
+	uint32_t producer_counter;
+	uint64_t dbr_addr;
+};
+
 #define	MLX5_FWDUMP_GET		_IOWR('m', 1, struct mlx5_fwdump_get)
 #define	MLX5_FWDUMP_RESET	_IOW('m', 2, struct mlx5_tool_addr)
 #define	MLX5_FWDUMP_FORCE	_IOW('m', 3, struct mlx5_tool_addr)
@@ -67,8 +124,14 @@ struct mlx5_eeprom_get {
 #define	MLX5_FW_RESET		_IOW('m', 5, struct mlx5_tool_addr)
 #define	MLX5_EEPROM_GET		_IOWR('m', 6, struct mlx5_eeprom_get)
 
+#define	MLX5_DBG_GET_EQ_LIST	_IOWR('m', 7, struct mlx5_get_eq_list)
+#define	MLX5_DBG_GET_EQ_INFO	_IOWR('m', 8, struct mlx5_get_eq_info)
+#define	MLX5_DBG_GET_CQ_LIST	_IOWR('m', 9, struct mlx5_get_cq_list)
+#define	MLX5_DBG_GET_CQ_INFO	_IOWR('m', 10, struct mlx5_get_cq_info)
+
 #ifndef _KERNEL
 #define	MLX5_DEV_PATH	_PATH_DEV"mlx5ctl"
+#define	MLX5_DBG_DEV_PATH	_PATH_DEV"mlx5dbg"
 #endif
 
 enum mlx5_fpga_id {

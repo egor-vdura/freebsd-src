@@ -1242,7 +1242,7 @@ mlx5e_create_rq(struct mlx5e_channel *c,
 
 	wq_sz = mlx5_wq_ll_get_size(&rq->wq);
 
-	err = -tcp_lro_init_args(&rq->lro, priv->ifp, TCP_LRO_ENTRIES, wq_sz);
+	err = -tcp_lro_init_args(&rq->lro, priv->ifp, TCP_LRO_ENTRIES, wq_sz/2);
 	if (err)
 		goto err_rq_wq_destroy;
 
@@ -1489,7 +1489,7 @@ mlx5e_open_drop_rq_comp(struct mlx5_core_cq *mcq __unused, struct mlx5_eqe *eqe 
 {
 }
 
-static int
+int
 mlx5e_open_drop_rq(struct mlx5e_priv *priv,
     struct mlx5e_rq *drop_rq)
 {
@@ -1548,7 +1548,7 @@ err_done:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_drop_rq(struct mlx5e_rq *drop_rq)
 {
 	mlx5e_modify_rq(drop_rq, MLX5_RQC_STATE_RDY, MLX5_RQC_STATE_ERR);
@@ -1824,9 +1824,10 @@ mlx5e_open_sq(struct mlx5e_channel *c,
 	if (err)
 		return (err);
 
-	err = mlx5e_enable_sq(sq, param, &c->bfreg, c->priv->tisn[tc]);
+  err = mlx5e_enable_sq(sq, param, &c->bfreg, c->priv->tisn[tc]);
 	if (err)
 		goto err_destroy_sq;
+	
 
 	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY);
 	if (err)
@@ -2256,7 +2257,6 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	    &mlx5e_rx_cq_comp, c->ix);
 	if (err)
 		goto err_close_tx_cqs;
-
 	err = mlx5e_open_sqs(c, cparam);
 	if (err)
 		goto err_close_rx_cq;
@@ -2493,7 +2493,7 @@ mlx5e_build_channel_param(struct mlx5e_priv *priv,
 	mlx5e_build_tx_cq_param(priv, &cparam->tx_cq);
 }
 
-static int
+int
 mlx5e_open_channels(struct mlx5e_priv *priv)
 {
 	struct mlx5e_channel_param *cparam;
@@ -2544,7 +2544,7 @@ err_close_channels:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_channels(struct mlx5e_priv *priv)
 {
 	int i;
@@ -2687,6 +2687,10 @@ mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
 
 	memset(in, 0, sizeof(in));
 
+  if(mdev->qpn_enabled)
+  {
+    MLX5_SET(tisc, tisc, underlay_qpn, mdev->underlay_qpn);
+  }
 	MLX5_SET(tisc, tisc, prio, tc);
 	MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
 
@@ -2696,10 +2700,10 @@ mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
 static void
 mlx5e_close_tis(struct mlx5e_priv *priv, int tc)
 {
-	mlx5_core_destroy_tis(priv->mdev, priv->tisn[tc], 0);
+  mlx5_core_destroy_tis(priv->mdev, priv->tisn[tc], 0);
 }
 
-static int
+int
 mlx5e_open_tises(struct mlx5e_priv *priv)
 {
 	int num_tc = priv->num_tc;
@@ -2716,19 +2720,19 @@ mlx5e_open_tises(struct mlx5e_priv *priv)
 
 err_close_tises:
 	for (tc--; tc >= 0; tc--)
-		mlx5e_close_tis(priv, tc);
+	  mlx5e_close_tis(priv, tc);
 
 	return (err);
 }
 
-static void
+void
 mlx5e_close_tises(struct mlx5e_priv *priv)
 {
 	int num_tc = priv->num_tc;
-	int tc;
+	 int tc;
 
 	for (tc = 0; tc < num_tc; tc++)
-		mlx5e_close_tis(priv, tc);
+	  mlx5e_close_tis(priv, tc);
 }
 
 static int
@@ -2758,7 +2762,7 @@ mlx5e_open_default_rqt(struct mlx5e_priv *priv, u32 *prqtn, int sz)
 	return (err);
 }
 
-static int
+int
 mlx5e_open_rqts(struct mlx5e_priv *priv)
 {
 	int err;
@@ -2786,7 +2790,7 @@ err_default:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_rqts(struct mlx5e_priv *priv)
 {
 	int i;
@@ -2797,7 +2801,7 @@ mlx5e_close_rqts(struct mlx5e_priv *priv)
 	mlx5_core_destroy_rqt(priv->mdev, priv->rqtn, 0);
 }
 
-static int
+int
 mlx5e_activate_rqt(struct mlx5e_priv *priv)
 {
 	u32 *in;
@@ -2868,7 +2872,7 @@ err_modify:
 	return (err);
 }
 
-static int
+int
 mlx5e_deactivate_rqt(struct mlx5e_priv *priv)
 {
 	u32 *in;
@@ -3146,7 +3150,7 @@ mlx5e_close_tir(struct mlx5e_priv *priv, int tt, bool inner_vxlan)
 	    priv->tirn_inner_vxlan[tt] : priv->tirn[tt], 0);
 }
 
-static int
+int
 mlx5e_open_tirs(struct mlx5e_priv *priv)
 {
 	int err;
@@ -3167,7 +3171,7 @@ err_close_tirs:
 	return (err);
 }
 
-static void
+void
 mlx5e_close_tirs(struct mlx5e_priv *priv)
 {
 	int i;
@@ -3801,7 +3805,7 @@ mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
 		return (bf_buf_size);
 }
 
-static int
+int
 mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
     struct mlx5e_priv *priv,
     int num_comp_vectors)
@@ -3837,6 +3841,7 @@ mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
 	priv->params.default_vlan_prio = 0;
 	priv->counter_set_id = -1;
 	priv->params.tx_max_inline = mlx5e_get_max_inline_cap(mdev);
+	mdev->qpn_enabled = false;
 
 	err = mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
 	if (err)
@@ -3885,7 +3890,7 @@ mlx5e_mkey_set_relaxed_ordering(struct mlx5_core_dev *mdev, void *mkc)
 	MLX5_SET(mkc, mkc, relaxed_ordering_write, ro_pci_enable && ro_write);
 }
 
-static int
+int
 mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
 		  struct mlx5_core_mkey *mkey)
 {
@@ -3929,7 +3934,7 @@ static const char *mlx5e_pport_stats_desc[] = {
 	MLX5E_PPORT_STATS(MLX5E_STATS_DESC)
 };
 
-static int
+int
 mlx5e_priv_static_init(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
     const uint32_t channels)
 {
@@ -3962,7 +3967,7 @@ err_alloc_bfreg:
 	return (err);
 }
 
-static void
+void
 mlx5e_priv_static_destroy(struct mlx5e_priv *priv, struct mlx5_core_dev *mdev,
     const uint32_t channels)
 {

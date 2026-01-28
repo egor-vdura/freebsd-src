@@ -227,14 +227,14 @@ enum {
 };
 
 struct mlx5_wqe_eth_seg {
-	u8              swp_outer_l4_offset;
+	u8		swp_outer_l4_offset;
 	u8		swp_outer_l3_offset;
 	u8		swp_inner_l4_offset;
 	u8		swp_inner_l3_offset;
 	u8		cs_flags;
 	u8		swp_flags;
 	__be16		mss;
-	__be32		rsvd2;
+  __be32    flow_table_metadata;
 	union {
 		struct {
 			__be16		inline_hdr_sz;
@@ -244,6 +244,7 @@ struct mlx5_wqe_eth_seg {
 			__be16		vlan_cmd;
 			__be16		vlan_hdr;
 		};
+    __be32 trailer;
 	};
 };
 
@@ -469,6 +470,7 @@ struct mlx5_core_qp {
 	struct mlx5_core_rsc_common	common; /* must be first */
 	void (*event)		(struct mlx5_core_qp *, int);
 	int			qpn;
+  bool marker;
 	struct mlx5_rsc_debug	*dbg;
 	int			pid;
 	u16			uid;

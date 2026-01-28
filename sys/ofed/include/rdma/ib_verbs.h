@@ -2120,6 +2120,7 @@ struct ib_device {
 	struct ib_device_ops	     ops;
 
 	char                          name[IB_DEVICE_NAME_MAX];
+	bool direct_connect;
 
 	struct list_head              event_handler_list;
 	spinlock_t                    event_handler_lock;

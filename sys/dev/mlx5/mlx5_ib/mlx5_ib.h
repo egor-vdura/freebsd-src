@@ -41,6 +41,7 @@
 #include <rdma/ib_user_verbs.h>
 #include <rdma/mlx5-abi.h>
 #include <rdma/uverbs_ioctl.h>
+#include <dev/mlx5/mlx5_en/en.h>
 
 #define mlx5_ib_dbg(dev, format, arg...)				\
 pr_debug("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
@@ -425,6 +426,11 @@ struct mlx5_ib_cq_buf {
 	int			nent;
 };
 
+#ifdef	RSS
+#include <net/rss_config.h>
+#include <netinet/in_rss.h>
+#endif
+
 enum mlx5_ib_qp_flags {
 	MLX5_IB_QP_LSO                          = IB_QP_CREATE_IPOIB_UD_LSO,
 	MLX5_IB_QP_BLOCK_MULTICAST_LOOPBACK     = IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK,
@@ -745,8 +751,14 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
+#include <dev/mlx5/fs.h>
+
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
+	struct mlx5e_priv* priv;
+	u16 pkey_index;
+	u32 qpn;
+	u32 qp_uid;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
@@ -757,6 +769,7 @@ struct mlx5_ib_dev {
 	u8				ib_active:1;
 	u8				wc_support:1;
 	struct umr_common		umrc;
+
 	/* sync used page count stats
 	 */
 	struct mlx5_ib_resources	devr;
@@ -1200,5 +1213,13 @@ static inline int get_num_static_uars(struct mlx5_ib_dev *dev,
 int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 			struct mlx5_bfreg_info *bfregi, u32 bfregn,
 			bool dyn_bfreg);
+
+int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn);
+int mlx5_ib_direct_open(struct mlx5_ib_dev *dev);
+void mlx5_ib_direct_close(struct mlx5_ib_dev *dev);
+void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev);
+
+int mlx5_ib_alloc_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if);
+void mlx5_ib_free_en_priv(struct mlx5e_priv* priv);
 
 #endif /* MLX5_IB_H */

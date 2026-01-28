@@ -36,7 +36,6 @@
 static void mlx5_ib_cq_comp(struct mlx5_core_cq *cq, struct mlx5_eqe *eqe __unused)
 {
 	struct ib_cq *ibcq = &to_mibcq(cq)->ibcq;
-
 	ibcq->comp_handler(ibcq, ibcq->cq_context);
 }
 

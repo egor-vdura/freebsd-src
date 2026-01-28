@@ -316,6 +316,8 @@ struct ipoib_ethtool_st {
  * of tx_lock (ie tx_lock must be acquired first if needed).
  */
 struct ipoib_dev_priv {
+  bool direct_connect;
+  void* mlx5_ib_dev;
 	spinlock_t lock;
 	spinlock_t drain_lock;
 
@@ -451,8 +453,19 @@ int ipoib_open(struct ipoib_dev_priv *priv);
 int ipoib_add_pkey_attr(struct ipoib_dev_priv *priv);
 int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
-void ipoib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
+#ifdef VDURA_CHANGES
+#define ipoib_send mlx5i_xmit
+#else
+#define ipoib_send ib_send
+#endif
+
+/* Dirext mlx5 ib driver TX */
+void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
+		struct ipoib_ah *address, u32 dqpn);
+/* Indirect (IB infra) TX */
+void ib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 qpn);
+
 void ipoib_reap_ah(struct work_struct *work);
 
 void ipoib_mark_paths_invalid(struct ipoib_dev_priv *priv);

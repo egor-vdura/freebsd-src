@@ -51,6 +51,8 @@
 #include <rdma/ib_addr.h>
 #include <rdma/ib_cache.h>
 
+#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
+
 MODULE_AUTHOR("Roland Dreier");
 MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -201,8 +203,12 @@ ipoib_stop(struct ipoib_dev_priv *priv)
 		/* Bring down any child interfaces too */
 		mutex_lock(&priv->vlan_mutex);
 		list_for_each_entry(cpriv, &priv->child_intfs, list)
+    {
 			if ((if_getdrvflags(cpriv->dev) & IFF_DRV_RUNNING) != 0)
+      {
 				ipoib_stop(cpriv);
+      }
+    }
 		mutex_unlock(&priv->vlan_mutex);
 	}
 
@@ -490,7 +496,9 @@ ipoib_flush_paths(struct ipoib_dev_priv *priv)
 	list_splice_init(&priv->path_list, &remove_list);
 
 	list_for_each_entry(path, &remove_list, list)
+  {
 		rb_erase(&path->rb_node, &priv->path_tree);
+  }
 
 	list_for_each_entry_safe(path, tp, &remove_list, list) {
 		if (path->query)
@@ -749,6 +757,17 @@ ipoib_start_locked(if_t dev, struct ipoib_dev_priv *priv)
 	}
 }
 
+static
+int ipoib_xmit(if_t ifp, struct mbuf *mb)
+{
+	struct ipoib_dev_priv *priv = if_getsoftc(ifp);
+	infiniband_bpf_mtap(ifp, mb);
+	spin_lock(&priv->lock);
+	ipoib_send_one(priv, mb);
+	spin_unlock(&priv->lock);
+	return 0;
+}
+
 static void
 _ipoib_start(if_t dev, struct ipoib_dev_priv *priv)
 {
@@ -898,6 +917,76 @@ ipoib_priv_alloc(void)
 	return (priv);
 }
 
+#include <dev/mlx5/mlx5_en/en.h>
+
+static
+void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
+{
+  struct ib_ah *ah = address->ah;
+  struct ib_ah_attr ah_attr = {0};
+  int err;
+
+  err = ah->device->query_ah(ah, &ah_attr);
+  if (!err) {
+    //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
+    av->rlid = cpu_to_be16(ah_attr.dlid);
+    /* TODO: Compare with linux? */
+    av->stat_rate_sl = ah_attr.static_rate << 4;
+    /* TODO: Should ah_attr.sl be used? */
+  } else {
+    printf("ERROR: ah2av: err %d\n", err);
+  }
+}
+
+void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
+		struct ipoib_ah *address, u32 dqpn)
+{
+	struct mlx5e_sq *sq;
+	struct mlx5_av av = {0};
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev);
+	struct mlx5e_priv *priv = ib_dev->priv;
+	if_t ifp = ipoib_priv->dev;
+
+	if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
+		MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
+		sq = mlx5e_select_queue_by_send_tag(ifp, mb);
+		if (unlikely(sq == NULL)) {
+			goto select_queue;
+		}
+		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
+	} else {
+select_queue:
+		sq = mlx5e_select_queue(priv, mb);
+		if (unlikely(sq == NULL)) {
+      printf("mlx5i_xmit Invalid send queue for %d", dqpn);
+			/* Free mbuf */
+			m_freem(mb);
+
+			/* Invalid send queue */
+			return;
+		}
+		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
+	}
+
+	mtx_lock(&sq->lock);
+
+	struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
+
+	av.key.qkey.qkey = cpu_to_be32(ipoib_priv->qkey);
+	/* ext bit (31st bit) should be set for IPoIB */
+	av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
+	av.fl_mlid = 0;
+	av.grh_gid_fl = cpu_to_be32(1u << 30);
+	memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
+	ah2av(address, &av);
+
+	m_adj(mb, sizeof (struct ipoib_pseudoheader));
+
+	mlx5i_xmit_locked(mb, &av, dqpn, sq);
+
+	mtx_unlock(&sq->lock);
+}
+
 struct ipoib_dev_priv *
 ipoib_intf_alloc(const char *name, struct ib_device *hca)
 {
@@ -905,6 +994,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_t dev;
 
 	priv = ipoib_priv_alloc();
+  priv->direct_connect = false;
 	dev = priv->dev = if_alloc(IFT_INFINIBAND);
 	if_setsoftc(dev, priv);
 	priv->gone = 2; /* initializing */
@@ -923,7 +1013,13 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	if_setstartfn(dev, ipoib_start);
+  if(hca->direct_connect == true) {
+    /* Setup optimizations and direct connection */
+    priv->direct_connect = true;
+	  if_settransmitfn(dev, ipoib_xmit);
+  } else {
+	  if_setstartfn(dev, ipoib_start);
+  }
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
@@ -949,21 +1045,17 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_sethwassist(priv->dev, CSUM_IP | CSUM_TCP | CSUM_UDP);
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
-
-#if 0
-	if (priv->dev->features & NETIF_F_SG && priv->hca_caps & IB_DEVICE_UD_TSO) {
-		priv->dev->if_capabilities |= IFCAP_TSO4;
-		priv->dev->if_hwassist |= CSUM_TSO;
-	}
 #endif
+#ifdef VDURA_CHANGES
+	priv->dev->if_capabilities |= IFCAP_TSO4;
+	priv->dev->if_hwassist |= CSUM_TSO;
 #endif
 	if_setcapabilitiesbit(priv->dev,
-	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE, 0);
+	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));
 
 	return 0;
 }
-
 
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
@@ -1085,6 +1177,7 @@ ipoib_add_one(struct ib_device *device)
 		}
 	}
 
+  printf("set client data %p %p %s\n", device, &ipoib_client, ipoib_client.name);
 	ib_set_client_data(device, &ipoib_client, dev_list);
 }
 
@@ -1438,8 +1531,8 @@ ipoib_cleanup_module(void)
 	EVENTHANDLER_DEREGISTER(vlan_config, ipoib_vlan_attach);
 	EVENTHANDLER_DEREGISTER(vlan_unconfig, ipoib_vlan_detach);
 	ib_unregister_client(&ipoib_client);
-	ib_sa_unregister_client(&ipoib_sa_client);
-	destroy_workqueue(ipoib_workqueue);
+	//ib_sa_unregister_client(&ipoib_sa_client);
+	//destroy_workqueue(ipoib_workqueue);
 }
 module_init_order(ipoib_init_module, SI_ORDER_FIFTH);
 module_exit_order(ipoib_cleanup_module, SI_ORDER_FIFTH);
@@ -1457,5 +1550,6 @@ static moduledata_t ipoib_mod = {
 
 DECLARE_MODULE(ipoib, ipoib_mod, SI_SUB_LAST, SI_ORDER_ANY);
 MODULE_DEPEND(ipoib, ibcore, 1, 1, 1);
+MODULE_DEPEND(ipoib, mlx5ib, 1, 1, 1);
 MODULE_DEPEND(ipoib, if_infiniband, 1, 1, 1);
 MODULE_DEPEND(ipoib, linuxkpi, 1, 1, 1);

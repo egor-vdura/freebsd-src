@@ -35,6 +35,7 @@
 #include <dev/mlx5/mlx5_core/fs_core.h>
 #include <dev/mlx5/mlx5_core/mlx5_core.h>
 
+
 int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 			    enum fs_ft_type type,
 			    unsigned int id)
@@ -49,14 +50,27 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
 	MLX5_SET(set_flow_table_root_in, in, table_type, type);
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
+	if (dev->qpn_enabled == true)
+	{
+		MLX5_SET(set_flow_table_root_in, in, underlay_qpn, dev->underlay_qpn);
+		MLX5_SET(set_flow_table_root_in, in, vport_number, dev->vport);
+	}
+	MLX5_SET(set_flow_table_root_in, in, other_vport, 0);
 
 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 }
+enum {
+	MLX5_SHARED_RESOURCE_UID = 0xffff,
+};
 
 int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 			  u16 vport, enum fs_ft_type type, unsigned int level,
 			  unsigned int log_size, const char *name, unsigned int *table_id)
 {
+	int en_encap = 0;
+	int en_decap = 0;
+	int term = 0;
+
 	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)] = {0};
 	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)] = {0};
 	int err;
@@ -67,17 +81,24 @@ int mlx5_cmd_fs_create_ft(struct mlx5_core_dev *dev,
 	MLX5_SET(create_flow_table_in, in, opcode,
 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
 
+	MLX5_SET(create_flow_table_in, in, uid, MLX5_SHARED_RESOURCE_UID);
 	MLX5_SET(create_flow_table_in, in, table_type, type);
 	MLX5_SET(create_flow_table_in, in, flow_table_context.level, level);
-	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size,
-		 log_size);
-	if (strstr(name, FS_REFORMAT_KEYWORD) != NULL)
-		MLX5_SET(create_flow_table_in, in,
-			 flow_table_context.reformat_en, 1);
-	if (vport) {
-		MLX5_SET(create_flow_table_in, in, vport_number, vport);
-		MLX5_SET(create_flow_table_in, in, other_vport, 1);
-	}
+	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size, log_size);
+
+	MLX5_SET(create_flow_table_in, in, vport_number, vport);
+	MLX5_SET(create_flow_table_in, in, other_vport, 0);
+
+	MLX5_SET(create_flow_table_in, in, flow_table_context.decap_en,
+		 en_decap);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.reformat_en,
+		 en_encap);
+	MLX5_SET(create_flow_table_in, in, flow_table_context.termination_table,
+		 term);
+
+	MLX5_SET(create_flow_table_in, in,
+			flow_table_context.table_miss_action,
+			MLX5_FLOW_TABLE_MISS_ACTION_DEF);
 
 	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 	if (!err)
@@ -128,6 +149,7 @@ int mlx5_cmd_fs_create_fg(struct mlx5_core_dev *dev,
 		MLX5_SET(create_flow_group_in, in, vport_number, vport);
 		MLX5_SET(create_flow_group_in, in, other_vport, 1);
 	}
+	printk("mlx5_cmd_fs_create_fg %d", type);
 
 	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
 	if (!err)

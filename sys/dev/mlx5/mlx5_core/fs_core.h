@@ -46,7 +46,7 @@ enum fs_ft_type {
 	FS_FT_ESW_INGRESS_ACL = 0x3,
 	FS_FT_FDB             = 0X4,
 	FS_FT_SNIFFER_RX      = 0x5,
-	FS_FT_SNIFFER_TX      = 0x6
+	FS_FT_SNIFFER_TX      = 0X6
 };
 
 enum fs_fte_status {
@@ -124,6 +124,12 @@ struct fs_prio {
 	/*When create shared flow table, this lock should be taken*/
 	struct mutex		shared_lock;
 	u8				flags;
+};
+
+enum mlx5_flow_table_miss_action {
+	MLX5_FLOW_TABLE_MISS_ACTION_DEF,
+	MLX5_FLOW_TABLE_MISS_ACTION_FWD,
+	MLX5_FLOW_TABLE_MISS_ACTION_SWITCH_DOMAIN,
 };
 
 struct mlx5_flow_namespace {

@@ -56,12 +56,14 @@ int ipoib_mcast_attach(struct ipoib_dev_priv *priv, u16 mlid, union ib_gid *mgid
 			goto out;
 
 		/* set correct QKey for QP */
+    if (priv->direct_connect == false) {
 		qp_attr->qkey = priv->qkey;
-		ret = ib_modify_qp(priv->qp, qp_attr, IB_QP_QKEY);
-		if (ret) {
-			ipoib_warn(priv, "failed to modify QP, ret = %d\n", ret);
-			goto out;
-		}
+      ret = ib_modify_qp(priv->qp, qp_attr, IB_QP_QKEY);
+      if (ret) {
+        ipoib_warn(priv, "failed to modify QP, ret = %d\n", ret);
+        goto out;
+      }
+    }
 	}
 
 	/* attach QP to multicast group */
@@ -81,42 +83,42 @@ int ipoib_init_qp(struct ipoib_dev_priv *priv)
 	int attr_mask;
 
 	if (!test_bit(IPOIB_PKEY_ASSIGNED, &priv->flags))
-		return -1;
+	  return -1;
 
 	qp_attr.qp_state = IB_QPS_INIT;
-	qp_attr.qkey = 0;
-	qp_attr.port_num = priv->port;
-	qp_attr.pkey_index = priv->pkey_index;
-	attr_mask =
-	    IB_QP_QKEY |
-	    IB_QP_PORT |
-	    IB_QP_PKEY_INDEX |
-	    IB_QP_STATE;
+  qp_attr.qkey = 0;
+  qp_attr.port_num = priv->port;
+  qp_attr.pkey_index = priv->pkey_index;
+  attr_mask =
+      IB_QP_QKEY |
+      IB_QP_PORT |
+      IB_QP_PKEY_INDEX |
+      IB_QP_STATE;
 
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to init, ret = %d\n", ret);
-		goto out_fail;
-	}
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to init, ret = %d\n", ret);
+      goto out_fail;
+    }
 
-	qp_attr.qp_state = IB_QPS_RTR;
-	/* Can't set this in a INIT->RTR transition */
-	attr_mask &= ~IB_QP_PORT;
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to RTR, ret = %d\n", ret);
-		goto out_fail;
-	}
+	  qp_attr.qp_state = IB_QPS_RTR;
+	  /* Can't set this in a INIT->RTR transition */
+    attr_mask &= ~IB_QP_PORT;
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to RTR, ret = %d\n", ret);
+      goto out_fail;
+    }
 
-	qp_attr.qp_state = IB_QPS_RTS;
-	qp_attr.sq_psn = 0;
-	attr_mask |= IB_QP_SQ_PSN;
-	attr_mask &= ~IB_QP_PKEY_INDEX;
-	ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
-	if (ret) {
-		ipoib_warn(priv, "failed to modify QP to RTS, ret = %d\n", ret);
-		goto out_fail;
-	}
+	  qp_attr.qp_state = IB_QPS_RTS;
+    qp_attr.sq_psn = 0;
+    attr_mask |= IB_QP_SQ_PSN;
+    attr_mask &= ~IB_QP_PKEY_INDEX;
+    ret = ib_modify_qp(priv->qp, &qp_attr, attr_mask);
+    if (ret) {
+      ipoib_warn(priv, "failed to modify QP to RTS, ret = %d\n", ret);
+      goto out_fail;
+    }
 
 	return 0;
 
@@ -131,19 +133,19 @@ out_fail:
 int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 {
 	struct ib_qp_init_attr init_attr = {
-		.cap = {
-			.max_send_wr  = ipoib_sendq_size,
-			.max_recv_wr  = ipoib_recvq_size,
-			.max_send_sge = 1,
-			.max_recv_sge = IPOIB_UD_RX_SG
-		},
-		.sq_sig_type = IB_SIGNAL_ALL_WR,
+     .cap = {
+              .max_send_wr  = ipoib_sendq_size,
+              .max_recv_wr  = ipoib_recvq_size,
+              .max_send_sge = 1,
+              .max_recv_sge = IPOIB_UD_RX_SG
+     },
+    .sq_sig_type = IB_SIGNAL_ALL_WR,
 		.qp_type     = IB_QPT_UD
 	};
-	struct ib_cq_init_attr cq_attr = {};
+	//struct ib_cq_init_attr cq_attr = {};
 	caddr_t lla;
 
-	int ret, size;
+	//int ret, size;
 	int i;
 	/* XXX struct ethtool_coalesce *coal; */
 
@@ -153,16 +155,19 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 		return -ENODEV;
 	}
 
+  /*
 	size = ipoib_recvq_size + 1;
 	ret = ipoib_cm_dev_init(priv);
 	if (!ret) {
 		size += ipoib_sendq_size;
 		if (ipoib_cm_has_srq(priv))
-			size += ipoib_recvq_size + 1; /* 1 extra for rx_drain_qp */
+			size += ipoib_recvq_size + 1; 1 extra for rx_drain_qp
 		else
 			size += ipoib_recvq_size * ipoib_max_conn_qp;
 	}
+*/
 
+  /*
 	cq_attr.cqe = size;
 	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, priv, &cq_attr);
 	if (IS_ERR(priv->recv_cq)) {
@@ -180,7 +185,7 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 
 	if (ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP))
 		goto out_free_send_cq;
-
+  */
 #if 0
 	/* XXX */
 	coal = kzalloc(sizeof *coal, GFP_KERNEL);
@@ -194,8 +199,8 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 	}
 #endif
 
-	init_attr.send_cq = priv->send_cq;
-	init_attr.recv_cq = priv->recv_cq;
+	//init_attr.send_cq = priv->send_cq;
+	//init_attr.recv_cq = priv->recv_cq;
 
 	if (priv->hca_caps & IB_DEVICE_UD_TSO)
 		init_attr.create_flags |= IB_QP_CREATE_IPOIB_UD_LSO;
@@ -211,11 +216,12 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 		goto out_free_send_cq;
 	}
 
-	lla = if_getlladdr(priv->dev);
-	lla[1] = (priv->qp->qp_num >> 16) & 0xff;
-	lla[2] = (priv->qp->qp_num >>  8) & 0xff;
-	lla[3] = (priv->qp->qp_num      ) & 0xff;
-
+  if(0){
+  lla = if_getlladdr(priv->dev);
+  lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+  lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+  lla[3] = (priv->qp->qp_num      ) & 0xff;
+  }
 	for (i = 0; i < IPOIB_MAX_TX_SG; ++i)
 		priv->tx_sge[i].lkey = priv->pd->local_dma_lkey;
 
@@ -231,12 +237,12 @@ int ipoib_transport_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca)
 	return 0;
 
 out_free_send_cq:
-	ib_destroy_cq(priv->send_cq);
+//	ib_destroy_cq(priv->send_cq);
 
-out_free_recv_cq:
-	ib_destroy_cq(priv->recv_cq);
+//out_free_recv_cq:
+//	ib_destroy_cq(priv->recv_cq);
 
-out_free_mr:
+//out_free_mr:
 	ipoib_cm_dev_cleanup(priv);
 
 	ib_dealloc_pd(priv->pd);
@@ -245,18 +251,16 @@ out_free_mr:
 
 void ipoib_transport_dev_cleanup(struct ipoib_dev_priv *priv)
 {
-
-	if (priv->qp) {
+  if (priv->qp) {
 		if (ib_destroy_qp(priv->qp))
 			ipoib_warn(priv, "ib_qp_destroy failed\n");
 
 		priv->qp = NULL;
 		clear_bit(IPOIB_PKEY_ASSIGNED, &priv->flags);
-	}
+  }
+	//ib_destroy_cq(priv->send_cq);
 
-	ib_destroy_cq(priv->send_cq);
-
-	ib_destroy_cq(priv->recv_cq);
+	//ib_destroy_cq(priv->recv_cq);
 
 	ipoib_cm_dev_cleanup(priv);
 
