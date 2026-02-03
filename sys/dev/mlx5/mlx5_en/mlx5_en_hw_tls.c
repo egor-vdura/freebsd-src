@@ -783,7 +783,7 @@ mlx5e_sq_tls_xmit(struct mlx5e_sq *sq, struct mlx5e_xmit_args *parg, struct mbuf
 
 	ptls_tag = container_of(ptag, struct mlx5e_tls_tag, tag);
 
-	header_size = mlx5e_get_full_header_size(mb, &th);
+	header_size = mlx5e_get_full_header_size(mb, &th, false);
 	if (unlikely(header_size == 0 || th == NULL))
 		return (MLX5E_TLS_FAILURE);
 
