@@ -246,7 +246,7 @@ mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth, b
 
   // Is the underlay protocol IB or ETH
   if(qpn_enabled) {
-    init_eth_hdr_len = mb->m_len;
+    init_eth_hdr_len = 4;
     eth_hdr_len = 0;
     eth_type = ETHERTYPE_IP;
 	  mb = mb->m_next;
