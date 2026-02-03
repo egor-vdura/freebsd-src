@@ -1531,8 +1531,8 @@ ipoib_cleanup_module(void)
 	EVENTHANDLER_DEREGISTER(vlan_config, ipoib_vlan_attach);
 	EVENTHANDLER_DEREGISTER(vlan_unconfig, ipoib_vlan_detach);
 	ib_unregister_client(&ipoib_client);
-	//ib_sa_unregister_client(&ipoib_sa_client);
-	//destroy_workqueue(ipoib_workqueue);
+	ib_sa_unregister_client(&ipoib_sa_client);
+	destroy_workqueue(ipoib_workqueue);
 }
 module_init_order(ipoib_init_module, SI_ORDER_FIFTH);
 module_exit_order(ipoib_cleanup_module, SI_ORDER_FIFTH);
