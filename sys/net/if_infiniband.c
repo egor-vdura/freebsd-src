@@ -545,11 +545,7 @@ infiniband_input(struct ifnet *ifp, struct mbuf *m)
 	switch (ibh->ib_protocol) {
 #ifdef INET
 	case htons(ETHERTYPE_IP):
-#ifdef RSS
-		isr = NETISR_IP_DIRECT;
-#else
 		isr = NETISR_IP;
-#endif
 		break;
 
 	case htons(ETHERTYPE_ARP):
@@ -563,11 +559,7 @@ infiniband_input(struct ifnet *ifp, struct mbuf *m)
 #endif
 #ifdef INET6
 	case htons(ETHERTYPE_IPV6):
-#ifdef RSS
-		isr = NETISR_IPV6_DIRECT;
-#else
 		isr = NETISR_IPV6;
-#endif
 		break;
 #endif
 	default:
