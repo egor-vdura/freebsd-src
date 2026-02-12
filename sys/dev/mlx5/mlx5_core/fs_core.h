@@ -46,7 +46,7 @@ enum fs_ft_type {
 	FS_FT_ESW_INGRESS_ACL = 0x3,
 	FS_FT_FDB             = 0X4,
 	FS_FT_SNIFFER_RX      = 0x5,
-	FS_FT_SNIFFER_TX      = 0X6
+	FS_FT_SNIFFER_TX      = 0x6
 };
 
 enum fs_fte_status {

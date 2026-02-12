@@ -1825,10 +1825,9 @@ mlx5e_open_sq(struct mlx5e_channel *c,
 	if (err)
 		return (err);
 
-  err = mlx5e_enable_sq(sq, param, &c->bfreg, c->priv->tisn[tc]);
+	err = mlx5e_enable_sq(sq, param, &c->bfreg, c->priv->tisn[tc]);
 	if (err)
 		goto err_destroy_sq;
-	
 
 	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY);
 	if (err)
@@ -2258,6 +2257,7 @@ mlx5e_open_channel(struct mlx5e_priv *priv,
 	    &mlx5e_rx_cq_comp, c->ix);
 	if (err)
 		goto err_close_tx_cqs;
+
 	err = mlx5e_open_sqs(c, cparam);
 	if (err)
 		goto err_close_rx_cq;
@@ -2676,10 +2676,8 @@ mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
 
 	memset(in, 0, sizeof(in));
 
-  if(mdev->qpn_enabled)
-  {
-    MLX5_SET(tisc, tisc, underlay_qpn, mdev->underlay_qpn);
-  }
+	if(mdev->qpn_enabled)
+		MLX5_SET(tisc, tisc, underlay_qpn, mdev->underlay_qpn);
 	MLX5_SET(tisc, tisc, prio, tc);
 	MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
 
@@ -2689,7 +2687,7 @@ mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
 static void
 mlx5e_close_tis(struct mlx5e_priv *priv, int tc)
 {
-  mlx5_core_destroy_tis(priv->mdev, priv->tisn[tc], 0);
+	mlx5_core_destroy_tis(priv->mdev, priv->tisn[tc], 0);
 }
 
 int
@@ -2709,7 +2707,7 @@ mlx5e_open_tises(struct mlx5e_priv *priv)
 
 err_close_tises:
 	for (tc--; tc >= 0; tc--)
-	  mlx5e_close_tis(priv, tc);
+		mlx5e_close_tis(priv, tc);
 
 	return (err);
 }
@@ -2718,10 +2716,10 @@ void
 mlx5e_close_tises(struct mlx5e_priv *priv)
 {
 	int num_tc = priv->num_tc;
-	 int tc;
+	int tc;
 
 	for (tc = 0; tc < num_tc; tc++)
-	  mlx5e_close_tis(priv, tc);
+		mlx5e_close_tis(priv, tc);
 }
 
 static int

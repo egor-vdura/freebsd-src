@@ -688,16 +688,13 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
 			return -EINVAL;
 
 		idev = device->get_netdev(device, port_num);
-		if (!idev){
-      printf("ib_init_ah_from_path 1\n");
+		if (!idev)
 			return -ENODEV;
-    }
 
 		resolved_dev = dev_get_by_index(dev_addr.net,
 						dev_addr.bound_dev_if);
 		if (!resolved_dev) {
 			dev_put(idev);
-      printf("ib_init_ah_from_path 2\n");
 			return -ENODEV;
 		}
 		ndev = ib_get_ndev_from_path(rec);
@@ -915,10 +912,7 @@ int ib_sa_path_rec_get(struct ib_sa_client *client,
 	int ret;
 
 	if (!sa_dev)
-  {
-      printf("ib_init_ah_from_path 3\n");
 		return -ENODEV;
-  }
 
 	port  = &sa_dev->port[port_num - sa_dev->start_port];
 	agent = port->agent;
@@ -1038,10 +1032,7 @@ int ib_sa_service_rec_query(struct ib_sa_client *client,
 	int ret;
 
 	if (!sa_dev)
-  {
-      printf("ib_init_ah_from_path 7\n");
 		return -ENODEV;
-  }
 
 	port  = &sa_dev->port[port_num - sa_dev->start_port];
 	agent = port->agent;
@@ -1138,10 +1129,7 @@ int ib_sa_mcmember_rec_query(struct ib_sa_client *client,
 	int ret;
 
 	if (!sa_dev)
-  {
-      printf("ib_init_ah_from_path 6 %p %p\n", device, client);
 		return -ENODEV;
-  }
 
 	port  = &sa_dev->port[port_num - sa_dev->start_port];
 	agent = port->agent;
@@ -1232,10 +1220,7 @@ int ib_sa_guid_info_rec_query(struct ib_sa_client *client,
 	int ret;
 
 	if (!sa_dev)
-  {
-      printf("ib_init_ah_from_path 5\n");
 		return -ENODEV;
-  }
 
 	if (method != IB_MGMT_METHOD_GET &&
 	    method != IB_MGMT_METHOD_SET &&
@@ -1348,10 +1333,7 @@ int ib_sa_classport_info_rec_query(struct ib_sa_client *client,
 	unsigned long flags;
 
 	if (!sa_dev)
-  {
-      printf("ib_init_ah_from_path 4\n");
 		return -ENODEV;
-  }
 
 	port  = &sa_dev->port[port_num - sa_dev->start_port];
 	agent = port->agent;

@@ -225,12 +225,11 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 #define MOD_QP_IN_SET_QPC(typ, in, _opcode, _qpn, _opt_p, _qpc, _uid)          \
 	do {                                                                   \
 		MOD_QP_IN_SET(typ, in, _opcode, _qpn, _uid);                   \
-    MLX5_SET(typ##_in, in, opt_param_mask, _opt_p);                \
-    memcpy(MLX5_ADDR_OF(typ##_in, in, qpc), _qpc,                  \
-    MLX5_ST_SZ_BYTES(qpc));                                 \
+		MLX5_SET(typ##_in, in, opt_param_mask, _opt_p);                \
+		memcpy(MLX5_ADDR_OF(typ##_in, in, qpc), _qpc,                  \
+		       MLX5_ST_SZ_BYTES(qpc));                                 \
 	} while (0)
 
-    printf("REEEE TRANSI %d\n", opt_param_mask);
 	switch (opcode) {
 	/* 2RST & 2ERR */
 	case MLX5_CMD_OP_2RST_QP:
@@ -246,73 +245,71 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 
 	/* MODIFY with QPC */
 	case MLX5_CMD_OP_RST2INIT_QP:
-    printf("REEEE RST2INIT\n");
+		printf("REEEE RST2INIT\n");
 		if (MBOX_ALLOC(mbox, rst2init_qp))
 			return -ENOMEM;
-    if(marker == true) {
-      printf("RAAAAAAight here 2\n\n");
-    u32 *qpc;
-    qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, mbox->in, qpc);
+		if(marker == true) {
+			printf("RAAAAAAight here 2\n\n");
+			u32 *qpc;
+			qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, mbox->in, qpc);
 
-    MLX5_SET(rst2init_qp_in, mbox->in, opcode, opcode);
-    MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-    MLX5_SET(qpc, qpc, primary_address_path.port, 1);
-    MLX5_SET(qpc, qpc, q_key, IB_DEFAULT_Q_KEY);
-    MLX5_SET(rst2init_qp_in, mbox->in, qpn, qpn);
-		MLX5_SET(rst2init_qp_in , mbox->in, uid, uid);
-    }else{
-		  MOD_QP_IN_SET_QPC(rst2init_qp, mbox->in, opcode, qpn,
-				  opt_param_mask, qpc, uid);
-    }
+			MLX5_SET(rst2init_qp_in, mbox->in, opcode, opcode);
+			MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
+			MLX5_SET(qpc, qpc, primary_address_path.port, 1);
+			MLX5_SET(qpc, qpc, q_key, IB_DEFAULT_Q_KEY);
+			MLX5_SET(rst2init_qp_in, mbox->in, qpn, qpn);
+			MLX5_SET(rst2init_qp_in , mbox->in, uid, uid);
+		}else{
+			MOD_QP_IN_SET_QPC(rst2init_qp, mbox->in, opcode, qpn,
+				          opt_param_mask, qpc, uid);
+		}
 		break;
 	case MLX5_CMD_OP_INIT2RTR_QP:
-    printf("REEEE INIT2RTR\n");
+		printf("REEEE INIT2RTR\n");
 		if (MBOX_ALLOC(mbox, init2rtr_qp))
 			return -ENOMEM;
-    if(marker == true) {
-    MLX5_SET(init2rtr_qp_in, mbox->in, opcode, opcode);
-    MLX5_SET(init2rtr_qp_in, mbox->in, qpn, qpn);
-		MLX5_SET(init2rtr_qp_in, mbox->in, uid, uid);
-    }else{
-		MOD_QP_IN_SET_QPC(init2rtr_qp, mbox->in, opcode, qpn,
-				  opt_param_mask, qpc, uid);
-    }
+		if(marker == true) {
+			MLX5_SET(init2rtr_qp_in, mbox->in, opcode, opcode);
+			MLX5_SET(init2rtr_qp_in, mbox->in, qpn, qpn);
+			MLX5_SET(init2rtr_qp_in, mbox->in, uid, uid);
+		}else
+			MOD_QP_IN_SET_QPC(init2rtr_qp, mbox->in, opcode, qpn,
+				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_RTR2RTS_QP:
-    printf("REEEE RTR2RTS\n");
+		printf("REEEE RTR2RTS\n");
 		if (MBOX_ALLOC(mbox, rtr2rts_qp))
 			return -ENOMEM;
-    if(marker == true) {
-    MLX5_SET(rtr2rts_qp_in, mbox->in, opcode, opcode);
-    MLX5_SET(rtr2rts_qp_in, mbox->in, qpn, qpn);
-		MLX5_SET(rtr2rts_qp_in, mbox->in, uid, uid);
-    }else{
-		MOD_QP_IN_SET_QPC(rtr2rts_qp, mbox->in, opcode, qpn,
-				  opt_param_mask, qpc, uid);
-    }
+		if(marker == true) {
+			MLX5_SET(rtr2rts_qp_in, mbox->in, opcode, opcode);
+			MLX5_SET(rtr2rts_qp_in, mbox->in, qpn, qpn);
+			MLX5_SET(rtr2rts_qp_in, mbox->in, uid, uid);
+		}else
+			MOD_QP_IN_SET_QPC(rtr2rts_qp, mbox->in, opcode, qpn,
+				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_RTS2RTS_QP:
-    printf("REEEE RTS2RTS\n");
+		printf("REEEE RTS2RTS\n");
 		if (MBOX_ALLOC(mbox, rts2rts_qp))
 			return -ENOMEM;
 		if(marker == true) {
-    MLX5_SET(rts2rts_qp_in, mbox->in, opcode, opcode);
-    MLX5_SET(rts2rts_qp_in, mbox->in, qpn, qpn);
-		MLX5_SET(rts2rts_qp_in, mbox->in, uid, uid);
-    }else
-      MOD_QP_IN_SET_QPC(rts2rts_qp, mbox->in, opcode, qpn,
-				  opt_param_mask, qpc, uid);
+			MLX5_SET(rts2rts_qp_in, mbox->in, opcode, opcode);
+			MLX5_SET(rts2rts_qp_in, mbox->in, qpn, qpn);
+			MLX5_SET(rts2rts_qp_in, mbox->in, uid, uid);
+		}else
+			MOD_QP_IN_SET_QPC(rts2rts_qp, mbox->in, opcode, qpn,
+				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_SQERR2RTS_QP:
 		if (MBOX_ALLOC(mbox, sqerr2rts_qp))
 			return -ENOMEM;
 		if(marker == true) {
-    MLX5_SET(sqerr2rts_qp_in, mbox->in, opcode, opcode);
-    MLX5_SET(sqerr2rts_qp_in, mbox->in, qpn, qpn);
-		MLX5_SET(sqerr2rts_qp_in, mbox->in, uid, uid);
-    }else
-		MOD_QP_IN_SET_QPC(sqerr2rts_qp, mbox->in, opcode, qpn,
-				  opt_param_mask, qpc, uid);
+			MLX5_SET(sqerr2rts_qp_in, mbox->in, opcode, opcode);
+			MLX5_SET(sqerr2rts_qp_in, mbox->in, qpn, qpn);
+			MLX5_SET(sqerr2rts_qp_in, mbox->in, uid, uid);
+		}else
+			MOD_QP_IN_SET_QPC(sqerr2rts_qp, mbox->in, opcode, qpn,
+				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_INIT2INIT_QP:
 		if (MBOX_ALLOC(mbox, init2init_qp))

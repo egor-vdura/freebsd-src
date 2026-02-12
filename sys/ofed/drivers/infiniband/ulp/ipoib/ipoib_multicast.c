@@ -258,7 +258,7 @@ ipoib_mcast_sendonly_join_complete(int status,
 
 	if (status) {
 		if (mcast->logcount++ < 20)
-			ipoib_dbg_mcast(priv, "multicast join failed 1 for %16D, status %d\n",
+			ipoib_dbg_mcast(priv, "multicast join failed for %16D, status %d\n",
 					mcast->mcmember.mgid.raw, ":", status);
 
 		/* Flush out any queued packets */
@@ -286,7 +286,6 @@ static int ipoib_mcast_sendonly_join(struct ipoib_mcast *mcast)
 
 	if (!test_bit(IPOIB_FLAG_OPER_UP, &priv->flags)) {
 		ipoib_dbg_mcast(priv, "device shutting down, no multicast joins\n");
-    printf("REE ipoib_mcast_sendonly_join\n");
 		return -ENODEV;
 	}
 
@@ -354,10 +353,7 @@ static int ipoib_mcast_join_complete(int status,
 		return 0;
 
 	if (!status)
-  {
 		status = ipoib_mcast_join_finish(mcast, &multicast->rec);
-    printf("JOIN FINISH %d\n", status);
-  }
 
 	if (!status) {
 		mcast->backoff = 1;
@@ -379,10 +375,10 @@ static int ipoib_mcast_join_complete(int status,
 
 	if (mcast->logcount++ < 20) {
 		if (status == -ETIMEDOUT || status == -EAGAIN) {
-			ipoib_dbg_mcast(priv, "multicast join failed 2 for %16D, status %d\n",
+			ipoib_dbg_mcast(priv, "multicast join failed for %16D, status %d\n",
 					mcast->mcmember.mgid.raw, ":", status);
 		} else {
-			ipoib_warn(priv, "multicast join failed 3 for %16D, status %d\n",
+			ipoib_warn(priv, "multicast join failed for %16D, status %d\n",
 				   mcast->mcmember.mgid.raw, ":", status);
 		}
 	}

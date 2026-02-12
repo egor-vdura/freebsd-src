@@ -769,7 +769,6 @@ struct mlx5_ib_dev {
 	u8				ib_active:1;
 	u8				wc_support:1;
 	struct umr_common		umrc;
-
 	/* sync used page count stats
 	 */
 	struct mlx5_ib_resources	devr;

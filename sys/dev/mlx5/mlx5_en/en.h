@@ -943,7 +943,7 @@ enum mlx5e_traffic_types {
 	MLX5E_TT_IPV4,
 	MLX5E_TT_IPV6,
 	MLX5E_TT_ANY,
-  MLX5E_NUM_TT,
+	MLX5E_NUM_TT,
 };
 
 enum {

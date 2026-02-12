@@ -235,81 +235,81 @@ int
 mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth, bool qpn_enabled)
 {
 	struct mbuf *mb = (struct mbuf*)_mb;
-  const struct ether_vlan_header *eh;
+	const struct ether_vlan_header *eh;
 	const struct tcphdr *th;
 	const struct ip *ip;
 	int ip_hlen, tcp_hlen;
-  const struct ip6_hdr *ip6;
-  uint16_t eth_type;
+	const struct ip6_hdr *ip6;
+	uint16_t eth_type;
 	int eth_hdr_len;
-  int init_eth_hdr_len = 0;
+	int init_eth_hdr_len = 0;
 
-  // Is the underlay protocol IB or ETH
-  if(qpn_enabled) {
-    init_eth_hdr_len = 4;
-    eth_hdr_len = 0;
-    eth_type = ETHERTYPE_IP;
-	  mb = mb->m_next;
-  } else {
-    eh = mtod(mb, const struct ether_vlan_header *);
-    if (unlikely(mb->m_len < ETHER_HDR_LEN))
-      goto failure;
-    if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
-      if (unlikely(mb->m_len < ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN))
-        goto failure;
-      eth_type = ntohs(eh->evl_proto);
-      eth_hdr_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
-    } else {
-      eth_type = ntohs(eh->evl_encap_proto);
-      eth_hdr_len = ETHER_HDR_LEN;
-    }
-  }
+	// Is the underlay protocol IB or ETH
+	if(qpn_enabled) {
+		init_eth_hdr_len = 4;
+		eth_hdr_len = 0;
+		eth_type = ETHERTYPE_IP;
+		mb = mb->m_next;
+	} else {
+		eh = mtod(mb, const struct ether_vlan_header *);
+		if (unlikely(mb->m_len < ETHER_HDR_LEN))
+			goto failure;
+		if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
+			if (unlikely(mb->m_len < ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN))
+				goto failure;
+			eth_type = ntohs(eh->evl_proto);
+			eth_hdr_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
+		} else {
+			eth_type = ntohs(eh->evl_encap_proto);
+			eth_hdr_len = ETHER_HDR_LEN;
+		}
+	}
 
-  switch (eth_type) {
-  case ETHERTYPE_IP:
-    ip = (const struct ip *)(mb->m_data + eth_hdr_len);
-    if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip)))
-      goto failure;
-    switch (ip->ip_p) {
-    case IPPROTO_TCP:
-      ip_hlen = ip->ip_hl << 2;
-      eth_hdr_len += ip_hlen;
-      goto tcp_packet;
-    case IPPROTO_UDP:
-      ip_hlen = ip->ip_hl << 2;
-      eth_hdr_len += ip_hlen + sizeof(struct udphdr);
-      th = NULL;
-      goto udp_packet;
-    default:
-      goto failure;
-    }
-    break;
-  case ETHERTYPE_IPV6:
-    ip6 = (const struct ip6_hdr *)(mb->m_data + eth_hdr_len);
-    if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip6)))
-      goto failure;
-    switch (ip6->ip6_nxt) {
-    case IPPROTO_TCP:
-      eth_hdr_len += sizeof(*ip6);
-      goto tcp_packet;
-    case IPPROTO_UDP:
-      eth_hdr_len += sizeof(*ip6) + sizeof(struct udphdr);
-      th = NULL;
-      goto udp_packet;
-    default:
-      goto failure;
-    }
-    break;
-  default:
-    goto failure;
-  }
+	switch (eth_type) {
+	case ETHERTYPE_IP:
+		ip = (const struct ip *)(mb->m_data + eth_hdr_len);
+		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip)))
+			goto failure;
+		switch (ip->ip_p) {
+		case IPPROTO_TCP:
+			ip_hlen = ip->ip_hl << 2;
+			eth_hdr_len += ip_hlen;
+			goto tcp_packet;
+		case IPPROTO_UDP:
+			ip_hlen = ip->ip_hl << 2;
+			eth_hdr_len += ip_hlen + sizeof(struct udphdr);
+			th = NULL;
+			goto udp_packet;
+		default:
+			goto failure;
+		}
+		break;
+	case ETHERTYPE_IPV6:
+		ip6 = (const struct ip6_hdr *)(mb->m_data + eth_hdr_len);
+		if (unlikely(mb->m_len < eth_hdr_len + sizeof(*ip6)))
+			goto failure;
+		switch (ip6->ip6_nxt) {
+		case IPPROTO_TCP:
+			eth_hdr_len += sizeof(*ip6);
+			goto tcp_packet;
+		case IPPROTO_UDP:
+			eth_hdr_len += sizeof(*ip6) + sizeof(struct udphdr);
+			th = NULL;
+			goto udp_packet;
+		default:
+			goto failure;
+		}
+		break;
+	default:
+		goto failure;
+	}
 
 tcp_packet:
 	if (unlikely(mb->m_len < eth_hdr_len + sizeof(*th))) {
 		const struct mbuf *m_th = mb->m_next;
 		if (unlikely(mb->m_len != eth_hdr_len ||
 		    m_th == NULL || m_th->m_len < sizeof(*th)))
-				goto failure;
+			goto failure;
 		th = (const struct tcphdr *)(m_th->m_data);
 	} else {
 		th = (const struct tcphdr *)(mb->m_data + eth_hdr_len);

@@ -203,12 +203,8 @@ ipoib_stop(struct ipoib_dev_priv *priv)
 		/* Bring down any child interfaces too */
 		mutex_lock(&priv->vlan_mutex);
 		list_for_each_entry(cpriv, &priv->child_intfs, list)
-    {
 			if ((if_getdrvflags(cpriv->dev) & IFF_DRV_RUNNING) != 0)
-      {
 				ipoib_stop(cpriv);
-      }
-    }
 		mutex_unlock(&priv->vlan_mutex);
 	}
 
@@ -496,9 +492,7 @@ ipoib_flush_paths(struct ipoib_dev_priv *priv)
 	list_splice_init(&priv->path_list, &remove_list);
 
 	list_for_each_entry(path, &remove_list, list)
-  {
 		rb_erase(&path->rb_node, &priv->path_tree);
-  }
 
 	list_for_each_entry_safe(path, tp, &remove_list, list) {
 		if (path->query)
@@ -1046,16 +1040,20 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
 #endif
-#ifdef VDURA_CHANGES
-	priv->dev->if_capabilities |= IFCAP_TSO4;
-	priv->dev->if_hwassist |= CSUM_TSO;
-#endif
-	if_setcapabilitiesbit(priv->dev,
-	    IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
+  if(hca->direct_connect == true) {
+	  priv->dev->if_capabilities |= IFCAP_TSO4;
+	  priv->dev->if_hwassist |= CSUM_TSO;
+	  if_setcapabilitiesbit(priv->dev,
+	      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
+  } else {
+	  if_setcapabilitiesbit(priv->dev,
+	      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE, 0);
+  }
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));
 
 	return 0;
 }
+
 
 static if_t
 ipoib_add_port(const char *format, struct ib_device *hca, u8 port)
@@ -1177,7 +1175,6 @@ ipoib_add_one(struct ib_device *device)
 		}
 	}
 
-  printf("set client data %p %p %s\n", device, &ipoib_client, ipoib_client.name);
 	ib_set_client_data(device, &ipoib_client, dev_list);
 }
 

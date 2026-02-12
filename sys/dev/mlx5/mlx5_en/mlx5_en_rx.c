@@ -640,24 +640,23 @@ rx_common:
 		mb->m_pkthdr.numa_domain = if_getnumadomain(rq->ifp);
 #endif
 
-    /* Convert from IPoIB format */
-    if (mb) {
-      struct ipoib_header *eh;
-      m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
-      eh = mtod(mb, struct ipoib_header *);
-      bzero(eh->hwaddr, 4);	/* Zero the queue pair, only dgid is in grh */
-    }
+		/* Convert from IPoIB format */
+		if (mb) {
+			struct ipoib_header *eh;
+			m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
+			eh = mtod(mb, struct ipoib_header *);
+			bzero(eh->hwaddr, 4);	/* Zero the queue pair, only dgid is in grh */
+		}
 #if !defined(HAVE_TCP_LRO_RX)
 		tcp_lro_queue_mbuf(&rq->lro, mb);
 #else
-    if (mb->m_pkthdr.csum_flags == 0 ||
+		if (mb->m_pkthdr.csum_flags == 0 ||
 		    (if_getcapenable(rq->ifp) & IFCAP_LRO) == 0 ||
 		    rq->lro.lro_cnt == 0 ||
 		    tcp_lro_rx(&rq->lro, mb, 0) != 0) {
 			if_input(rq->ifp, mb);
 		}
 #endif
-
 wq_ll_pop:
 		mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
 		    &wqe->next.next_wqe_index);
