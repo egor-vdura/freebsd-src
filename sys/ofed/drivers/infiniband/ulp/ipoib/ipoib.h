@@ -316,8 +316,8 @@ struct ipoib_ethtool_st {
  * of tx_lock (ie tx_lock must be acquired first if needed).
  */
 struct ipoib_dev_priv {
-  bool direct_connect;
-  void* mlx5_ib_dev;
+	bool direct_connect;
+	void* mlx5_ib_dev;
 	spinlock_t lock;
 	spinlock_t drain_lock;
 

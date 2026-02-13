@@ -303,7 +303,6 @@ mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth, b
 	default:
 		goto failure;
 	}
-
 tcp_packet:
 	if (unlikely(mb->m_len < eth_hdr_len + sizeof(*th))) {
 		const struct mbuf *m_th = mb->m_next;

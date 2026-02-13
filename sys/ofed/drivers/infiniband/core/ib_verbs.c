@@ -1334,10 +1334,6 @@ static int _ib_modify_qp(struct ib_qp *qp, struct ib_qp_attr *attr,
 {
 	u8 port = attr_mask & IB_QP_PORT ? attr->port_num : qp->port;
 	int ret;
-  printf("RAAA ib_modify_qp %d\n", attr_mask);
-  printf("RAAA state: %d\n", attr->qp_state);
-  printf("RAAA cur_qp_state: %d\n", attr->cur_qp_state);
-  printf("RAAA dest_qp_num: %d\n", attr->dest_qp_num);
 
 	if (port < rdma_start_port(qp->device) ||
 	    port > rdma_end_port(qp->device))
@@ -1424,7 +1420,7 @@ int ib_modify_qp(struct ib_qp *qp,
 			return ret;
 	}
 
-  int ret = qp->device->modify_qp(qp->real_qp, qp_attr, qp_attr_mask, NULL);
+	int ret = qp->device->modify_qp(qp->real_qp, qp_attr, qp_attr_mask, NULL);
 	printf("ib_modify_qp %d\n", ret);
 	return ret;
 }

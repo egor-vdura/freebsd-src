@@ -916,20 +916,20 @@ ipoib_priv_alloc(void)
 static
 void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
 {
-  struct ib_ah *ah = address->ah;
-  struct ib_ah_attr ah_attr = {0};
-  int err;
+	struct ib_ah *ah = address->ah;
+	struct ib_ah_attr ah_attr = {0};
+	int err;
 
-  err = ah->device->query_ah(ah, &ah_attr);
-  if (!err) {
-    //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
-    av->rlid = cpu_to_be16(ah_attr.dlid);
-    /* TODO: Compare with linux? */
-    av->stat_rate_sl = ah_attr.static_rate << 4;
-    /* TODO: Should ah_attr.sl be used? */
-  } else {
-    printf("ERROR: ah2av: err %d\n", err);
-  }
+	err = ah->device->query_ah(ah, &ah_attr);
+	if (!err) {
+		//printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
+		av->rlid = cpu_to_be16(ah_attr.dlid);
+		/* TODO: Compare with linux? */
+		av->stat_rate_sl = ah_attr.static_rate << 4;
+		/* TODO: Should ah_attr.sl be used? */
+	} else {
+		printf("ERROR: ah2av: err %d\n", err);
+	}
 }
 
 void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
@@ -988,7 +988,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if_t dev;
 
 	priv = ipoib_priv_alloc();
-  priv->direct_connect = false;
+	priv->direct_connect = false;
 	dev = priv->dev = if_alloc(IFT_INFINIBAND);
 	if_setsoftc(dev, priv);
 	priv->gone = 2; /* initializing */
@@ -1007,13 +1007,13 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-  if(hca->direct_connect == true) {
-    /* Setup optimizations and direct connection */
-    priv->direct_connect = true;
-	  if_settransmitfn(dev, ipoib_xmit);
-  } else {
-	  if_setstartfn(dev, ipoib_start);
-  }
+	if(hca->direct_connect == true) {
+		/* Setup optimizations and direct connection */
+		priv->direct_connect = true;
+		if_settransmitfn(dev, ipoib_xmit);
+	} else {
+		if_setstartfn(dev, ipoib_start);
+	}
 
 	if_setsendqlen(dev, ipoib_sendq_size * 2);
 
@@ -1040,15 +1040,15 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
 #endif
-  if(hca->direct_connect == true) {
-	  priv->dev->if_capabilities |= IFCAP_TSO4;
-	  priv->dev->if_hwassist |= CSUM_TSO;
-	  if_setcapabilitiesbit(priv->dev,
-	      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
-  } else {
-	  if_setcapabilitiesbit(priv->dev,
-	      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE, 0);
-  }
+	if(hca->direct_connect == true) {
+		priv->dev->if_capabilities |= IFCAP_TSO4;
+		priv->dev->if_hwassist |= CSUM_TSO;
+		if_setcapabilitiesbit(priv->dev,
+		                      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE | IFCAP_LRO, 0);
+	} else {
+		if_setcapabilitiesbit(priv->dev,
+		                      IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_MTU | IFCAP_LINKSTATE, 0);
+	}
 	if_setcapenable(priv->dev, if_getcapabilities(priv->dev));
 
 	return 0;

@@ -227,17 +227,6 @@ struct vxlan_header {
 	uint32_t	vxlh_vni;
 };
 
-static void
-print_hex(void* _A, int Size)
-{
-	uint8_t* A = (uint8_t*)_A;
-    for (int i = 0; i < Size; i++) {
-        printf("%02x ", A[i]);
-        if ((i+1) % 16 == 0)
-            printf("\n");
-    }
-}
-
 static inline void *
 tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data, bool is_vxlan, int mlen, bool is_eth)
 {
@@ -261,34 +250,31 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 	}
 
 	eh = ptr;
-  if(is_eth) {
-    if (__predict_false(eh->evl_encap_proto == htons(ETHERTYPE_VLAN))) {
-      eth_type = eh->evl_proto;
-      if (update_data) {
-        /* strip priority and keep VLAN ID only */
-        parser->data.vlan_id = eh->evl_tag & htons(EVL_VLID_MASK);
-      }
-      /* advance to next header */
-      ptr = (uint8_t *)ptr + ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
-      mlen -= (ETHER_HDR_LEN  + ETHER_VLAN_ENCAP_LEN);
-    } else {
-      eth_type = eh->evl_encap_proto;
-      /* advance to next header */
-      mlen -= ETHER_HDR_LEN;
-      ptr = (uint8_t *)ptr + ETHER_HDR_LEN;
-    }
-  } else {
-    // We only support ETH or IPoIB underlay protocol
-    mlen -= 24;
-    ptr = (uint8_t *)ptr + 24;
-    eth_type = htons(ETHERTYPE_IP);
-  }
+	if(is_eth) {
+		if (__predict_false(eh->evl_encap_proto == htons(ETHERTYPE_VLAN))) {
+			eth_type = eh->evl_proto;
+			if (update_data) {
+				/* strip priority and keep VLAN ID only */
+				parser->data.vlan_id = eh->evl_tag & htons(EVL_VLID_MASK);
+			}
+			/* advance to next header */
+			ptr = (uint8_t *)ptr + ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
+			mlen -= (ETHER_HDR_LEN  + ETHER_VLAN_ENCAP_LEN);
+		} else {
+			eth_type = eh->evl_encap_proto;
+			/* advance to next header */
+			mlen -= ETHER_HDR_LEN;
+			ptr = (uint8_t *)ptr + ETHER_HDR_LEN;
+		}
+	} else {
+		// We only support ETH or IPoIB underlay protocol
+		mlen -= 24;
+		ptr = (uint8_t *)ptr + 24;
+		eth_type = htons(ETHERTYPE_IP);
+	}
 
 	if (__predict_false(mlen <= 0))
-	{
-		// printf("B1\n");
 		return (NULL);
-	}
 	switch (eth_type) {
 #ifdef INET
 	case htons(ETHERTYPE_IP):

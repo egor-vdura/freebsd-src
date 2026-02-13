@@ -3855,7 +3855,7 @@ err_free_wq:
   //mlx5e_priv_static_destroy(priv, mdev, mdev->priv.eq_table.num_comp_vectors);
 
 err_dealloc_priv:
- 	free(priv, M_MLX5EN);
+	free(priv, M_MLX5EN);
 	return 1;
 }
 
@@ -3869,9 +3869,9 @@ void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 	mlx5_core_dealloc_pd(priv->mdev, priv->pdn, 0);
 	flush_workqueue(priv->wq);
 
-  mlx5e_priv_static_destroy(priv, priv->mdev, priv->mdev->priv.eq_table.num_comp_vectors);
+	mlx5e_priv_static_destroy(priv, priv->mdev, priv->mdev->priv.eq_table.num_comp_vectors);
 
- 	free(priv, M_MLX5EN);
+	free(priv, M_MLX5EN);
 }
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
@@ -3889,7 +3889,7 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (!dev)
 		return NULL;
 
-  dev->ib_dev.direct_connect = true;
+	dev->ib_dev.direct_connect = true;
 	dev->mdev = mdev;
 
 	dev->port = kcalloc(MLX5_CAP_GEN(mdev, num_ports), sizeof(*dev->port),
@@ -4103,8 +4103,8 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (err)
 		goto err_umrc;
 
-  dev->ib_active = true;
-  return dev;
+	dev->ib_active = true;
+	return dev;
 
 err_umrc:
 	destroy_umrc_res(dev);
@@ -4138,7 +4138,6 @@ err_dealloc:
 
 	return NULL;
 }
-
 
 static void mlx5_ib_remove(struct mlx5_core_dev *mdev, void *context)
 {

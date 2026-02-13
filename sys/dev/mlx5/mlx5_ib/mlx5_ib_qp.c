@@ -1840,26 +1840,26 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 		qp->flags |= MLX5_IB_QP_LSO;
 	}
 
-		qp->trans_qp.base.mqp.marker = false;
+	qp->trans_qp.base.mqp.marker = false;
 	if (init_attr->qp_type == IB_QPT_RAW_PACKET) {
 		qp->raw_packet_qp.sq.ubuffer.buf_addr = ucmd.sq_buf_addr;
 		raw_packet_qp_copy_info(qp, &qp->raw_packet_qp);
 		err = create_raw_packet_qp(dev, qp, in, pd);
 	} else {
-    if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO)
-    {
-		qp->trans_qp.base.mqp.marker = true;
-      printf("RAAAAAAight here\n\n");
-	    memset(in, 0, inlen);
-      qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
-      MLX5_SET(qpc, qpc, ts_format, mlx5_get_qp_default_ts(dev->mdev));
-      MLX5_SET(qpc, qpc, st, MLX5_QP_ST_UD);
-      MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-      MLX5_SET(qpc, qpc, ulp_stateless_offload_mode, 2);
-      void* addr_path = MLX5_ADDR_OF(qpc, qpc, primary_address_path);
-      MLX5_SET(ads, addr_path, grh, 1);
-    }
-      err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
+		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO)
+		{
+			qp->trans_qp.base.mqp.marker = true;
+			printf("RAAAAAAight here\n\n");
+			memset(in, 0, inlen);
+			qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
+			MLX5_SET(qpc, qpc, ts_format, mlx5_get_qp_default_ts(dev->mdev));
+			MLX5_SET(qpc, qpc, st, MLX5_QP_ST_UD);
+			MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
+			MLX5_SET(qpc, qpc, ulp_stateless_offload_mode, 2);
+			void* addr_path = MLX5_ADDR_OF(qpc, qpc, primary_address_path);
+			MLX5_SET(ads, addr_path, grh, 1);
+		}
+      		err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
 	}
 
 	if (err) {
@@ -2983,10 +2983,10 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	if (ibqp->rwq_ind_tbl)
 		return -ENOSYS;
 
-  printf("RAAA ib_modify_qp %d %d\n", attr_mask, ibqp->qp_num);
-  printf("RAAA state: %d\n", attr->qp_state);
-  printf("RAAA cur_qp_state: %d\n", attr->cur_qp_state);
-  printf("RAAA dest_qp_num: %d\n", attr->dest_qp_num);
+	printf("RAAA ib_modify_qp %d %d\n", attr_mask, ibqp->qp_num);
+	printf("RAAA state: %d\n", attr->qp_state);
+	printf("RAAA cur_qp_state: %d\n", attr->cur_qp_state);
+	printf("RAAA dest_qp_num: %d\n", attr->dest_qp_num);
 	if (unlikely(ibqp->qp_type == IB_QPT_GSI))
 		return mlx5_ib_gsi_modify_qp(ibqp, attr, attr_mask);
 

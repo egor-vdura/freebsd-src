@@ -632,20 +632,18 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 		return -1;
 	}
 
-  if(priv->direct_connect == true)
-  {
-    ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
-    if (ret)
-    {
-      ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
-      return -1;
-    }
-  }
+	if(priv->direct_connect == true) {
+		ret = mlx5_ib_direct_open(priv->mlx5_ib_dev);
+		if (ret) {
+			ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
+			return -1;
+		}
+	}
 
-  caddr_t lla = if_getlladdr(priv->dev);
-  lla[1] = (priv->qp->qp_num >> 16) & 0xff;
-  lla[2] = (priv->qp->qp_num >>  8) & 0xff;
-  lla[3] = (priv->qp->qp_num     ) & 0xff;
+	caddr_t lla = if_getlladdr(priv->dev);
+	lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+	lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+	lla[3] = (priv->qp->qp_num     ) & 0xff;
 
 	ret = ipoib_ib_post_receives(priv);
 	if (ret) {
@@ -805,14 +803,13 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 	 * Move our QP to the error state and then reinitialize in
 	 * when all work requests have completed or have been flushed.
 	 */
-	  qp_attr.qp_state = IB_QPS_ERR;
-	  if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
-		  check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
+	qp_attr.qp_state = IB_QPS_ERR;
+	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
+		check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
 
-  if(priv->direct_connect == true)
-  {
-    mlx5_ib_direct_close(priv->mlx5_ib_dev);
-  }
+	if(priv->direct_connect == true)
+		mlx5_ib_direct_close(priv->mlx5_ib_dev);
+
 	/* Wait for all sends and receives to complete */
 	begin = jiffies;
 
@@ -848,7 +845,6 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 			goto timeout;
 		}
 
-    //mlx5_ib_direct_teardown(priv->mlx5_ib_dev);
 		//ipoib_drain_cq(priv);
 
 		msleep(1);
@@ -878,45 +874,40 @@ timeout:
 static
 int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
 {
-  struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
-  mlx5_ib_direct_teardown(ib_dev);
-  mlx5_ib_free_en_priv(ib_dev->priv);
-  return 0;
+	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
+	mlx5_ib_direct_teardown(ib_dev);
+	mlx5_ib_free_en_priv(ib_dev->priv);
+	return 0;
 }
 
 static
 int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
 {
-  int ret = 0;
-  ipoib_dev->mlx5_ib_dev = ib_dev;
+	int ret = 0;
+	ipoib_dev->mlx5_ib_dev = ib_dev;
 
-  //struct ib_qp_attr qp_attr;
-  if_t ipoib_if = ipoib_dev->dev;
+	//struct ib_qp_attr qp_attr;
+	if_t ipoib_if = ipoib_dev->dev;
 
-  ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
+	ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
 
-  ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
-  if (ret) {
-    mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure %d\n", ret);
-    return ret;
-  }
+	ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
+	if (ret) {
+		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure %d\n", ret);
+		return ret;
+	}
 
-  if(ipoib_dev->direct_connect == true)
-  {
-    ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
-    if (ret)
-    {
-		  printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
-      return ret;
-    }
-  }
+	if(ipoib_dev->direct_connect == true) {
+		ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
+		if (ret) {
+			mlx5_ib_free_en_priv(ib_dev->priv);
+			printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
+			return ret;
+		}
+	}
 
-  ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
-   return 0;
-
-//direct_setup_err:
-  mlx5_ib_free_en_priv(ib_dev->priv);
-  return ret;
+	ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
+	return 0;
 }
 
 int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int port)
@@ -930,25 +921,21 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	if (ipoib_transport_dev_init(priv, ca)) {
 		printk(KERN_WARNING "%s: ipoib_transport_dev_init failed\n", ca->name);
 		return -ENODEV;
-	} 
+	}
 
-  struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
-  ib_dev->pkey_index = priv->pkey_index;
-  
-  if(priv->direct_connect == true)
-  {
-    if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca))
-    {
+	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
+	ib_dev->pkey_index = priv->pkey_index;
+
+	if(priv->direct_connect == true)
+		if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca)) {
 		  printk(KERN_WARNING "%s:  ipoib_direct_init failed\n", ca->name);
 		  return -ENODEV;
-    }
-  }
+		}
 
 	setup_timer(&priv->poll_timer, ipoib_ib_tx_timer_func,
 		    (unsigned long) priv);
 
 	if (if_getflags(dev) & IFF_UP) {
-    // This will be problematic here
 		if (ipoib_ib_dev_open(priv)) {
 			ipoib_transport_dev_cleanup(priv);
 			return -ENODEV;
@@ -1059,10 +1046,9 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_stop_thread(priv, 1);
 	ipoib_mcast_dev_flush(priv);
 
-  if(priv->direct_connect == true)
-  {
-    ipoib_direct_deinit(priv);
-  }
+	if(priv->direct_connect == true)
+		ipoib_direct_deinit(priv);
+
 	ipoib_ah_dev_cleanup(priv);
 	ipoib_transport_dev_cleanup(priv);
 }
