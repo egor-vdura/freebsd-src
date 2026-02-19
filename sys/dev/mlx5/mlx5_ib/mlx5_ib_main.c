@@ -3532,10 +3532,10 @@ u32 get_tir_number(int i, struct mlx5e_priv *epriv)
 }
 
 static
-int mlx5i_create_fs(struct mlx5_core_dev *mdev, struct mlx5e_priv *epriv)
+int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
 {
 	int err = 0;
-	// TODO properly handle err
+	struct mlx5_core_dev *mdev = dev->mdev;
 	unsigned int table_id;
 	/* setup root flow table with the default rule*/
 	err = err | mlx5i_cmd_fs_create_ft(mdev,
@@ -3564,10 +3564,14 @@ int mlx5i_create_fs(struct mlx5_core_dev *mdev, struct mlx5e_priv *epriv)
 	err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, get_tir_number(dest_id++, epriv));
 	err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, get_tir_number(dest_id++, epriv));
 
-	 flow_index = 16;
+	flow_index = 16;
 	err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, get_tir_number(dest_id++, epriv));
 
-	 return err;
+	// TODO Integrate FT creation with the pre-existing infra. For now, just do basic error handling
+	if (err != 0)
+		mlx5i_destroy_tables(dev);
+
+	return err;
 }
 
 static
@@ -3665,7 +3669,7 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn)
 	dev->mdev->qpn_enabled = true;
 	dev->mdev->underlay_qpn = qpn;
 
-	err = mlx5i_create_fs(dev->mdev, epriv);
+	err = mlx5i_create_fs(dev, epriv);
 	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
 	if (err) {
 		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
