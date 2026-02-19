@@ -641,7 +641,7 @@ rx_common:
 #endif
 
 		/* Convert from IPoIB format */
-		if (mb) {
+		if (rq->channel->priv->mdev->qpn_enabled == true) {
 			struct ipoib_header *eh;
 			m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
 			eh = mtod(mb, struct ipoib_header *);
