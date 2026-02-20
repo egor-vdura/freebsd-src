@@ -638,13 +638,12 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 			ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
 			return -1;
 		}
+		caddr_t lla = if_getlladdr(priv->dev);
+		lla[1] = (priv->qp->qp_num >> 16) & 0xff;
+		lla[2] = (priv->qp->qp_num >>  8) & 0xff;
+		lla[3] = (priv->qp->qp_num     ) & 0xff;
 	}
-
-	caddr_t lla = if_getlladdr(priv->dev);
-	lla[1] = (priv->qp->qp_num >> 16) & 0xff;
-	lla[2] = (priv->qp->qp_num >>  8) & 0xff;
-	lla[3] = (priv->qp->qp_num     ) & 0xff;
-
+	
 	ret = ipoib_ib_post_receives(priv);
 	if (ret) {
 		ipoib_warn(priv, "ipoib_ib_post_receives returned %d\n", ret);
