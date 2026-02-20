@@ -845,7 +845,8 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 			goto timeout;
 		}
 
-		//ipoib_drain_cq(priv);
+		if(priv->direct_connect == false)
+			ipoib_drain_cq(priv);
 
 		msleep(1);
 	}
@@ -864,54 +865,18 @@ timeout:
 	if (flush)
 		flush_workqueue(ipoib_workqueue);
 
-	ipoib_ah_dev_cleanup(priv);
+	ipoib_dev_cleanup(priv);
 
-	//ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
+	if(priv->direct_connect == false)
+		ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
 
-	return 0;
-}
-
-static
-int ipoib_direct_deinit(struct ipoib_dev_priv* ipoib_dev)
-{
-	struct mlx5_ib_dev* ib_dev = container_of(ipoib_dev->ca, struct mlx5_ib_dev, ib_dev);
-	mlx5_ib_direct_teardown(ib_dev);
-	mlx5_ib_free_en_priv(ib_dev->priv);
-	return 0;
-}
-
-static
-int ipoib_direct_init(struct ipoib_dev_priv* ipoib_dev, struct mlx5_ib_dev *ib_dev)
-{
-	int ret = 0;
-	ipoib_dev->mlx5_ib_dev = ib_dev;
-
-	//struct ib_qp_attr qp_attr;
-	if_t ipoib_if = ipoib_dev->dev;
-
-	ipoib_warn(ipoib_dev, ">>> ipoib_direct_init\n");
-
-	ret = mlx5_ib_alloc_en_priv(ib_dev, ipoib_if);
-	if (ret) {
-		mlx5_ib_err(ib_dev, "mlx5_ib_setup_en_priv failure %d\n", ret);
-		return ret;
-	}
-
-	if(ipoib_dev->direct_connect == true) {
-		ret = mlx5_ib_direct_init(ipoib_dev->mlx5_ib_dev, ipoib_dev->qp->qp_num);
-		if (ret) {
-			mlx5_ib_free_en_priv(ib_dev->priv);
-			printk(KERN_WARNING " mlx5_ib_direct_open failed %d\n", ret);
-			return ret;
-		}
-	}
-
-	ipoib_warn(ipoib_dev, "<<< ipoib_direct_init\n");
 	return 0;
 }
 
 int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int port)
 {
+	struct mlx5_ib_dev* ib_dev;
+	ib_dev	= container_of(ca, struct mlx5_ib_dev, ib_dev);
 	if_t dev = priv->dev;
 
 	priv->ca = ca;
@@ -923,14 +888,15 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 		return -ENODEV;
 	}
 
-	struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 	ib_dev->pkey_index = priv->pkey_index;
+	priv->mlx5_ib_dev = ib_dev;
 
-	if(priv->direct_connect == true)
-		if(ipoib_direct_init(priv, (struct mlx5_ib_dev *)ca)) {
-		  printk(KERN_WARNING "%s:  ipoib_direct_init failed\n", ca->name);
-		  return -ENODEV;
+	if(priv->direct_connect == true) {
+		if (mlx5_ib_direct_init(priv->mlx5_ib_dev, priv->dev, priv->qp->qp_num)) {
+			printk(KERN_WARNING " mlx5_ib_direct_open failed\n");
+			return -ENODEV;
 		}
+	}
 
 	setup_timer(&priv->poll_timer, ipoib_ib_tx_timer_func,
 		    (unsigned long) priv);
@@ -1046,8 +1012,10 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_stop_thread(priv, 1);
 	ipoib_mcast_dev_flush(priv);
 
-	if(priv->direct_connect == true)
-		ipoib_direct_deinit(priv);
+	if(priv->direct_connect == true) {
+		struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
+		mlx5_ib_direct_teardown(ib_dev);
+	}
 
 	ipoib_ah_dev_cleanup(priv);
 	ipoib_transport_dev_cleanup(priv);

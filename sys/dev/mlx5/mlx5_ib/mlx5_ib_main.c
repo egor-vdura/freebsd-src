@@ -3650,128 +3650,7 @@ void mlx5i_destroy_tables(struct mlx5_ib_dev* dev)
 	mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[2], dev->mdev->table_ids[1]);
 }
 
-int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, u32 qpn)
-{
-	struct mlx5e_priv *epriv = dev->priv;
-	int err = 0;
-	PRIV_LOCK(epriv);
-	dev->qpn = qpn;
-
-	mlx5_core_warn(dev->mdev, ">>> mlx5_ib_direct_setup\n");
-	/* check if already opened */
-	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0) {
-		mlx5_core_warn(dev->mdev, "mlx5_ib_direct_setup already open\n");
-		PRIV_UNLOCK(epriv);
-		return 0;
-	}
-
-	dev->mdev->vport = 0;
-	dev->mdev->qpn_enabled = true;
-	dev->mdev->underlay_qpn = qpn;
-
-	err = mlx5i_create_fs(dev, epriv);
-	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
-	if (err) {
-		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
-		PRIV_UNLOCK(epriv);
-		return err;
-	}
-
-	PRIV_UNLOCK(epriv);
-	mlx5_ib_warn(dev, "<<< mlx5_ib_direct_setup\n");
-	return 0;
-}
-
-int mlx5_ib_direct_open(struct mlx5_ib_dev *dev)
-{
-	struct mlx5e_priv *epriv = dev->priv;
-	int err = 0;
-
-	PRIV_LOCK(epriv);
-	err = mlx5e_open_tises(epriv);
-	mlx5_ib_warn(dev, "mlx5e_open_tises\n");
-	if (err) {
-		mlx5_ib_err(dev, "mlx5e_open_tises failed, %d\n", err);
-		goto err_remove_fs_underlay_qp;
-	}
-
-	err = mlx5e_open_channels(epriv);
-	mlx5_ib_warn(dev, "mlx5e_open_channels\n");
-	if (err)
-	{
-		mlx5_ib_err(dev, "mlx5e_open_channels failed %d\n", err);
-		goto err_close_tises;
-	}
-
-	// Setup channels to be non ethernet (IPoIB)
-	for (int i = 0; i < epriv->params.num_channels; i++)
-		epriv->channel[i].rq.lro.is_eth = false;
-
-	err = mlx5e_activate_rqt(epriv);
-	mlx5_ib_warn(dev, "mlx5e_activate_rqt\n");
-	if (err) {
-		mlx5_ib_err(dev, "mlx5e_activate_rqt failed %d\n", err);
-		goto err_close_channels;
-	}
-
-	err = mlx5i_activate_fs(dev->mdev);
-	if (err) {
-		mlx5_ib_err(dev, "mlx5i_activate_fs failed %d\n", err);
-		goto err_deactivate_rqt;
-	}
-
-	set_bit(MLX5E_STATE_OPENED, &epriv->state);
-	mlx5_ib_warn(dev, "<<< mlx5_ib_direct_setup\n");
-	PRIV_UNLOCK(epriv);
-	return 0;
-
-err_deactivate_rqt:
-	mlx5e_deactivate_rqt(epriv);
-err_close_channels:
-	mlx5e_close_channels(epriv);
-err_close_tises:
-	mlx5e_close_tises(epriv);
-err_remove_fs_underlay_qp:
-	mlx5i_destroy_tables(dev);
-
-	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
-
-	PRIV_UNLOCK(epriv);
-	return err;
-}
-
-void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
-{
-	mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
-	struct mlx5e_priv *epriv = dev->priv;
-
-	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) == 0)
-		return;
-
-	PRIV_LOCK(epriv);
-	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
-	mlx5e_deactivate_rqt(epriv);
-	mlx5e_close_channels(epriv);
-	mlx5e_close_tises(epriv);
-	PRIV_UNLOCK(epriv);
-}
-
-void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
-{
-	mlx5_ib_warn(dev, "mlx5_ib_direct_teardown\n");
-	mlx5i_destroy_tables(dev);
-
-	mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
-	mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
-}
-
-
-enum {
-	MLX5E_TC_PRIO = 0,
-	MLX5E_PROMISC_PRIO,
-	MLX5E_NIC_PRIO,
-};
-
+static
 int mlx5_ib_alloc_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if)
 {
 	int err;
@@ -3863,6 +3742,7 @@ err_dealloc_priv:
 	return 1;
 }
 
+static
 void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 {
   mlx5e_close_tirs(priv);
@@ -3877,6 +3757,139 @@ void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
 
 	free(priv, M_MLX5EN);
 }
+
+
+int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, if_t direct_if, u32 qpn)
+{
+	struct mlx5e_priv *epriv;
+	int err = 0;
+	dev->qpn = qpn;
+
+	mlx5_core_warn(dev->mdev, ">>> mlx5_ib_direct_setup\n");
+
+	err = mlx5_ib_alloc_en_priv(dev, direct_if);
+        if (err) {
+                mlx5_ib_err(dev, "mlx5_ib_setup_en_priv failure %d\n", err);
+                return err;
+        }
+
+	epriv	= dev->priv;
+	PRIV_LOCK(epriv);
+	/* check if already opened */
+	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0) {
+		mlx5_core_warn(dev->mdev, "mlx5_ib_direct_setup already open\n");
+		PRIV_UNLOCK(epriv);
+		return 0;
+	}
+
+	dev->mdev->vport = 0;
+	dev->mdev->qpn_enabled = true;
+	dev->mdev->underlay_qpn = qpn;
+
+	err = mlx5i_create_fs(dev, epriv);
+	mlx5_ib_warn(dev, "mlx5e_create_fs %d\n", qpn);
+	if (err) {
+		mlx5_ib_free_en_priv(epriv);
+		mlx5_ib_warn(dev, "mlx5i_create_fs failed, %d\n", err);
+		PRIV_UNLOCK(epriv);
+		return err;
+	}
+
+	PRIV_UNLOCK(epriv);
+	mlx5_ib_warn(dev, "<<< mlx5_ib_direct_setup\n");
+	return 0;
+}
+
+int mlx5_ib_direct_open(struct mlx5_ib_dev *dev)
+{
+	struct mlx5e_priv *epriv = dev->priv;
+	int err = 0;
+
+	PRIV_LOCK(epriv);
+	err = mlx5e_open_tises(epriv);
+	mlx5_ib_warn(dev, "mlx5e_open_tises\n");
+	if (err) {
+		mlx5_ib_err(dev, "mlx5e_open_tises failed, %d\n", err);
+		goto err_remove_fs_underlay_qp;
+	}
+
+	err = mlx5e_open_channels(epriv);
+	mlx5_ib_warn(dev, "mlx5e_open_channels\n");
+	if (err)
+	{
+		mlx5_ib_err(dev, "mlx5e_open_channels failed %d\n", err);
+		goto err_close_tises;
+	}
+
+	// Setup channels to be non ethernet (IPoIB)
+	for (int i = 0; i < epriv->params.num_channels; i++)
+		epriv->channel[i].rq.lro.is_eth = false;
+
+	err = mlx5e_activate_rqt(epriv);
+	mlx5_ib_warn(dev, "mlx5e_activate_rqt\n");
+	if (err) {
+		mlx5_ib_err(dev, "mlx5e_activate_rqt failed %d\n", err);
+		goto err_close_channels;
+	}
+
+	err = mlx5i_activate_fs(dev->mdev);
+	if (err) {
+		mlx5_ib_err(dev, "mlx5i_activate_fs failed %d\n", err);
+		goto err_deactivate_rqt;
+	}
+
+	set_bit(MLX5E_STATE_OPENED, &epriv->state);
+	mlx5_ib_warn(dev, "<<< mlx5_ib_direct_setup\n");
+	PRIV_UNLOCK(epriv);
+	return 0;
+
+err_deactivate_rqt:
+	mlx5e_deactivate_rqt(epriv);
+err_close_channels:
+	mlx5e_close_channels(epriv);
+err_close_tises:
+	mlx5e_close_tises(epriv);
+err_remove_fs_underlay_qp:
+	mlx5i_destroy_tables(dev);
+
+	mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
+
+	PRIV_UNLOCK(epriv);
+	return err;
+}
+
+void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
+{
+	mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
+	struct mlx5e_priv *epriv = dev->priv;
+
+	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) == 0)
+		return;
+
+	PRIV_LOCK(epriv);
+	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
+	mlx5e_deactivate_rqt(epriv);
+	mlx5e_close_channels(epriv);
+	mlx5e_close_tises(epriv);
+	PRIV_UNLOCK(epriv);
+}
+
+void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
+{
+	mlx5_ib_warn(dev, "mlx5_ib_direct_teardown\n");
+	mlx5i_destroy_tables(dev);
+
+	mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
+	mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
+	mlx5_ib_free_en_priv(dev->priv);
+}
+
+
+enum {
+	MLX5E_TC_PRIO = 0,
+	MLX5E_PROMISC_PRIO,
+	MLX5E_NIC_PRIO,
+};
 
 static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 {
