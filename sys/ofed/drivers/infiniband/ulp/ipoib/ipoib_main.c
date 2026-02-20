@@ -59,6 +59,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 int ipoib_sendq_size = IPOIB_TX_RING_SIZE;
 int ipoib_recvq_size = IPOIB_RX_RING_SIZE;
+void (*ipoib_send)(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb, struct ipoib_ah *address, u32 dqpn) = NULL;
 
 module_param_named(send_queue_size, ipoib_sendq_size, int, 0444);
 MODULE_PARM_DESC(send_queue_size, "Number of descriptors in send queue");
@@ -1010,8 +1011,10 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if(hca->direct_connect == true) {
 		/* Setup optimizations and direct connection */
 		priv->direct_connect = true;
+		ipoib_send = mlx5i_xmit;
 		if_settransmitfn(dev, ipoib_xmit);
 	} else {
+		ipoib_send = ib_send;
 		if_setstartfn(dev, ipoib_start);
 	}
 

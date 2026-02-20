@@ -453,12 +453,7 @@ int ipoib_open(struct ipoib_dev_priv *priv);
 int ipoib_add_pkey_attr(struct ipoib_dev_priv *priv);
 int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
-#ifdef VDURA_CHANGES
-#define ipoib_send mlx5i_xmit
-#else
-#define ipoib_send ib_send
-#endif
-
+extern void (*ipoib_send)(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb, struct ipoib_ah *address, u32 dqpn);
 /* Dirext mlx5 ib driver TX */
 void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 dqpn);
