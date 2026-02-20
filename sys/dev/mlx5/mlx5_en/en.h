@@ -1156,18 +1156,6 @@ struct mlx5e_tx_wqe {
 	struct mlx5_wqe_eth_seg eth;
 };
 
-struct mlx5_wqe_eth_pad {
-  u8 rsvd0[16];
-};
-
-struct mlx5i_tx_wqe {
-  struct mlx5_wqe_ctrl_seg     ctrl;
-  struct mlx5_wqe_datagram_seg datagram;
-  struct mlx5_wqe_eth_pad      pad;
-  struct mlx5_wqe_eth_seg      eth;
-  struct mlx5_wqe_data_seg     data[];
-};
-
 struct mlx5e_tx_umr_wqe {
 	struct mlx5_wqe_ctrl_seg ctrl;
 	struct mlx5_wqe_umr_ctrl_seg umr;

@@ -689,98 +689,20 @@ tx_drop:
 	return err;
 }
 
-#ifdef VDURA_CHANGES
-static void dump_hex(const void *buf, int len)
-{
-    const u8 *p = buf;
-    int i;
+struct mlx5i_wqe_eth_pad {
+  u8 rsvd0[16];
+};
 
-    for (i = 0; i < len; i++) {
-        if ((i % 16) == 0)
-            pr_info("%04x: ", i);
-        pr_cont("%02x ", p[i]);
-        if ((i % 16) == 15)
-            pr_cont("\n");
-    }
-    if (len % 16 != 0)
-        pr_cont("\n");
-}
-
-static void mlx5e_dump_wqe(const struct mlx5i_tx_wqe *wqe)
-{
-    const struct mlx5_wqe_ctrl_seg *ctrl = &wqe->ctrl;
-    int ds_cnt = be32_to_cpu(ctrl->qpn_ds) & 0x3f;  /* WQE size in 16B units */
-    int wqe_size = ds_cnt * MLX5_SEND_WQE_DS;
-    uint32_t inline_header_size = 0;
-    const struct mlx5_wqe_eth_seg *eseg = &wqe->eth;
-    const struct mlx5_wqe_datagram_seg *dseg = &wqe->datagram;
-    const struct mlx5_wqe_data_seg *dp;
-
-    pr_info("===== WQE DUMP =====\n");
-    pr_info("WQE size: %d bytes (%d DS)\n", wqe_size, ds_cnt);
-
-    /* CTRL SEG */
-    pr_info("--- CTRL SEG ---\n");
-    pr_info("opmod_idx_opcode: 0x%08x\n", be32_to_cpu(ctrl->opmod_idx_opcode));
-    pr_info("qpn:              0x%08x\n", (be32_to_cpu(ctrl->qpn_ds) >> 8) & 0x00FFFFFF);
-    pr_info("ds:               0x%08x\n", ds_cnt);
-    pr_info("fm_ce_se:         0x%02x\n", ctrl->fm_ce_se);
-    pr_info("imm:              0x%08x\n", be32_to_cpu(ctrl->imm));
-    dump_hex(ctrl, sizeof(*ctrl));
-
-    /* DATAGRAM SEG */
-    pr_info("--- DATAGRAM SEG ---\n");
-    pr_info("av (address vector):\n");
-    dump_hex(&dseg->av, sizeof(struct mlx5_av));
-
-    /* ETH SEG */
-    pr_info("--- ETH SEG ---\n");
-    pr_info("cs_flags: 0x%x\n", eseg->cs_flags);
-    pr_info("mss: 0x%x\n", be16_to_cpu(eseg->mss));
-    pr_info("flow_table_metadata: 0x%x\n", be32_to_cpu(eseg->flow_table_metadata));
-    pr_info("insert_vlan: 0x%x\n", be32_to_cpu(eseg->trailer) & (1U << 31));
-    pr_info("insert_trailer: 0x%x\n", be32_to_cpu(eseg->trailer) & (1U << 30));
-    pr_info("trailer_header_association: 0x%x\n", (be32_to_cpu(eseg->trailer) >> 26) & 0x07);
-    if (!(be32_to_cpu(eseg->trailer) & (1U << 31))) {
-      inline_header_size = (be32_to_cpu(eseg->trailer) >> 16) & 0x3FF;
-      pr_info("inline_header_size: 0x%x\n", inline_header_size);
-      pr_info("inline headers:\n");
-      dump_hex(eseg->inline_hdr_start, inline_header_size);
-    }
-
-    /* DATA SEGS */
-    pr_info("--- DATA SEGMENTS ---\n");
-    int remaining = wqe_size - offsetof(struct mlx5i_tx_wqe, data) - (inline_header_size > 2 ? (inline_header_size - 2) : 0);
-    pr_info("remaining bytes: %d\n", remaining);
-
-    int i = 0;
-    dp = (struct mlx5_wqe_data_seg *)(((char *)wqe->data) + (inline_header_size > 2 ? (inline_header_size - 2) : 0));
-    while (remaining >= sizeof(struct mlx5_wqe_data_seg)) {
-        pr_info("DATA SEG #%d\n", i);
-        pr_info("byte_count: 0x%08x\n", be32_to_cpu(dp->byte_count));
-        pr_info("lkey:       0x%08x\n", be32_to_cpu(dp->lkey));
-        pr_info("addr:       0x%016llx\n",
-                (unsigned long long)be64_to_cpu(dp->addr));
-
-        //pr_info("data:\n");
-        //dump_hex((void*)be64_to_cpu(dp->addr), be32_to_cpu(dp->byte_count));
-
-        pr_info("DATA SEG raw:\n");
-        dump_hex(dp, sizeof(*dp));
-
-        dp++;
-        remaining -= sizeof(struct mlx5_wqe_data_seg);
-        i++;
-    }
-
-    //pr_info("=== FULL RAW WQE ===\n");
-    //dump_hex(wqe, wqe_size);
-
-    pr_info("====================\n");
-}
+struct mlx5i_tx_wqe {
+  struct mlx5_wqe_ctrl_seg     ctrl;
+  struct mlx5_wqe_datagram_seg datagram;
+  struct mlx5i_wqe_eth_pad      pad;
+  struct mlx5_wqe_eth_seg      eth;
+  struct mlx5_wqe_data_seg     data[];
+};
 
 static int
-mlx5i_sq_xmit(struct mlx5e_sq *sq, struct mlx5_av	*av, struct mbuf **mbp)
+mlx5i_sq_xmit(struct mlx5e_sq *sq, struct mlx5_av *av, struct mbuf **mbp)
 {
 	bus_dma_segment_t segs[MLX5E_MAX_TX_MBUF_FRAGS];
 	struct mlx5e_xmit_args args = {};
@@ -1008,10 +930,6 @@ top:
 	else
 		MPASS(sq->mbuf[pi].mst == NULL);
 
-  if (0) {
-    mlx5e_dump_wqe(wqe);
-  }
-
 	sq->pc += sq->mbuf[pi].num_wqebbs;
 
 	/* Count all traffic going out */
@@ -1033,7 +951,7 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av	*av, u32 dqpn, struct mlx5e_sq
 {
 	int err = 0;
 
-  (void)dqpn;
+	(void)dqpn;
 
 	if (unlikely((if_getdrvflags(sq->ifp) & IFF_DRV_RUNNING) == 0 ||
 	    READ_ONCE(sq->running) == 0)) {
@@ -1067,7 +985,6 @@ mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av	*av, u32 dqpn, struct mlx5e_sq
 	// printk("Sending on SQ from TIS %d dqpn %d\n", sq->tisn, dqpn);
 	return (err);
 }
-#endif
 
 int
 mlx5e_sq_xmit(struct mlx5e_sq *sq, struct mbuf **mbp)
