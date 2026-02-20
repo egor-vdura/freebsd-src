@@ -1844,7 +1844,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 		raw_packet_qp_copy_info(qp, &qp->raw_packet_qp);
 		err = create_raw_packet_qp(dev, qp, in, pd);
 	} else {
-		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO)
+		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO && dev->ib_dev.direct_connect)
 		{
 			qp->trans_qp.base.mqp.marker = true;
 			printf("RAAAAAAight here\n\n");
