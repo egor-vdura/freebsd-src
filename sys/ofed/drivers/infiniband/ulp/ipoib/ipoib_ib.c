@@ -865,7 +865,7 @@ timeout:
 	if (flush)
 		flush_workqueue(ipoib_workqueue);
 
-	ipoib_dev_cleanup(priv);
+	ipoib_ah_dev_cleanup(priv);
 
 	if(priv->direct_connect == false)
 		ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);

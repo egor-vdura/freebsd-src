@@ -832,7 +832,6 @@ static struct mlx5_flow_table *_create_ft_common(struct mlx5_flow_namespace *ns,
 	if (err)
 		goto free_ft;
 
-	mlx5_core_warn(dev, "Created FT %d\n", ft->id);
 	err = create_star_rule(ft, fs_prio);
 	if (err)
 		goto del_ft;
@@ -2412,7 +2411,6 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
 	     ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
 	      MLX5_CAP_GEN(dev, ipoib_enhanced_offloads))) &&
 	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)){
-	// if (MLX5_CAP_GEN(dev, nic_flow_table)) {
 		err = init_root_ns(dev);
 		if (err)
 			goto err;

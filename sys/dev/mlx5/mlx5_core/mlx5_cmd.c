@@ -474,7 +474,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 
 const char *mlx5_command_str(int command)
 {
-	 #define MLX5_COMMAND_STR_CASE(__cmd) case MLX5_CMD_OP_ ## __cmd: return #__cmd
+        #define MLX5_COMMAND_STR_CASE(__cmd) case MLX5_CMD_OP_ ## __cmd: return #__cmd
 
 	switch (command) {
 	MLX5_COMMAND_STR_CASE(QUERY_HCA_CAP);

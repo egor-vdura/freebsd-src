@@ -1420,9 +1420,7 @@ int ib_modify_qp(struct ib_qp *qp,
 			return ret;
 	}
 
-	int ret = qp->device->modify_qp(qp->real_qp, qp_attr, qp_attr_mask, NULL);
-	printf("ib_modify_qp %d\n", ret);
-	return ret;
+	return qp->device->modify_qp(qp->real_qp, qp_attr, qp_attr_mask, NULL);
 }
 EXPORT_SYMBOL(ib_modify_qp);
 
@@ -1748,7 +1746,6 @@ int ib_attach_mcast(struct ib_qp *qp, union ib_gid *gid, u16 lid)
 		return -EINVAL;
 
 	ret = qp->device->attach_mcast(qp, gid, lid);
-  printf("ib_attach_mcast %d\n", ret);
 	if (!ret)
 		atomic_inc(&qp->usecnt);
 	return ret;

@@ -134,7 +134,6 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
 	qp->uid = MLX5_GET(create_qp_in, in, uid);
 	qp->qpn = MLX5_GET(create_qp_out, out, qpn);
 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
-	mlx5_core_warn(dev, "qpn = 0x%x\n", qp->qpn);
 
 	err = create_qprqsq_common(dev, qp, MLX5_RES_QP);
 	if (err)
@@ -245,11 +244,9 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 
 	/* MODIFY with QPC */
 	case MLX5_CMD_OP_RST2INIT_QP:
-		printf("REEEE RST2INIT\n");
 		if (MBOX_ALLOC(mbox, rst2init_qp))
 			return -ENOMEM;
 		if(marker == true) {
-			printf("RAAAAAAight here 2\n\n");
 			u32 *qpc;
 			qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, mbox->in, qpc);
 
@@ -265,7 +262,6 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 		}
 		break;
 	case MLX5_CMD_OP_INIT2RTR_QP:
-		printf("REEEE INIT2RTR\n");
 		if (MBOX_ALLOC(mbox, init2rtr_qp))
 			return -ENOMEM;
 		if(marker == true) {
@@ -277,7 +273,6 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_RTR2RTS_QP:
-		printf("REEEE RTR2RTS\n");
 		if (MBOX_ALLOC(mbox, rtr2rts_qp))
 			return -ENOMEM;
 		if(marker == true) {
@@ -289,7 +284,6 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 				          opt_param_mask, qpc, uid);
 		break;
 	case MLX5_CMD_OP_RTS2RTS_QP:
-		printf("REEEE RTS2RTS\n");
 		if (MBOX_ALLOC(mbox, rts2rts_qp))
 			return -ENOMEM;
 		if(marker == true) {
