@@ -426,11 +426,6 @@ struct mlx5_ib_cq_buf {
 	int			nent;
 };
 
-#ifdef	RSS
-#include <net/rss_config.h>
-#include <netinet/in_rss.h>
-#endif
-
 enum mlx5_ib_qp_flags {
 	MLX5_IB_QP_LSO                          = IB_QP_CREATE_IPOIB_UD_LSO,
 	MLX5_IB_QP_BLOCK_MULTICAST_LOOPBACK     = IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK,
