@@ -68,11 +68,9 @@ static const u32 mlx5_ib_opcode[] = {
 	[MLX5_IB_WR_UMR]			= MLX5_OPCODE_UMR,
 };
 
-#if 0
 struct mlx5_wqe_eth_pad {
 	u8 rsvd0[16];
 };
-#endif
 
 enum raw_qp_set_mask_map {
 	MLX5_RAW_QP_MOD_SET_RQ_Q_CTR_ID		= 1UL << 0,
@@ -2983,10 +2981,6 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	if (ibqp->rwq_ind_tbl)
 		return -ENOSYS;
 
-	printf("RAAA ib_modify_qp %d %d\n", attr_mask, ibqp->qp_num);
-	printf("RAAA state: %d\n", attr->qp_state);
-	printf("RAAA cur_qp_state: %d\n", attr->cur_qp_state);
-	printf("RAAA dest_qp_num: %d\n", attr->dest_qp_num);
 	if (unlikely(ibqp->qp_type == IB_QPT_GSI))
 		return mlx5_ib_gsi_modify_qp(ibqp, attr, attr_mask);
 
@@ -3000,7 +2994,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 
 	if (qp_type != MLX5_IB_QPT_REG_UMR &&
 	    !ib_modify_qp_is_ok(cur_state, new_state, qp_type, attr_mask)) {
-		mlx5_ib_warn(dev, "invalid QP state transition from %d to %d, qp_type %d, attr_mask 0x%x\n",
+		mlx5_ib_dbg(dev, "invalid QP state transition from %d to %d, qp_type %d, attr_mask 0x%x\n",
 			    cur_state, new_state, ibqp->qp_type, attr_mask);
 		goto out;
 	}
@@ -3008,7 +3002,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	if ((attr_mask & IB_QP_PORT) &&
 	    (attr->port_num == 0 ||
 	     attr->port_num > MLX5_CAP_GEN(dev->mdev, num_ports))) {
-		mlx5_ib_warn(dev, "invalid port number %d. number of ports is %d\n",
+		mlx5_ib_dbg(dev, "invalid port number %d. number of ports is %d\n",
 			    attr->port_num, dev->num_ports);
 		goto out;
 	}
@@ -3017,7 +3011,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		port = attr_mask & IB_QP_PORT ? attr->port_num : qp->port;
 		if (attr->pkey_index >=
 		    dev->mdev->port_caps[port - 1].pkey_table_len) {
-			mlx5_ib_warn(dev, "invalid pkey index %d\n",
+			mlx5_ib_dbg(dev, "invalid pkey index %d\n",
 				    attr->pkey_index);
 			goto out;
 		}
@@ -3026,7 +3020,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	if (attr_mask & IB_QP_MAX_QP_RD_ATOMIC &&
 	    attr->max_rd_atomic >
 	    (1 << MLX5_CAP_GEN(dev->mdev, log_max_ra_res_qp))) {
-		mlx5_ib_warn(dev, "invalid max_rd_atomic value %d\n",
+		mlx5_ib_dbg(dev, "invalid max_rd_atomic value %d\n",
 			    attr->max_rd_atomic);
 		goto out;
 	}
@@ -3034,7 +3028,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	if (attr_mask & IB_QP_MAX_DEST_RD_ATOMIC &&
 	    attr->max_dest_rd_atomic >
 	    (1 << MLX5_CAP_GEN(dev->mdev, log_max_ra_req_qp))) {
-		mlx5_ib_warn(dev, "invalid max_dest_rd_atomic value %d\n",
+		mlx5_ib_dbg(dev, "invalid max_dest_rd_atomic value %d\n",
 			    attr->max_dest_rd_atomic);
 		goto out;
 	}
