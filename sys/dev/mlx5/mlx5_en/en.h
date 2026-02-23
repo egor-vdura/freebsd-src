@@ -847,7 +847,6 @@ struct mlx5e_sq {
 	struct	mlx5e_sq_stats stats;
 	struct	callout cev_callout;
 	int	db_inhibit;
-	u32 tisn;
 
 	/* data path */
 #define	mlx5e_sq_zero_start dma_tag

@@ -1857,7 +1857,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 			void* addr_path = MLX5_ADDR_OF(qpc, qpc, primary_address_path);
 			MLX5_SET(ads, addr_path, grh, 1);
 		}
-      		err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
+		err = mlx5_core_create_qp(dev->mdev, &base->mqp, in, inlen);
 	}
 
 	if (err) {

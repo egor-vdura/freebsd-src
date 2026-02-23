@@ -25,7 +25,6 @@
 
 #include "opt_inet.h"
 #include "opt_inet6.h"
-#include "opt_rss.h"
 #include "opt_kbd.h"
 
 #include <sys/cdefs.h>

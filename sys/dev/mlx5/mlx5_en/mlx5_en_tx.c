@@ -799,43 +799,6 @@ top:
 		sq->stats.tso_bytes += payload_len;
 	} else {
 		opcode = MLX5_OPCODE_SEND;
-
-    /* TODO: How to properly calculate header size? */
-#if 0
-		if (args.ihs == 0) {
-      printf("mlx5i_sq_xmit: sq->min_inline_mode: %u\n", sq->min_inline_mode);
-			switch (sq->min_inline_mode) {
-			case MLX5_INLINE_MODE_IP:
-			case MLX5_INLINE_MODE_TCP_UDP:
-				args.ihs = mlx5e_get_full_header_size(mb, NULL);
-				if (unlikely(args.ihs == 0))
-					args.ihs = mlx5e_get_l2_header_size(sq, mb);
-				break;
-			case MLX5_INLINE_MODE_L2:
-				args.ihs = mlx5e_get_l2_header_size(sq, mb);
-				break;
-			case MLX5_INLINE_MODE_NONE:
-				/* FALLTHROUGH */
-			default:
-				if ((mb->m_flags & M_VLANTAG) != 0 &&
-				    (sq->min_insert_caps & MLX5E_INSERT_VLAN) != 0) {
-					/* inlining VLAN data is not required */
-					wqe->eth.vlan_cmd = htons(0x8000); /* bit 0 CVLAN */
-					wqe->eth.vlan_hdr = htons(mb->m_pkthdr.ether_vtag);
-					args.ihs = 0;
-				} else if ((mb->m_flags & M_VLANTAG) == 0 &&
-				    (sq->min_insert_caps & MLX5E_INSERT_NON_VLAN) != 0) {
-					/* inlining non-VLAN data is not required */
-					args.ihs = 0;
-				} else {
-					/* we are forced to inlining L2 header, if any */
-					args.ihs = mlx5e_get_l2_header_size(sq, mb);
-				}
-				break;
-			}
-      printf("mlx5i_sq_xmit: args->ihs: %u\n", args.ihs);
-		}
-#endif
 		sq->mbuf[pi].num_bytes = max_t (unsigned int,
 		    mb->m_pkthdr.len, ETHER_MIN_LEN - ETHER_CRC_LEN);
 	}

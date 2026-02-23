@@ -682,7 +682,7 @@ ipoib_mcast_send(struct ipoib_dev_priv *priv, void *mgid, struct mbuf *mb)
 
 out:
 	if (mcast && mcast->ah)
-		ipoib_send(priv, mb, mcast->ah, IB_MULTICAST_QPN);
+		priv->ipoib_send(priv, mb, mcast->ah, IB_MULTICAST_QPN);
 }
 
 void ipoib_mcast_dev_flush(struct ipoib_dev_priv *priv)

@@ -418,18 +418,21 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 		} else {
 			rq->stats.csum_none++;
 		}
-	} else if (likely((if_getcapenable(ifp) & (IFCAP_RXCSUM |
-	    IFCAP_RXCSUM_IPV6)) != 0) &&
-	    ((cqe->hds_ip_ext & (CQE_L3_OK | CQE_L4_OK)) ==
-	    (CQE_L3_OK | CQE_L4_OK))) {
-		mb->m_pkthdr.csum_flags =
-		    CSUM_IP_CHECKED | CSUM_IP_VALID |
-		    CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
-		mb->m_pkthdr.csum_data = htons(0xffff);
 	} else {
-		rq->stats.csum_none++;
+		bool ip_ext;
+		uint8_t rxcsum_mask = CQE_L3_OK | CQE_L4_OK;
+		rxcsum_mask |= (!rq->cq.priv->mdev->qpn_enabled) ? CQE_L2_OK  : 0;
+		ip_ext = (cqe->hds_ip_ext & rxcsum_mask) == rxcsum_mask;
+		if (likely((if_getcapenable(ifp) & (IFCAP_RXCSUM |
+		    IFCAP_RXCSUM_IPV6)) != 0) && ip_ext) {
+			mb->m_pkthdr.csum_flags =
+			    CSUM_IP_CHECKED | CSUM_IP_VALID |
+			    CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
+			mb->m_pkthdr.csum_data = htons(0xffff);
+		} else {
+			rq->stats.csum_none++;
+		}
 	}
-
 	if (cqe_has_vlan(cqe)) {
 		mb->m_pkthdr.ether_vtag = be16_to_cpu(cqe->vlan_info);
 		mb->m_flags |= M_VLANTAG;

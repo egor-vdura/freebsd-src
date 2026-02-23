@@ -318,6 +318,7 @@ struct ipoib_ethtool_st {
 struct ipoib_dev_priv {
 	bool direct_connect;
 	void* mlx5_ib_dev;
+	void (*ipoib_send)(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb, struct ipoib_ah *address, u32 dqpn);
 	spinlock_t lock;
 	spinlock_t drain_lock;
 
@@ -453,7 +454,6 @@ int ipoib_open(struct ipoib_dev_priv *priv);
 int ipoib_add_pkey_attr(struct ipoib_dev_priv *priv);
 int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
-extern void (*ipoib_send)(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb, struct ipoib_ah *address, u32 dqpn);
 /* Dirext mlx5 ib driver TX */
 void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 dqpn);

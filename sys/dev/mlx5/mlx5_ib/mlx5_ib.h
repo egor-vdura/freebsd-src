@@ -746,8 +746,6 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
-#include <dev/mlx5/fs.h>
-
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
 	struct mlx5e_priv* priv;

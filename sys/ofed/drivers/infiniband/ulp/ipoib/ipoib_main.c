@@ -59,7 +59,6 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 int ipoib_sendq_size = IPOIB_TX_RING_SIZE;
 int ipoib_recvq_size = IPOIB_RX_RING_SIZE;
-void (*ipoib_send)(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb, struct ipoib_ah *address, u32 dqpn) = NULL;
 
 module_param_named(send_queue_size, ipoib_sendq_size, int, 0444);
 MODULE_PARM_DESC(send_queue_size, "Number of descriptors in send queue");
@@ -707,7 +706,7 @@ ipoib_unicast_send(struct mbuf *mb, struct ipoib_dev_priv *priv, struct ipoib_he
 	if (ipoib_cm_get(path) && ipoib_cm_up(path)) {
 		ipoib_cm_send(priv, mb, ipoib_cm_get(path));
 	} else if (path->ah) {
-		ipoib_send(priv, mb, path->ah, IPOIB_QPN(eh->hwaddr));
+		priv->ipoib_send(priv, mb, path->ah, IPOIB_QPN(eh->hwaddr));
 	} else if ((path->query || !path_rec_start(priv, path)) &&
 		    path->queue.ifq_len < IPOIB_MAX_PATH_REC_QUEUE) {
 		_IF_ENQUEUE(&path->queue, mb);
@@ -948,19 +947,17 @@ void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
 		if (unlikely(sq == NULL)) {
 			goto select_queue;
 		}
-		printk("TX IRQN:%d CQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn);
 	} else {
 select_queue:
 		sq = mlx5e_select_queue(priv, mb);
 		if (unlikely(sq == NULL)) {
-      printf("mlx5i_xmit Invalid send queue for %d", dqpn);
+      			printf("mlx5i_xmit Invalid send queue for %d", dqpn);
 			/* Free mbuf */
 			m_freem(mb);
 
 			/* Invalid send queue */
 			return;
 		}
-		//printk("TX 2 IRQN:%d CQN: %d SQN: %d\n", sq->cq.mcq.irqn, sq->cq.mcq.cqn, sq->sqn);
 	}
 
 	mtx_lock(&sq->lock);
@@ -1011,10 +1008,10 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 	if(hca->direct_connect == true) {
 		/* Setup optimizations and direct connection */
 		priv->direct_connect = true;
-		ipoib_send = mlx5i_xmit;
+		priv->ipoib_send = mlx5i_xmit;
 		if_settransmitfn(dev, ipoib_xmit);
 	} else {
-		ipoib_send = ib_send;
+		priv->ipoib_send = ib_send;
 		if_setstartfn(dev, ipoib_start);
 	}
 

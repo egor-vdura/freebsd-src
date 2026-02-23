@@ -2404,18 +2404,11 @@ void mlx5_get_match_criteria(u32 *match_criteria,
 int mlx5_init_fs(struct mlx5_core_dev *dev)
 {
 	int err;
-	printk_once("mlx5_init_fs dev: %p\n", dev);
 
-	if ((((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) &&
-	      (MLX5_CAP_GEN(dev, nic_flow_table))) ||
-	     ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
-	      MLX5_CAP_GEN(dev, ipoib_enhanced_offloads))) &&
-	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)){
+	if (MLX5_CAP_GEN(dev, nic_flow_table)) {
 		err = init_root_ns(dev);
 		if (err)
 			goto err;
-	}else{
-		printk_once("MLX5_CAP_GEN(dev, nic_flow_table) %d\n", MLX5_CAP_GEN(dev, nic_flow_table));
 	}
 
 	err = init_fdb_root_ns(dev);
