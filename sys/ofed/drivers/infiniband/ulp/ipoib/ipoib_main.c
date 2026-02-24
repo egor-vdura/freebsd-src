@@ -1005,7 +1005,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	if(hca->direct_connect == true) {
+	if(hca->direct_connect) {
 		/* Setup optimizations and direct connection */
 		priv->direct_connect = true;
 		priv->ipoib_send = mlx5i_xmit;
@@ -1040,7 +1040,7 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
 #endif
-	if(hca->direct_connect == true) {
+	if(hca->direct_connect) {
 		priv->dev->if_capabilities |= IFCAP_TSO4;
 		priv->dev->if_hwassist |= CSUM_TSO;
 		if_setcapabilitiesbit(priv->dev,
