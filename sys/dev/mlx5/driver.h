@@ -525,11 +525,7 @@ struct mlx5_core_health {
 	struct workqueue_struct	       *wq_cmd;
 };
 
-#ifdef VDURA_CHANGES
-#define	MLX5_CQ_LINEAR_ARRAY_SIZE	8096
-#else
 #define	MLX5_CQ_LINEAR_ARRAY_SIZE	1024
-#endif
 
 struct mlx5_cq_linear_array_entry {
 	struct mlx5_core_cq * volatile cq;
