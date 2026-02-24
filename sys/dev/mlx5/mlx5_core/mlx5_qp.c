@@ -256,7 +256,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			MLX5_SET(qpc, qpc, q_key, IB_DEFAULT_Q_KEY);
 			MLX5_SET(rst2init_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(rst2init_qp_in , mbox->in, uid, uid);
-		}else{
+		} else {
 			MOD_QP_IN_SET_QPC(rst2init_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
 		}
@@ -268,9 +268,10 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			MLX5_SET(init2rtr_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(init2rtr_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(init2rtr_qp_in, mbox->in, uid, uid);
-		}else
+		} else {
 			MOD_QP_IN_SET_QPC(init2rtr_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
+		}
 		break;
 	case MLX5_CMD_OP_RTR2RTS_QP:
 		if (MBOX_ALLOC(mbox, rtr2rts_qp))
@@ -279,9 +280,10 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			MLX5_SET(rtr2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(rtr2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(rtr2rts_qp_in, mbox->in, uid, uid);
-		}else
+		} else {
 			MOD_QP_IN_SET_QPC(rtr2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
+		}
 		break;
 	case MLX5_CMD_OP_RTS2RTS_QP:
 		if (MBOX_ALLOC(mbox, rts2rts_qp))
@@ -290,9 +292,10 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			MLX5_SET(rts2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(rts2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(rts2rts_qp_in, mbox->in, uid, uid);
-		}else
+		} else {
 			MOD_QP_IN_SET_QPC(rts2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
+		}
 		break;
 	case MLX5_CMD_OP_SQERR2RTS_QP:
 		if (MBOX_ALLOC(mbox, sqerr2rts_qp))
@@ -301,9 +304,10 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, uid, uid);
-		}else
+		} else {
 			MOD_QP_IN_SET_QPC(sqerr2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
+		}
 		break;
 	case MLX5_CMD_OP_INIT2INIT_QP:
 		if (MBOX_ALLOC(mbox, init2init_qp))
