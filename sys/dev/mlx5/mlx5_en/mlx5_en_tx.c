@@ -232,9 +232,8 @@ max_inline:
  * this function returns zero, the parsing failed.
  */
 int
-mlx5e_get_full_header_size(const struct mbuf *_mb, const struct tcphdr **ppth, bool qpn_enabled)
+mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth, bool qpn_enabled)
 {
-	struct mbuf *mb = (struct mbuf*)_mb;
 	const struct ether_vlan_header *eh;
 	const struct tcphdr *th;
 	const struct ip *ip;
