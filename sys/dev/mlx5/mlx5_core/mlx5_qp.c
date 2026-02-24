@@ -206,7 +206,7 @@ static void mbox_free(struct mbox_info *mbox)
 
 static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 				u32 opt_param_mask, void *qpc,
-				struct mbox_info *mbox, u16 uid, bool marker)
+				struct mbox_info *mbox, u16 uid, bool underlay_qp_en)
 {
 	mbox->out = NULL;
 	mbox->in = NULL;
@@ -246,7 +246,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 	case MLX5_CMD_OP_RST2INIT_QP:
 		if (MBOX_ALLOC(mbox, rst2init_qp))
 			return -ENOMEM;
-		if(marker) {
+		if(underlay_qp_en) {
 			u32 *qpc;
 			qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, mbox->in, qpc);
 
@@ -264,7 +264,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 	case MLX5_CMD_OP_INIT2RTR_QP:
 		if (MBOX_ALLOC(mbox, init2rtr_qp))
 			return -ENOMEM;
-		if(marker) {
+		if(underlay_qp_en) {
 			MLX5_SET(init2rtr_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(init2rtr_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(init2rtr_qp_in, mbox->in, uid, uid);
@@ -276,7 +276,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 	case MLX5_CMD_OP_RTR2RTS_QP:
 		if (MBOX_ALLOC(mbox, rtr2rts_qp))
 			return -ENOMEM;
-		if(marker) {
+		if(underlay_qp_en) {
 			MLX5_SET(rtr2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(rtr2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(rtr2rts_qp_in, mbox->in, uid, uid);
@@ -288,7 +288,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 	case MLX5_CMD_OP_RTS2RTS_QP:
 		if (MBOX_ALLOC(mbox, rts2rts_qp))
 			return -ENOMEM;
-		if(marker) {
+		if(underlay_qp_en) {
 			MLX5_SET(rts2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(rts2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(rts2rts_qp_in, mbox->in, uid, uid);
@@ -300,7 +300,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 	case MLX5_CMD_OP_SQERR2RTS_QP:
 		if (MBOX_ALLOC(mbox, sqerr2rts_qp))
 			return -ENOMEM;
-		if(marker) {
+		if(underlay_qp_en) {
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, qpn, qpn);
 			MLX5_SET(sqerr2rts_qp_in, mbox->in, uid, uid);
@@ -333,7 +333,7 @@ int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 opcode,
 	int err;
 
 	err = modify_qp_mbox_alloc(dev, opcode, qp->qpn,
-				   opt_param_mask, qpc, &mbox, qp->uid, qp->marker);
+				   opt_param_mask, qpc, &mbox, qp->uid, qp->underlay_qp_en);
 	if (err)
 		return err;
 

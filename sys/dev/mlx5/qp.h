@@ -469,7 +469,7 @@ struct mlx5_core_qp {
 	struct mlx5_core_rsc_common	common; /* must be first */
 	void (*event)		(struct mlx5_core_qp *, int);
 	int			qpn;
-	bool marker;
+	bool			underlay_qp_en;
 	struct mlx5_rsc_debug	*dbg;
 	int			pid;
 	u16			uid;

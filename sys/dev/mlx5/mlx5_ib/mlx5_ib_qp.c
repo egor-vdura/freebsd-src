@@ -1838,7 +1838,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 		qp->flags |= MLX5_IB_QP_LSO;
 	}
 
-	qp->trans_qp.base.mqp.marker = false;
+	qp->trans_qp.base.mqp.underlay_qp_en = false;
 	if (init_attr->qp_type == IB_QPT_RAW_PACKET) {
 		qp->raw_packet_qp.sq.ubuffer.buf_addr = ucmd.sq_buf_addr;
 		raw_packet_qp_copy_info(qp, &qp->raw_packet_qp);
@@ -1846,7 +1846,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 	} else {
 		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO && dev->ib_dev.direct_connect)
 		{
-			qp->trans_qp.base.mqp.marker = true;
+			qp->trans_qp.base.mqp.underlay_qp_en = true;
 			printf("RAAAAAAight here\n\n");
 			memset(in, 0, inlen);
 			qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
