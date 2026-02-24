@@ -421,7 +421,7 @@ mlx5e_build_rx_mbuf(struct mlx5_cqe64 *cqe,
 	} else {
 		bool ip_ext;
 		uint8_t rxcsum_mask = CQE_L3_OK | CQE_L4_OK;
-		rxcsum_mask |= (!rq->cq.priv->mdev->qpn_enabled) ? CQE_L2_OK  : 0;
+		rxcsum_mask |= (!rq->cq.priv->mdev->e_ipoib_en) ? CQE_L2_OK  : 0;
 		ip_ext = (cqe->hds_ip_ext & rxcsum_mask) == rxcsum_mask;
 		if (likely((if_getcapenable(ifp) & (IFCAP_RXCSUM |
 		    IFCAP_RXCSUM_IPV6)) != 0) && ip_ext) {
@@ -644,7 +644,7 @@ rx_common:
 #endif
 
 		/* Convert from IPoIB format */
-		if (rq->channel->priv->mdev->qpn_enabled) {
+		if (rq->channel->priv->mdev->e_ipoib_en) {
 			struct ipoib_header *eh;
 			m_adj(mb, sizeof(struct ib_grh) - INFINIBAND_ALEN);
 			eh = mtod(mb, struct ipoib_header *);

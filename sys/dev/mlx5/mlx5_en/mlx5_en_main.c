@@ -2676,7 +2676,7 @@ mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
 
 	memset(in, 0, sizeof(in));
 
-	if(mdev->qpn_enabled)
+	if(mdev->e_ipoib_en)
 		MLX5_SET(tisc, tisc, underlay_qpn, mdev->underlay_qpn);
 	MLX5_SET(tisc, tisc, prio, tc);
 	MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
@@ -3910,7 +3910,7 @@ mlx5e_build_ifp_priv(struct mlx5_core_dev *mdev,
 	priv->params.default_vlan_prio = 0;
 	priv->counter_set_id = -1;
 	priv->params.tx_max_inline = mlx5e_get_max_inline_cap(mdev);
-	mdev->qpn_enabled = false;
+	mdev->e_ipoib_en = false;
 
 	err = mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
 	if (err)

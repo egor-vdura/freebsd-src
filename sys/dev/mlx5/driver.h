@@ -693,7 +693,7 @@ struct mlx5_core_dev {
 	struct pci_dev	       *pdev;
 	u32 underlay_qpn;
 	u16 vport;
-	bool qpn_enabled;
+	bool e_ipoib_en;
 	unsigned int table_ids[2];
 	unsigned int group_ids[3];
 	/* sync pci state */

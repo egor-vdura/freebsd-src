@@ -49,7 +49,7 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
 		 MLX5_CMD_OP_SET_FLOW_TABLE_ROOT);
 	MLX5_SET(set_flow_table_root_in, in, table_type, type);
 	MLX5_SET(set_flow_table_root_in, in, table_id, id);
-	if (dev->qpn_enabled)
+	if (dev->e_ipoib_en)
 	{
 		MLX5_SET(set_flow_table_root_in, in, underlay_qpn, dev->underlay_qpn);
 		MLX5_SET(set_flow_table_root_in, in, vport_number, dev->vport);

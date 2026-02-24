@@ -3783,7 +3783,7 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, if_t direct_if, u32 qpn)
 	}
 
 	dev->mdev->vport = 0;
-	dev->mdev->qpn_enabled = true;
+	dev->mdev->e_ipoib_en = true;
 	dev->mdev->underlay_qpn = qpn;
 
 	err = mlx5i_create_fs(dev, epriv);

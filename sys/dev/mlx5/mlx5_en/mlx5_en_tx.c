@@ -232,7 +232,7 @@ max_inline:
  * this function returns zero, the parsing failed.
  */
 int
-mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth, bool qpn_enabled)
+mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth, bool e_ipoib_en)
 {
 	const struct ether_vlan_header *eh;
 	const struct tcphdr *th;
@@ -244,7 +244,7 @@ mlx5e_get_full_header_size(const struct mbuf *mb, const struct tcphdr **ppth, bo
 	int init_eth_hdr_len = 0;
 
 	// Is the underlay protocol IB or ETH
-	if(qpn_enabled) {
+	if(e_ipoib_en) {
 		init_eth_hdr_len = 4;
 		eth_hdr_len = 0;
 		eth_type = ETHERTYPE_IP;
@@ -780,7 +780,7 @@ top:
 		opcode = MLX5_OPCODE_LSO;
 		if (args.ihs == 0)
 		{
-			args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->qpn_enabled);
+			args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->e_ipoib_en);
 		}
 		if (unlikely(args.ihs == 0)) {
 			err = EINVAL;
@@ -1033,7 +1033,7 @@ top:
 		wqe->eth.mss = cpu_to_be16(mss);
 		opcode = MLX5_OPCODE_LSO;
 		if (args.ihs == 0)
-			args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->qpn_enabled);
+			args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->e_ipoib_en);
 		if (unlikely(args.ihs == 0)) {
 			err = EINVAL;
 			goto tx_drop;
@@ -1124,7 +1124,7 @@ top:
 			switch (sq->min_inline_mode) {
 			case MLX5_INLINE_MODE_IP:
 			case MLX5_INLINE_MODE_TCP_UDP:
-				args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->qpn_enabled);
+				args.ihs = mlx5e_get_full_header_size(mb, NULL, sq->priv->mdev->e_ipoib_en);
 				if (unlikely(args.ihs == 0))
 					args.ihs = mlx5e_get_l2_header_size(sq, mb);
 				break;
