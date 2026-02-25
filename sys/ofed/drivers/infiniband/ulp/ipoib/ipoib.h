@@ -454,9 +454,6 @@ int ipoib_open(struct ipoib_dev_priv *priv);
 int ipoib_add_pkey_attr(struct ipoib_dev_priv *priv);
 int ipoib_add_umcast_attr(struct ipoib_dev_priv *priv);
 
-/* Dirext mlx5 ib driver TX */
-void mlx5i_xmit(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
-		struct ipoib_ah *address, u32 dqpn);
 /* Indirect (IB infra) TX */
 void ib_send(struct ipoib_dev_priv *priv, struct mbuf *mb,
 		struct ipoib_ah *address, u32 qpn);

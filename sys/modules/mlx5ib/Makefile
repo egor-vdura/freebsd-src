@@ -14,7 +14,8 @@ mlx5_ib_mem.c \
 mlx5_ib_mr.c \
 mlx5_ib_qp.c \
 mlx5_ib_srq.c \
-mlx5_ib_virt.c
+mlx5_ib_virt.c \
+ipoib.c
 SRCS+=	${LINUXKPI_GENSRCS}
 SRCS+= 	opt_inet.h opt_inet6.h opt_ratelimit.h opt_rss.h
 
