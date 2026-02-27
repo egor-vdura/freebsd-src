@@ -245,34 +245,34 @@ int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
         struct mlx5_core_dev *mdev = dev->mdev;
         unsigned int table_id;
         /* setup root flow table with the default rule*/
-        err = err | mlx5i_cmd_fs_create_ft(mdev,
+        err |= mlx5i_cmd_fs_create_ft(mdev,
                 0, 0, 67, 0, "roottable0", &(mdev->table_ids[0]), NULL);
 
-        err = err | mlx5i_cmd_fs_create_ft(mdev,
+        err |= mlx5i_cmd_fs_create_ft(mdev,
                 0, 0, 58, 0x7, "roottable0", &table_id, &(mdev->table_ids[0]));
         mdev->table_ids[1] = table_id;
 
-        err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(mdev->group_ids[0]));
-        err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(mdev->group_ids[1]));
-        err = err | mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(mdev->group_ids[2]));
+        err |= mlx5i_cmd_fs_create_fg(mdev, table_id, 0,  13, true,  true, true, &(mdev->group_ids[0]));
+        err |= mlx5i_cmd_fs_create_fg(mdev, table_id, 14, 15, true, false, true, &(mdev->group_ids[1]));
+        err |= mlx5i_cmd_fs_create_fg(mdev, table_id, 16, 16, false, false, false, &(mdev->group_ids[2]));
 
         unsigned int dest_id = 0;
         unsigned int flow_index = 0;
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
-         err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_TCP, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_UDP, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_AH, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_AH, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 4, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
+         err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 0, flow_index++, 6, IPPROTO_ESP, get_tir_number(dest_id++, epriv));
 
         flow_index = 14;
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, get_tir_number(dest_id++, epriv));
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 4, 0, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 1, flow_index++, 6, 0, get_tir_number(dest_id++, epriv));
 
         flow_index = 16;
-        err = err | mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, get_tir_number(dest_id++, epriv));
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, 2, flow_index++, 0, 0, get_tir_number(dest_id++, epriv));
 
         // TODO Integrate FT creation with the pre-existing infra. For now, just do basic error handling
         if (err != 0)
