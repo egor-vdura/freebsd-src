@@ -159,7 +159,6 @@ struct lro_mbuf_sort {
 
 /* NB: This is part of driver structs. */
 struct lro_ctrl {
-	bool is_eth;
 	struct ifnet	*ifp;
 	struct lro_mbuf_sort *lro_mbuf_data;
 	struct bintime	lro_last_queue_time;	/* last time data was queued */

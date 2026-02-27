@@ -179,7 +179,6 @@ tcp_lro_init_args(struct lro_ctrl *lc, struct ifnet *ifp,
 	unsigned i;
 
 	lc->lro_bad_csum = 0;
-	lc->is_eth = true;
 	lc->lro_queued = 0;
 	lc->lro_flushed = 0;
 	lc->lro_mbuf_count = 0;
@@ -228,7 +227,7 @@ struct vxlan_header {
 };
 
 static inline void *
-tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data, bool is_vxlan, int mlen, bool is_eth)
+tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data, bool is_vxlan, int mlen, bool is_ib)
 {
 	const struct ether_vlan_header *eh;
 	void *old;
@@ -250,7 +249,12 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 	}
 
 	eh = ptr;
-	if(is_eth) {
+	if(is_ib) {
+		// We only support ETH or IPoIB underlay protocol
+		mlen -= 24;
+		ptr = (uint8_t *)ptr + 24;
+		eth_type = htons(ETHERTYPE_IP);
+	} else {
 		if (__predict_false(eh->evl_encap_proto == htons(ETHERTYPE_VLAN))) {
 			eth_type = eh->evl_proto;
 			if (update_data) {
@@ -266,11 +270,6 @@ tcp_lro_low_level_parser(void *ptr, struct lro_parser *parser, bool update_data,
 			mlen -= ETHER_HDR_LEN;
 			ptr = (uint8_t *)ptr + ETHER_HDR_LEN;
 		}
-	} else {
-		// We only support ETH or IPoIB underlay protocol
-		mlen -= 24;
-		ptr = (uint8_t *)ptr + 24;
-		eth_type = htons(ETHERTYPE_IP);
 	}
 
 	if (__predict_false(mlen <= 0))
@@ -395,12 +394,12 @@ static const int vxlan_csum = CSUM_INNER_L3_CALC | CSUM_INNER_L3_VALID |
     CSUM_INNER_L4_CALC | CSUM_INNER_L4_VALID;
 
 static inline struct lro_parser *
-tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, bool update_data, bool is_eth)
+tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, bool update_data, bool is_ib)
 {
 	void *data_ptr;
 
 	/* Try to parse outer headers first. */
-	data_ptr = tcp_lro_low_level_parser(m->m_data, po, update_data, false, m->m_len, is_eth);
+	data_ptr = tcp_lro_low_level_parser(m->m_data, po, update_data, false, m->m_len, is_ib);
 	if (data_ptr == NULL || po->total_hdr_len > m->m_len)
 		return (NULL);
 
@@ -425,7 +424,7 @@ tcp_lro_parser(struct mbuf *m, struct lro_parser *po, struct lro_parser *pi, boo
 
 		/* Try to parse inner headers. */
 		data_ptr = tcp_lro_low_level_parser(data_ptr, pi, update_data, true,
-						    (m->m_len - ((caddr_t)data_ptr - m->m_data)), is_eth);
+						    (m->m_len - ((caddr_t)data_ptr - m->m_data)), is_ib);
 		if (data_ptr == NULL || (pi->total_hdr_len + po->total_hdr_len) > m->m_len)
 			break;
 
@@ -927,7 +926,8 @@ tcp_push_and_replace(struct lro_ctrl *lc, struct lro_entry *le, struct mbuf *m)
 	tcp_flush_out_entry(lc, le);
 
 	/* Re-parse new header, should not fail. */
-	pa = tcp_lro_parser(m, &le->outer, &le->inner, false, lc->is_eth);
+	pa = tcp_lro_parser(m, &le->outer, &le->inner, false,
+	                    (lc->ifp->if_type == IFT_INFINIBAND || lc->ifp->if_type == IFT_INFINIBANDLAG));
 	KASSERT(pa != NULL,
 	    ("tcp_push_and_replace: LRO parser failed on m=%p\n", m));
 
@@ -1321,7 +1321,8 @@ tcp_lro_rx_common(struct lro_ctrl *lc, struct mbuf *m, uint32_t csum, bool use_h
 		return (TCP_LRO_CANNOT);
 	}
 	/* We expect a contiguous header [eh, ip, tcp]. */
-	pa = tcp_lro_parser(m, &po, &pi, true, lc->is_eth);
+	pa = tcp_lro_parser(m, &po, &pi, true,
+	                    (lc->ifp->if_type == IFT_INFINIBAND || lc->ifp->if_type == IFT_INFINIBANDLAG));
 	if (__predict_false(pa == NULL))
 		return (TCP_LRO_NOT_SUPPORTED);
 

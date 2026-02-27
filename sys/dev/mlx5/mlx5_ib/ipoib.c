@@ -484,10 +484,6 @@ int mlx5_ib_direct_open(struct mlx5_ib_dev *dev)
                 goto err_close_tises;
         }
 
-        // Setup channels to be non ethernet (IPoIB)
-        for (int i = 0; i < epriv->params.num_channels; i++)
-                epriv->channel[i].rq.lro.is_eth = false;
-
         err = mlx5e_activate_rqt(epriv);
         mlx5_ib_warn(dev, "mlx5e_activate_rqt\n");
         if (err) {
