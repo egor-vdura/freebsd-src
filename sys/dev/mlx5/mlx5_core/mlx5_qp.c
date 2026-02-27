@@ -250,12 +250,10 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 			u32 *qpc;
 			qpc = (void*)MLX5_ADDR_OF(rst2init_qp_in, mbox->in, qpc);
 
-			MLX5_SET(rst2init_qp_in, mbox->in, opcode, opcode);
 			MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
 			MLX5_SET(qpc, qpc, primary_address_path.port, 1);
 			MLX5_SET(qpc, qpc, q_key, IB_DEFAULT_Q_KEY);
-			MLX5_SET(rst2init_qp_in, mbox->in, qpn, qpn);
-			MLX5_SET(rst2init_qp_in , mbox->in, uid, uid);
+			MOD_QP_IN_SET(rst2init_qp, mbox->in, opcode, qpn, uid);
 		} else {
 			MOD_QP_IN_SET_QPC(rst2init_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
@@ -265,9 +263,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 		if (MBOX_ALLOC(mbox, init2rtr_qp))
 			return -ENOMEM;
 		if(underlay_qp_en) {
-			MLX5_SET(init2rtr_qp_in, mbox->in, opcode, opcode);
-			MLX5_SET(init2rtr_qp_in, mbox->in, qpn, qpn);
-			MLX5_SET(init2rtr_qp_in, mbox->in, uid, uid);
+			MOD_QP_IN_SET(init2rtr_qp, mbox->in, opcode, qpn, uid);
 		} else {
 			MOD_QP_IN_SET_QPC(init2rtr_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
@@ -277,9 +273,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 		if (MBOX_ALLOC(mbox, rtr2rts_qp))
 			return -ENOMEM;
 		if(underlay_qp_en) {
-			MLX5_SET(rtr2rts_qp_in, mbox->in, opcode, opcode);
-			MLX5_SET(rtr2rts_qp_in, mbox->in, qpn, qpn);
-			MLX5_SET(rtr2rts_qp_in, mbox->in, uid, uid);
+			MOD_QP_IN_SET(rtr2rts_qp, mbox->in, opcode, qpn, uid);
 		} else {
 			MOD_QP_IN_SET_QPC(rtr2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
@@ -289,9 +283,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 		if (MBOX_ALLOC(mbox, rts2rts_qp))
 			return -ENOMEM;
 		if(underlay_qp_en) {
-			MLX5_SET(rts2rts_qp_in, mbox->in, opcode, opcode);
-			MLX5_SET(rts2rts_qp_in, mbox->in, qpn, qpn);
-			MLX5_SET(rts2rts_qp_in, mbox->in, uid, uid);
+			MOD_QP_IN_SET(rts2rts_qp, mbox->in, opcode, qpn, uid);
 		} else {
 			MOD_QP_IN_SET_QPC(rts2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
@@ -301,9 +293,7 @@ static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
 		if (MBOX_ALLOC(mbox, sqerr2rts_qp))
 			return -ENOMEM;
 		if(underlay_qp_en) {
-			MLX5_SET(sqerr2rts_qp_in, mbox->in, opcode, opcode);
-			MLX5_SET(sqerr2rts_qp_in, mbox->in, qpn, qpn);
-			MLX5_SET(sqerr2rts_qp_in, mbox->in, uid, uid);
+			MOD_QP_IN_SET(sqerr2rts_qp, mbox->in, opcode, qpn, uid);
 		} else {
 			MOD_QP_IN_SET_QPC(sqerr2rts_qp, mbox->in, opcode, qpn,
 				          opt_param_mask, qpc, uid);
