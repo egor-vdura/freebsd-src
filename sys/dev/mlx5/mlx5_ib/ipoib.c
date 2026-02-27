@@ -655,7 +655,7 @@ top:
                     mb->m_pkthdr.len, ETHER_MIN_LEN - ETHER_CRC_LEN);
         }
 
-  memcpy(&wqe->datagram, av, sizeof(*av));
+        memcpy(&wqe->datagram.av, av, sizeof(*av));
 
         if (likely(args.ihs == 0)) {
                 /* nothing to inline */
