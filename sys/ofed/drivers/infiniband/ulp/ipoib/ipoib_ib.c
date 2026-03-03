@@ -893,7 +893,6 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	ib_dev->pkey_index = priv->pkey_index;
 
 	if(priv->direct_connect) {
-		struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
 		if (mlx5_ib_direct_init(ib_dev, priv->dev, priv->qp->qp_num)) {
 			printk(KERN_WARNING " mlx5_ib_direct_open failed\n");
 			return -ENODEV;
