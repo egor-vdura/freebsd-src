@@ -430,12 +430,6 @@ int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn)
 
         epriv   = dev->priv;
         PRIV_LOCK(epriv);
-        /* check if already opened */
-        if (test_bit(MLX5E_STATE_OPENED, &epriv->state) != 0) {
-                mlx5_core_warn(dev->mdev, "mlx5_ib_direct_setup already open\n");
-                PRIV_UNLOCK(epriv);
-                return 0;
-        }
 
         dev->mdev->vport = 0;
         dev->mdev->e_ipoib_en = true;

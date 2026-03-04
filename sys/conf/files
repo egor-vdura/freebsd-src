@@ -4916,7 +4916,7 @@ dev/mlx5/mlx5_ib/mlx5_ib_srq.c			optional mlx5ib pci ofed \
 	compile-with "${OFED_C}"
 dev/mlx5/mlx5_ib/mlx5_ib_virt.c			optional mlx5ib pci ofed \
 	compile-with "${OFED_C}"
-dev/mlx5/mlx5_ib/ipoib.c			optional mlx5ib pci ofed ipoib \
+dev/mlx5/mlx5_ib/mlx5_ipoib.c			optional mlx5ib pci ofed ipoib \
 	compile-with "${OFED_C}"
 
 dev/mlx5/mlx5_core/mlx5_alloc.c			optional mlx5 pci	\
