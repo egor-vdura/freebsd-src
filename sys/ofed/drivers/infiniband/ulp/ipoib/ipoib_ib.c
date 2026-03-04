@@ -633,8 +633,7 @@ int ipoib_ib_dev_open(struct ipoib_dev_priv *priv)
 	}
 
 	if(priv->direct_connect) {
-		struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
-		ret = mlx5_ib_direct_open(ib_dev);
+		ret = priv->ca->ops.open(priv->ca);
 		if (ret) {
 			ipoib_warn(priv, "mlx5_ib_direct_setup failure\n");
 			return -1;
@@ -808,8 +807,7 @@ int ipoib_ib_dev_stop(struct ipoib_dev_priv *priv, int flush)
 		check_qp_movement_and_print(priv, priv->qp, IB_QPS_ERR);
 
 	if(priv->direct_connect) {
-		struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
-		mlx5_ib_direct_close(ib_dev);
+		priv->ca->ops.close(priv->ca);
 	}
 
 	/* Wait for all sends and receives to complete */
@@ -893,7 +891,7 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 	ib_dev->pkey_index = priv->pkey_index;
 
 	if(priv->direct_connect) {
-		if (mlx5_ib_direct_init(ib_dev, priv->dev, priv->qp->qp_num)) {
+		if (priv->ca->ops.init(priv->ca, priv->dev, priv->qp->qp_num)) {
 			printk(KERN_WARNING " mlx5_ib_direct_open failed\n");
 			return -ENODEV;
 		}
@@ -1014,8 +1012,7 @@ void ipoib_ib_dev_cleanup(struct ipoib_dev_priv *priv)
 	ipoib_mcast_dev_flush(priv);
 
 	if(priv->direct_connect) {
-		struct mlx5_ib_dev* ib_dev = container_of(priv->ca, struct mlx5_ib_dev, ib_dev);
-		mlx5_ib_direct_teardown(ib_dev);
+		priv->ca->ops.teardown(priv->ca);
 	}
 
 	ipoib_ah_dev_cleanup(priv);

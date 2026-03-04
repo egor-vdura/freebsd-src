@@ -1206,11 +1206,11 @@ int bfregn_to_uar_index(struct mlx5_ib_dev *dev,
 			struct mlx5_bfreg_info *bfregi, u32 bfregn,
 			bool dyn_bfreg);
 
-void mlx5i_xmit(struct mlx5_ib_dev* ib_dev, if_t ifp, struct mlx5_av *av, struct mbuf *mb);
+void mlx5i_xmit(struct ib_ah* ah, u32 dqpn, u32 dqkey, struct mbuf *mb);
 
-int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, if_t direct_if, u32 qpn);
-int mlx5_ib_direct_open(struct mlx5_ib_dev *dev);
-void mlx5_ib_direct_close(struct mlx5_ib_dev *dev);
-void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev);
+int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn);
+int mlx5_ib_direct_open(struct ib_device *ca);
+void mlx5_ib_direct_close(struct ib_device *ca);
+void mlx5_ib_direct_teardown(struct ib_device *ca);
 
 #endif /* MLX5_IB_H */

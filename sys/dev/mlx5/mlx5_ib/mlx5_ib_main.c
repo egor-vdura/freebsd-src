@@ -3370,6 +3370,12 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 		return NULL;
 
 	dev->ib_dev.direct_connect = true;
+	dev->ib_dev.ops.send     = mlx5i_xmit;
+	dev->ib_dev.ops.init     = mlx5_ib_direct_init;
+	dev->ib_dev.ops.open     = mlx5_ib_direct_open;
+	dev->ib_dev.ops.close    = mlx5_ib_direct_close;
+	dev->ib_dev.ops.teardown = mlx5_ib_direct_teardown;
+
 	dev->mdev = mdev;
 
 	dev->port = kcalloc(MLX5_CAP_GEN(mdev, num_ports), sizeof(*dev->port),

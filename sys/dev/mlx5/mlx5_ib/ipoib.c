@@ -422,8 +422,9 @@ void mlx5_ib_free_en_priv(struct mlx5e_priv* priv)
         free(priv, M_MLX5EN);
 }
 
-int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, if_t direct_if, u32 qpn)
+int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn)
 {
+        struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
         struct mlx5e_priv *epriv;
         int err = 0;
         dev->qpn = qpn;
@@ -463,8 +464,9 @@ int mlx5_ib_direct_init(struct mlx5_ib_dev *dev, if_t direct_if, u32 qpn)
         return 0;
 }
 
-int mlx5_ib_direct_open(struct mlx5_ib_dev *dev)
+int mlx5_ib_direct_open(struct ib_device *ca)
 {
+        struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
         struct mlx5e_priv *epriv = dev->priv;
         int err = 0;
 
@@ -510,17 +512,18 @@ err_close_tises:
         mlx5e_close_tises(epriv);
 err_remove_fs_underlay_qp:
         mlx5i_destroy_tables(dev);
-        mlx5_ib_warn(dev, "ipoib_if_open failure!\n");
+        mlx5_ib_warn(dev, "mlx5_ib_direct_open failure!\n");
 
         PRIV_UNLOCK(epriv);
         return err;
 }
 
-void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
+void mlx5_ib_direct_close(struct ib_device *ca)
 {
-        mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
+        struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
         struct mlx5e_priv *epriv = dev->priv;
 
+        mlx5_ib_warn(dev, "mlx5_ib_direct_close\n");
         if (test_bit(MLX5E_STATE_OPENED, &epriv->state) == 0)
                 return;
 
@@ -532,8 +535,9 @@ void mlx5_ib_direct_close(struct mlx5_ib_dev *dev)
         PRIV_UNLOCK(epriv);
 }
 
-void mlx5_ib_direct_teardown(struct mlx5_ib_dev *dev)
+void mlx5_ib_direct_teardown(struct ib_device *ca)
 {
+        struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
         mlx5_ib_warn(dev, "mlx5_ib_direct_teardown\n");
         mlx5i_destroy_tables(dev);
 
@@ -794,15 +798,43 @@ int mlx5i_xmit_locked(struct mbuf *mb, struct mlx5_av *av, struct mlx5e_sq *sq)
         return (err);
 }
 
-
-void mlx5i_xmit(struct mlx5_ib_dev* ib_dev, if_t ifp, struct mlx5_av *av, struct mbuf *mb)
+static
+void ah2av(struct ib_ah *ah, struct mlx5_av *av)
 {
+        struct ib_ah_attr ah_attr = {0};
+        int err;
+
+        err = ah->device->query_ah(ah, &ah_attr);
+        if (!err) {
+                //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
+                av->rlid = cpu_to_be16(ah_attr.dlid);
+                // TODO: Compare with linux?
+                av->stat_rate_sl = ah_attr.static_rate << 4;
+                // TODO: Should ah_attr.sl be used?
+        } else {
+                printf("ERROR: ah2av: err %d\n", err);
+        }
+}
+
+void mlx5i_xmit(struct ib_ah* ah, u32 dqpn, u32 dqkey, struct mbuf *mb)
+{
+        struct mlx5_ib_ah *mah = to_mah(ah);
+        struct mlx5_av* av = &(mah->av);
+
         struct mlx5e_sq *sq;
+        struct mlx5_ib_dev* ib_dev = container_of(ah->device, struct mlx5_ib_dev, ib_dev);
         struct mlx5e_priv *priv = ib_dev->priv;
 
+        av->key.qkey.qkey = cpu_to_be32(dqkey);
+        /* ext bit (31st bit) should be set for IPoIB */
+        av->dqp_dct = cpu_to_be32(dqpn | (1u << 31));
+        av->fl_mlid = 0;
+        av->grh_gid_fl = cpu_to_be32(1u << 30);
+        ah2av(ah, av);
+
         if (mb->m_pkthdr.csum_flags & CSUM_SND_TAG) {
-                MPASS(mb->m_pkthdr.snd_tag->ifp == ifp);
-                sq = mlx5e_select_queue_by_send_tag(ifp, mb);
+                MPASS(mb->m_pkthdr.snd_tag->ifp == priv->ifp);
+                sq = mlx5e_select_queue_by_send_tag(priv->ifp, mb);
                 if (unlikely(sq == NULL)) {
                         goto select_queue;
                 }

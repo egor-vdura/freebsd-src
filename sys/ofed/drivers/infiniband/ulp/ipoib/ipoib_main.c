@@ -51,8 +51,6 @@
 #include <rdma/ib_addr.h>
 #include <rdma/ib_cache.h>
 
-#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
-
 MODULE_AUTHOR("Roland Dreier");
 MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -763,41 +761,11 @@ int ipoib_xmit(if_t ifp, struct mbuf *mb)
 }
 
 static
-void ah2av(struct ipoib_ah *address, struct mlx5_av *av)
-{
-        struct ib_ah *ah = address->ah;
-        struct ib_ah_attr ah_attr = {0};
-        int err;
-
-        err = ah->device->query_ah(ah, &ah_attr);
-        if (!err) {
-                //printf("ah2av: dlid 0x%x\n", ah_attr.dlid);
-                av->rlid = cpu_to_be16(ah_attr.dlid);
-                /* TODO: Compare with linux? */
-                av->stat_rate_sl = ah_attr.static_rate << 4;
-                /* TODO: Should ah_attr.sl be used? */
-        } else {
-                printf("ERROR: ah2av: err %d\n", err);
-        }
-}
-
-static
 void direct_send(struct ipoib_dev_priv *ipoib_priv, struct mbuf *mb,
                  struct ipoib_ah *address, u32 dqpn)
 {
-	struct mlx5_av av = {0};
-	struct ipoib_pseudoheader *ipoibh = (struct ipoib_pseudoheader *)mb->m_data;
-
-        av.key.qkey.qkey = cpu_to_be32(ipoib_priv->qkey);
-        /* ext bit (31st bit) should be set for IPoIB */
-        av.dqp_dct = cpu_to_be32(dqpn | (1u << 31));
-        av.fl_mlid = 0;
-        av.grh_gid_fl = cpu_to_be32(1u << 30);
-        memcpy(&av.rgid, &ipoibh->hwaddr[4], sizeof(av.rgid));
-        ah2av(address, &av);
-
 	m_adj(mb, sizeof (struct ipoib_pseudoheader));
-	mlx5i_xmit(container_of(ipoib_priv->ca, struct mlx5_ib_dev, ib_dev), ipoib_priv->dev, &av, mb);
+	ipoib_priv->ca->ops.send(address->ah, dqpn, ipoib_priv->qkey, mb);
 }
 
 static void
@@ -1517,6 +1485,5 @@ static moduledata_t ipoib_mod = {
 
 DECLARE_MODULE(ipoib, ipoib_mod, SI_SUB_LAST, SI_ORDER_ANY);
 MODULE_DEPEND(ipoib, ibcore, 1, 1, 1);
-MODULE_DEPEND(ipoib, mlx5ib, 1, 1, 1);
 MODULE_DEPEND(ipoib, if_infiniband, 1, 1, 1);
 MODULE_DEPEND(ipoib, linuxkpi, 1, 1, 1);
