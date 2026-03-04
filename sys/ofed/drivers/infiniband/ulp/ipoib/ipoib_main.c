@@ -943,7 +943,7 @@ ipoib_intf_alloc(const char *name, struct ib_device *hca)
 
 	if_setinitfn(dev, ipoib_init);
 	if_setioctlfn(dev, ipoib_ioctl);
-	if(hca->direct_connect) {
+	if(hca->ulp_offload_flags & ULP_OFFLOAD_IPOIB_RX_TX) {
 		/* Setup optimizations and direct connection */
 		priv->direct_connect = true;
 		priv->ipoib_send = direct_send;
@@ -978,7 +978,7 @@ ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
 		if_setcapabilities(priv->dev, IFCAP_HWCSUM | IFCAP_VLAN_HWCSUM);
 	}
 #endif
-	if(hca->direct_connect) {
+	if(hca->ulp_offload_flags & ULP_OFFLOAD_IPOIB_RX_TX) {
 		priv->dev->if_capabilities |= IFCAP_TSO4;
 		priv->dev->if_hwassist |= CSUM_TSO;
 		if_setcapabilitiesbit(priv->dev,

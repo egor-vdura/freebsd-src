@@ -2082,6 +2082,8 @@ struct ib_counters_read_attr {
 
 #define DECLARE_RDMA_OBJ_SIZE(ib_struct) size_t size_##ib_struct
 
+#define ULP_OFFLOAD_IPOIB_RX_TX 1
+
 struct rdma_user_mmap_entry {
 	struct kref ref;
 	struct ib_ucontext *ucontext;
@@ -2125,7 +2127,7 @@ struct ib_device {
 	struct ib_device_ops	     ops;
 
 	char                          name[IB_DEVICE_NAME_MAX];
-	bool direct_connect;
+	u8                            ulp_offload_flags;
 
 	struct list_head              event_handler_list;
 	spinlock_t                    event_handler_lock;

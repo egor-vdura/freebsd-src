@@ -1844,8 +1844,8 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 		raw_packet_qp_copy_info(qp, &qp->raw_packet_qp);
 		err = create_raw_packet_qp(dev, qp, in, pd);
 	} else {
-		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO && dev->ib_dev.direct_connect)
-		{
+		if (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO &&
+		    dev->ib_dev.ulp_offload_flags & ULP_OFFLOAD_IPOIB_RX_TX) {
 			qp->trans_qp.base.mqp.underlay_qp_en = true;
 			printf("RAAAAAAight here\n\n");
 			memset(in, 0, inlen);
