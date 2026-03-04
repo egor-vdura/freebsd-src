@@ -1,9 +1,6 @@
 #include <dev/mlx5/mlx5_en/en.h>
 #include <dev/mlx5/mlx5_ib/mlx5_ib.h>
 
-#define MLX5_QP_ENHANCED_ULP_STATELESS_MODE 2
-#define IB_DEFAULT_Q_KEY   0xb1b
-
 #include <dev/mlx5/fs.h>
 #include <dev/mlx5/mlx5_core/fs_core.h>
 
