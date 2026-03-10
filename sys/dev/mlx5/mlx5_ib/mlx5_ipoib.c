@@ -7,7 +7,7 @@
 #include <dev/mlx5/mlx5_en/en.h>
 #include <dev/mlx5/mlx5_ifc.h>
 
-#define MAX_FTE_IND 18
+#define MAX_FTE_IND 20
 
 struct mlx5i_wqe_eth_pad {
 	u8 rsvd0[16];
@@ -136,10 +136,7 @@ int mlx5i_cmd_fs_create_fg(struct mlx5_core_dev *dev,
 			if (match_ip_version)
 				MLX5_SET_TO_ONES(create_flow_group_in, in, match_criteria.outer_headers.ip_version);
 		}
-
-
 	}
-
 
 	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
 	if (!err)
@@ -261,54 +258,71 @@ int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
 		0, 0, 58, 0x7, "roottable1", &table_id, &(mdev->table_ids[0]));
 	mdev->table_ids[1] = table_id;
 
-	/* vxlan */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 0,  7, true,  true, true, &(mdev->group_ids[0]));
-	/* non vxlan */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 8,  15, true,  true, true, &(mdev->group_ids[1]));
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 16, 17, true, false, true, &(mdev->group_ids[2]));
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 18, MAX_FTE_IND, false, false, false, &(mdev->group_ids[3]));
+	/* non vxlan - specified protocols */
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 0, 7, true, true, true, &(mdev->group_ids[0]));
+
+	/* non vxlan - IP, 'any' protocol */
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 8, 9, true, false, true, &(mdev->group_ids[1]));
+
+	/* vxlan - specified protocols */
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 10,  17, true,  true, true, &(mdev->group_ids[2]));
+
+	/* vxlan - IP, 'any' protocol */
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 18, 19, true, false, true, &(mdev->group_ids[3]));
+
+	/* All others */
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, MAX_FTE_IND, MAX_FTE_IND, false, false, false, &(mdev->group_ids[4]));
+
+	/* Early exit for fg creation failure */
+	if (err)
+		goto create_fs_err;
 
 	u8 protocols[] = {
 		IPPROTO_TCP,
 		IPPROTO_UDP,
 		IPPROTO_AH,
-		IPPROTO_ESP
+		IPPROTO_ESP,
+		0 /* any */
 	};
 	u8 versions[] = {4, 6};
-	for (flow_index = 0; flow_index <= 15; flow_index++)
-	{
-		/* First FG  (first 8 FTEs) are VXLAN
-		 * Second FG (last 8 FTEs) are non VXLAN */
-		bool vxlan = (flow_index <= 7);
-
-
+	for (flow_index = 0; flow_index <= 19; flow_index++) {
+		bool vxlan;
+		unsigned int group_id;
 		unsigned int tir_idx;
 		unsigned int tir_n;
-		if (vxlan) /* Vxlan: Even TIRs are VXLAN. */
-		{
-			tir_idx = flow_index * 2;
+		/* First FG  (first 10 FTEs) are non VXLAN
+		 * Second FG (last 10 FTEs) are VXLAN */
+		if (flow_index <= 9)
+			vxlan = false;
+		else
+			vxlan = true;
+
+		/* 5 protocol types * 2 encapsulation types (vxlan or not) -> 10 */
+		group_id =  (flow_index >= 10) << 1; /* Set for groups 0b10 and 0b11 */
+		group_id |= (flow_index % 10) > 7;   /* Set for groups 0b01 and 0b11 */
+
+		if (vxlan) {/* Vxlan: Even TIRs are VXLAN. */
+			tir_idx = (flow_index - 10);
 			tir_n = epriv->tirn_inner_vxlan[tir_idx];
-		}
-		else /* uneven TIRs are not vxlan: Second FG (last 8 FTEs) are non VXLAN */
-		{
-			tir_idx = (flow_index - 8) * 2 + 1;
+		} else { /* uneven TIRs are not vxlan: Second FG (last 8 FTEs) are non VXLAN */
+			tir_idx = flow_index;
 			tir_n = epriv->tirn[tir_idx];
 		}
 
 		/* Protocols are linearly aligned with the TIRs, and repeat 4 times (vxlan and non vxlan, v4 and v6) */
-		u8 protocol = protocols[tir_idx / 4];
+		u8 protocol = protocols[tir_idx / 2];
 		/* The versions are linearly aligned with the TIRS, and repeat 2 times (vxlan and non vxlan) */
 		u8 version = versions[tir_idx % 2];
 
-        	err |= mlx5i_cmd_fs_create_fte(mdev, table_id, vxlan ? mdev->group_ids[0] : mdev->group_ids[1], flow_index, version, protocol, tir_n, vxlan);
+        	err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[group_id], flow_index, version, protocol, tir_n, vxlan);
+		if (err)
+			goto create_fs_err;
 	}
-        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[2], flow_index, 4, 0, get_tir_number(flow_index, epriv), false);
-	flow_index++;
-        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[2], flow_index, 6, 0, get_tir_number(flow_index, epriv), false);
-	flow_index++;
 
-        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[3], flow_index, 0, 0, get_tir_number(flow_index, epriv), false);
+	/* Throw everything else to the first TIR */
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[4], flow_index, 0, 0, flow_index, false);
 
+create_fs_err:
 	// TODO Integrate FT creation with the pre-existing infra. For now, just do basic error handling
 	if (err != 0)
 		mlx5i_destroy_tables(dev);
