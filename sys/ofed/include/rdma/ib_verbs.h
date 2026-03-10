@@ -2103,7 +2103,7 @@ struct ib_device_ops {
 	void (*send)(struct ib_ah* ah, u32 dqpn, u32 dqkey, struct mbuf *mb);
 	int  (*open)(struct ib_device* ca);
 	void (*close)(struct ib_device* ca);
-	int  (*init)(struct ib_device* ca, if_t direct_if, u32 qpn);
+	int  (*init)(struct ib_device* ca, if_t direct_if, u32 qpn, u16 pkey_index);
 	void (*teardown)(struct ib_device* ca);
 	enum rdma_driver_id driver_id;
 	DECLARE_RDMA_OBJ_SIZE(ib_ah);

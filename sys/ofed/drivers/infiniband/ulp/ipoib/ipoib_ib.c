@@ -45,8 +45,6 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
-#include <dev/mlx5/mlx5_ib/mlx5_ib.h>
-
 #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG_DATA
 static int data_debug_level;
 
@@ -867,6 +865,7 @@ timeout:
 
 	ipoib_ah_dev_cleanup(priv);
 
+	/* For non direct connect, the IB driver manages CQ and not the ETH code */
 	if(priv->direct_connect == false)
 		ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
 
@@ -875,8 +874,6 @@ timeout:
 
 int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int port)
 {
-	struct mlx5_ib_dev* ib_dev;
-	ib_dev	= container_of(ca, struct mlx5_ib_dev, ib_dev);
 	if_t dev = priv->dev;
 
 	priv->ca = ca;
@@ -888,10 +885,8 @@ int ipoib_ib_dev_init(struct ipoib_dev_priv *priv, struct ib_device *ca, int por
 		return -ENODEV;
 	}
 
-	ib_dev->pkey_index = priv->pkey_index;
-
 	if(priv->direct_connect) {
-		if (priv->ca->ops.init(priv->ca, priv->dev, priv->qp->qp_num)) {
+		if (priv->ca->ops.init(priv->ca, priv->dev, priv->qp->qp_num, priv->pkey_index)) {
 			printk(KERN_WARNING " mlx5_ib_direct_open failed\n");
 			return -ENODEV;
 		}

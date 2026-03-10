@@ -1433,6 +1433,7 @@ static int init_one(struct pci_dev *pdev,
 		    MLX5_DEFAULT_PROF);
 		mlx5_prof_sel = MLX5_DEFAULT_PROF;
 	}
+	dev->e_ipoib_en = false;
 	dev->profile = &profiles[mlx5_prof_sel];
 	dev->pdev = pdev;
 	dev->event = mlx5_core_event;
