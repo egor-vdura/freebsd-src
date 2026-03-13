@@ -237,13 +237,6 @@ void mlx5i_fs_destroy(struct mlx5_ib_dev* dev, unsigned int table_id)
 }
 
 static
-u32 get_tir_number(int i, struct mlx5e_priv *epriv)
-{
-	return (i % 2 ? epriv->tirn_inner_vxlan[i/2] : epriv->tirn[i/2]);
-	//return epriv->tirn[0];
-}
-
-static
 int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
 {
 	int err = 0;
@@ -252,26 +245,26 @@ int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
 	unsigned int flow_index = 0;
 	/* setup root flow table with the default rule*/
 	err |= mlx5i_cmd_fs_create_ft(mdev,
-		0, 0, 67, 0, "roottable0", &(mdev->table_ids[0]), NULL);
+		0, 0, 67, 0, "roottable0", &(dev->ipoib.table_ids[0]), NULL);
 
 	err |= mlx5i_cmd_fs_create_ft(mdev,
-		0, 0, 58, 0x7, "roottable1", &table_id, &(mdev->table_ids[0]));
-	mdev->table_ids[1] = table_id;
+		0, 0, 58, 0x7, "roottable1", &table_id, &(dev->ipoib.table_ids[0]));
+	dev->ipoib.table_ids[1] = table_id;
 
 	/* non vxlan - specified protocols */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 0, 7, true, true, true, &(mdev->group_ids[0]));
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 0, 7, true, true, true, &(dev->ipoib.group_ids[0]));
 
 	/* non vxlan - IP, 'any' protocol */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 8, 9, true, false, true, &(mdev->group_ids[1]));
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, 8, 9, true, false, true, &(dev->ipoib.group_ids[1]));
 
 	/* vxlan - specified protocols */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 10,  17, true,  true, true, &(mdev->group_ids[2]));
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 10,  17, true,  true, true, &(dev->ipoib.group_ids[2]));
 
 	/* vxlan - IP, 'any' protocol */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 18, 19, true, false, true, &(mdev->group_ids[3]));
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, true, 18, 19, true, false, true, &(dev->ipoib.group_ids[3]));
 
 	/* All others */
-	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, MAX_FTE_IND, MAX_FTE_IND, false, false, false, &(mdev->group_ids[4]));
+	err |= mlx5i_cmd_fs_create_fg(mdev, table_id, false, MAX_FTE_IND, MAX_FTE_IND, false, false, false, &(dev->ipoib.group_ids[4]));
 
 	/* Early exit for fg creation failure */
 	if (err)
@@ -314,13 +307,13 @@ int mlx5i_create_fs(struct mlx5_ib_dev *dev, struct mlx5e_priv *epriv)
 		/* The versions are linearly aligned with the TIRS, and repeat 2 times (vxlan and non vxlan) */
 		u8 version = versions[tir_idx % 2];
 
-        	err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[group_id], flow_index, version, protocol, tir_n, vxlan);
+        	err |= mlx5i_cmd_fs_create_fte(mdev, table_id, dev->ipoib.group_ids[group_id], flow_index, version, protocol, tir_n, vxlan);
 		if (err)
 			goto create_fs_err;
 	}
 
 	/* Throw everything else to the first TIR */
-        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, mdev->group_ids[4], flow_index, 0, 0, flow_index, false);
+        err |= mlx5i_cmd_fs_create_fte(mdev, table_id, dev->ipoib.group_ids[4], flow_index, 0, 0, flow_index, false);
 
 create_fs_err:
 	// TODO Integrate FT creation with the pre-existing infra. For now, just do basic error handling
@@ -331,22 +324,22 @@ create_fs_err:
 }
 
 static
-int mlx5i_activate_fs(struct mlx5_core_dev *mdev)
+int mlx5i_activate_fs(struct mlx5_ib_dev* dev)
 {
 	/* Set our underlay QP as the root of the FT */
-	return mlx5_cmd_update_root_ft(mdev, FS_FT_NIC_RX, mdev->table_ids[1]);
+	return mlx5_cmd_update_root_ft(dev->mdev, FS_FT_NIC_RX, dev->ipoib.table_ids[1]);
 }
 
 static
 void mlx5i_destroy_tables(struct mlx5_ib_dev* dev)
 {
 	for (int flow_index = 0; flow_index < MAX_FTE_IND + 1; flow_index++) {
-		mlx5i_fs_destroy_fte(dev, dev->mdev->table_ids[1], flow_index);
+		mlx5i_fs_destroy_fte(dev, dev->ipoib.table_ids[1], flow_index);
 	}
 
-	mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[0], dev->mdev->table_ids[1]);
-	mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[1], dev->mdev->table_ids[1]);
-	mlx5i_fs_destroy_fg(dev, dev->mdev->group_ids[2], dev->mdev->table_ids[1]);
+	for (int group_ind = 0; group_ind < 5; group_ind++) {
+		mlx5i_fs_destroy_fg(dev, dev->ipoib.group_ids[group_ind], dev->ipoib.table_ids[1]);
+	}
 }
 
 
@@ -364,7 +357,7 @@ int mlx5_ib_alloc_en_priv(struct mlx5_ib_dev *dev, if_t ipoib_if)
 
 	/* Needed because of m_snd_tag_init */
 	priv->ifp = ipoib_if;
-	dev->priv = priv;
+	dev->ipoib.priv = priv;
 
 	/* setup all static fields and internal structures */
 	mlx5_core_dbg(mdev, "mlx5e_priv_static_init (%d)\n", mdev->priv.eq_table.num_comp_vectors);
@@ -462,8 +455,8 @@ int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn, u16 pkey_
 	struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
 	struct mlx5e_priv *epriv;
 	int err = 0;
-	dev->qpn = qpn;
-	dev->pkey_index = pkey_index;
+	dev->ipoib.qpn = qpn;
+	dev->ipoib.pkey_index = pkey_index;
 
 	err = mlx5_ib_alloc_en_priv(dev, direct_if);
 	if (err) {
@@ -471,7 +464,7 @@ int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn, u16 pkey_
 		return err;
 	}
 
-	epriv   = dev->priv;
+	epriv   = dev->ipoib.priv;
 	PRIV_LOCK(epriv);
 
 	dev->mdev->vport = 0;
@@ -482,7 +475,7 @@ int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn, u16 pkey_
 	if (err) {
 		PRIV_UNLOCK(epriv);
 		mlx5_ib_free_en_priv(epriv);
-		dev->priv = NULL;
+		dev->ipoib.priv = NULL;
 		mlx5_ib_err(dev, "mlx5i_create_fs failed, %d\n", err);
 		return err;
 	}
@@ -495,7 +488,7 @@ int mlx5_ib_direct_init(struct ib_device *ca, if_t direct_if, u32 qpn, u16 pkey_
 int mlx5_ib_direct_open(struct ib_device *ca)
 {
 	struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
-	struct mlx5e_priv *epriv = dev->priv;
+	struct mlx5e_priv *epriv = dev->ipoib.priv;
 	int err = 0;
 
 	PRIV_LOCK(epriv);
@@ -518,7 +511,7 @@ int mlx5_ib_direct_open(struct ib_device *ca)
 		goto err_close_channels;
 	}
 
-	err = mlx5i_activate_fs(dev->mdev);
+	err = mlx5i_activate_fs(dev);
 	if (err) {
 		mlx5_ib_err(dev, "mlx5i_activate_fs failed %d\n", err);
 		goto err_deactivate_rqt;
@@ -546,7 +539,7 @@ err_remove_fs_underlay_qp:
 void mlx5_ib_direct_close(struct ib_device *ca)
 {
 	struct mlx5_ib_dev *dev = container_of(ca, struct mlx5_ib_dev, ib_dev);
-	struct mlx5e_priv *epriv = dev->priv;
+	struct mlx5e_priv *epriv = dev->ipoib.priv;
 
 	mlx5_ib_dbg(dev, "mlx5_ib_direct_close\n");
 	if (test_bit(MLX5E_STATE_OPENED, &epriv->state) == 0)
@@ -566,9 +559,10 @@ void mlx5_ib_direct_teardown(struct ib_device *ca)
 	mlx5_ib_dbg(dev, "mlx5_ib_direct_teardown\n");
 	mlx5i_destroy_tables(dev);
 
-	mlx5i_fs_destroy(dev, dev->mdev->table_ids[1]);
-	mlx5i_fs_destroy(dev, dev->mdev->table_ids[0]);
-	mlx5_ib_free_en_priv(dev->priv);
+	mlx5i_fs_destroy(dev, dev->ipoib.table_ids[1]);
+	mlx5i_fs_destroy(dev, dev->ipoib.table_ids[0]);
+	mlx5_ib_free_en_priv(dev->ipoib.priv);
+	dev->ipoib.priv = NULL;
 }
 
 
@@ -845,7 +839,7 @@ void mlx5i_xmit(struct ib_ah* ah, u32 dqpn, u32 dqkey, struct mbuf *mb)
 
 	struct mlx5e_sq *sq;
 	struct mlx5_ib_dev* ib_dev = container_of(ah->device, struct mlx5_ib_dev, ib_dev);
-	struct mlx5e_priv *priv = ib_dev->priv;
+	struct mlx5e_priv *priv = ib_dev->ipoib.priv;
 
 	av->key.qkey.qkey = cpu_to_be32(dqkey);
 	/* ext bit (31st bit) should be set for IPoIB */

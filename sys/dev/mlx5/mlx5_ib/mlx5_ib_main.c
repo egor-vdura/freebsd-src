@@ -3369,7 +3369,8 @@ static void *mlx5_ib_add(struct mlx5_core_dev *mdev)
 	if (!dev)
 		return NULL;
 
-	dev->ib_dev.ulp_offload_flags   |= ULP_OFFLOAD_IPOIB_RX_TX;
+	if (ll == IB_LINK_LAYER_INFINIBAND)
+		dev->ib_dev.ulp_offload_flags   |= ULP_OFFLOAD_IPOIB_RX_TX;
 	dev->ib_dev.ops.send     = mlx5i_xmit;
 	dev->ib_dev.ops.init     = mlx5_ib_direct_init;
 	dev->ib_dev.ops.open     = mlx5_ib_direct_open;

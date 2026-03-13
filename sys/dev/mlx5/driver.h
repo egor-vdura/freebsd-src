@@ -694,8 +694,6 @@ struct mlx5_core_dev {
 	u32 underlay_qpn;
 	u16 vport;
 	bool e_ipoib_en;
-	unsigned int table_ids[2];
-	unsigned int group_ids[5];
 	/* sync pci state */
 	struct mutex		pci_status_mutex;
 	enum mlx5_pci_status	pci_status;

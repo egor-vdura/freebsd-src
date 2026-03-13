@@ -746,12 +746,18 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
+struct mlx5_ipoib {
+	struct mlx5e_priv* priv;
+	u16                pkey_index;
+	u32                qpn;
+	u32                qp_uid;
+	unsigned int       group_ids[5];
+	unsigned int       table_ids[2];
+}; 
+
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
-	struct mlx5e_priv* priv;
-	u16 pkey_index;
-	u32 qpn;
-	u32 qp_uid;
+	struct mlx5_ipoib               ipoib;
 	struct mlx5_core_dev		*mdev;
 	struct mlx5_roce		roce;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
